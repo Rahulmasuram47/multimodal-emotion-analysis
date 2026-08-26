@@ -1,13 +1,14 @@
 """
 Voice Emotion Analysis Module.
 
-Uses Wav2Vec2 to predict emotion from preprocessed speech audio.
+Uses Wav2Vec2 to predict emotion from speech audio.
 """
 
 import logging
+from typing import Any, Dict
 
-import torch
 import numpy as np
+import torch
 from transformers import (
     Wav2Vec2FeatureExtractor,
     Wav2Vec2ForSequenceClassification,
@@ -38,25 +39,21 @@ class VoiceEmotionAnalyzer:
 
         logger.info("Wav2Vec2 emotion model loaded successfully.")
 
-    def analyze(self, audio_path: str):
-        """
-        Analyze emotion from an audio file.
+    def _analyze_audio_array(
+        self,
+        audio: np.ndarray,
+        sr: int,
+    ) -> Dict[str, Any]:
+        """Run emotion inference on an already-loaded audio segment."""
 
-        Args:
-            audio_path: Path to the audio file.
-
-        Returns:
-            Dictionary containing predicted emotion,
-            confidence, and all emotion scores.
-        """
-
-        # Use the project's audio processing pipeline
-        audio, sr, duration = load_and_preprocess_audio(audio_path)
-
-        # Convert to numpy float32 if necessary
         audio = np.asarray(audio, dtype=np.float32)
 
-        # Prepare Wav2Vec2 input
+        if audio.ndim > 1:
+            audio = np.mean(audio, axis=1)
+
+        if len(audio) == 0:
+            raise ValueError("Audio segment is empty.")
+
         inputs = self.extractor(
             audio,
             sampling_rate=sr,
@@ -64,36 +61,108 @@ class VoiceEmotionAnalyzer:
             padding=True,
         )
 
-        # Run inference
         with torch.no_grad():
             logits = self.model(**inputs).logits
 
-        # Convert logits to probabilities
         probabilities = torch.softmax(logits, dim=-1)[0]
 
-        # Get predicted emotion
         predicted_index = int(torch.argmax(probabilities))
 
         emotion = self.model.config.id2label[predicted_index]
+
         confidence = float(probabilities[predicted_index])
 
-        # Get all emotion scores
         scores = {
             self.model.config.id2label[i]: float(probabilities[i])
             for i in range(len(probabilities))
         }
 
-        result = {
+        return {
             "emotion": emotion,
             "confidence": confidence,
             "scores": scores,
-            "duration_seconds": duration,
-            "sample_rate": sr,
         }
 
+    def analyze(self, audio_path: str) -> Dict[str, Any]:
+        """
+        Analyze emotion from a complete audio file.
+        """
+
+        audio, sr, duration = load_and_preprocess_audio(audio_path)
+
+        result = self._analyze_audio_array(audio, sr)
+
+        result["duration_seconds"] = duration
+        result["sample_rate"] = sr
+
         logger.info(
-            f"Voice emotion prediction: {emotion} "
-            f"(confidence={confidence:.4f})"
+            "Voice emotion prediction: %s "
+            "(confidence=%.4f)",
+            result["emotion"],
+            result["confidence"],
+        )
+
+        return result
+
+    def analyze_segment(
+        self,
+        audio: np.ndarray,
+        sr: int,
+        start_seconds: float,
+        end_seconds: float,
+    ) -> Dict[str, Any]:
+        """
+        Analyze emotion for a specific time segment.
+
+        Args:
+            audio: Preprocessed full audio array.
+            sr: Sample rate.
+            start_seconds: Segment start time.
+            end_seconds: Segment end time.
+
+        Returns:
+            Emotion prediction for that segment.
+        """
+
+        if start_seconds < 0:
+            raise ValueError("Segment start time cannot be negative.")
+
+        if end_seconds <= start_seconds:
+            raise ValueError(
+                "Segment end time must be greater than start time."
+            )
+
+        start_sample = int(start_seconds * sr)
+        end_sample = int(end_seconds * sr)
+
+        start_sample = max(0, start_sample)
+        end_sample = min(len(audio), end_sample)
+
+        segment_audio = audio[start_sample:end_sample]
+
+        if len(segment_audio) == 0:
+            raise ValueError(
+                "Requested segment contains no audio samples."
+            )
+
+        result = self._analyze_audio_array(
+            segment_audio,
+            sr,
+        )
+
+        result["start_seconds"] = start_seconds
+        result["end_seconds"] = end_seconds
+        result["duration_seconds"] = (
+            end_seconds - start_seconds
+        )
+
+        logger.info(
+            "Segment emotion: %.2f-%.2fs → %s "
+            "(confidence=%.4f)",
+            start_seconds,
+            end_seconds,
+            result["emotion"],
+            result["confidence"],
         )
 
         return result

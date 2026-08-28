@@ -1,7 +1,8 @@
 """
 Speech-to-Text Module for Multimodal Emotion Analysis.
 
-Uses faster-whisper to convert speech audio into text.
+Uses faster-whisper to convert speech audio into text
+with timestamped speech segments.
 """
 
 import logging
@@ -49,8 +50,11 @@ class SpeechToText:
             audio_path: Path to the audio file.
 
         Returns:
-            Dictionary containing the transcript, language,
-            language probability, and timestamped segments.
+            Dictionary containing:
+            - full transcript
+            - detected language
+            - language probability
+            - timestamped speech segments
         """
 
         logger.info("Transcribing audio: %s", audio_path)
@@ -58,6 +62,10 @@ class SpeechToText:
         segments, info = self.model.transcribe(
             audio_path,
             beam_size=5,
+            vad_filter=True,
+            vad_parameters={
+                "min_silence_duration_ms": 300,
+            },
         )
 
         segment_results: List[Dict[str, Any]] = []
@@ -65,6 +73,10 @@ class SpeechToText:
 
         for segment in segments:
             text = segment.text.strip()
+
+            # Ignore empty Whisper segments.
+            if not text:
+                continue
 
             segment_results.append(
                 {
@@ -74,21 +86,23 @@ class SpeechToText:
                 }
             )
 
-            if text:
-                transcript_parts.append(text)
+            transcript_parts.append(text)
 
         transcript = " ".join(transcript_parts).strip()
 
         result = {
             "text": transcript,
             "language": info.language,
-            "language_probability": float(info.language_probability),
+            "language_probability": float(
+                info.language_probability
+            ),
             "segments": segment_results,
         }
 
         logger.info(
-            "Transcription completed: %d characters",
+            "Transcription completed: %d characters, %d segments",
             len(transcript),
+            len(segment_results),
         )
 
         return result

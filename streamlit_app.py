@@ -2,7 +2,8 @@
 Streamlit dashboard for the Multimodal Emotion Analysis System.
 
 Run from the project root:
-    .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
+
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 """
 
 import os
@@ -14,9 +15,9 @@ import streamlit as st
 from app.conversation_analysis import ConversationAnalyzer
 
 
-# ---------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
 
 st.set_page_config(
     page_title="Multimodal Emotion Analysis",
@@ -25,9 +26,62 @@ st.set_page_config(
 )
 
 
-# ---------------------------------------------------------
-# Load ML pipeline only once
-# ---------------------------------------------------------
+# =========================================================
+# CUSTOM CSS
+# =========================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .subtitle {
+        font-size: 1.05rem;
+        opacity: 0.75;
+        margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 650;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .segment-label {
+        font-size: 0.85rem;
+        opacity: 0.65;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .transcript-box {
+        padding: 0.9rem;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(128, 128, 128, 0.25);
+        margin-bottom: 1rem;
+    }
+
+    .footer {
+        text-align: center;
+        opacity: 0.55;
+        margin-top: 2rem;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
+# LOAD ML PIPELINE ONCE
+# =========================================================
 
 @st.cache_resource
 def load_analyzer():
@@ -35,127 +89,354 @@ def load_analyzer():
     return ConversationAnalyzer()
 
 
-# ---------------------------------------------------------
-# Fusion display
-# ---------------------------------------------------------
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 
-def show_fusion_status(fusion):
-    agreement = fusion.get("agreement", False)
-    mismatch = fusion.get("mismatch", False)
+def emotion_icon(emotion: str) -> str:
+    """Return a simple icon for an emotion."""
 
-    confidence = float(
-        fusion.get("combined_confidence", 0.0)
+    emotion = emotion.lower()
+
+    icons = {
+        "angry": "😠",
+        "sad": "😟",
+        "happy": "😊",
+        "neutral": "😐",
+        "neu": "😐",
+        "ang": "😠",
+        "hap": "😊",
+    }
+
+    return icons.get(
+        emotion,
+        "🎙️"
     )
 
-    if mismatch:
-        st.warning(
-            f"⚠️ Voice/Text mismatch detected — "
-            f"combined confidence: {confidence:.1%}"
+
+def direction_label(direction: str) -> str:
+    """Format emotional direction for display."""
+
+    if not direction:
+        return "Unknown"
+
+    return str(
+        direction
+    ).replace(
+        "_",
+        " "
+    ).title()
+
+
+def show_fusion_status(fusion):
+    """
+    Display the final fusion interpretation.
+
+    IMPORTANT:
+    The directions displayed here come directly from
+    fusion.py.
+
+    Streamlit does NOT independently determine whether
+    emotions agree or disagree.
+    """
+
+    agreement = bool(
+        fusion.get(
+            "agreement",
+            False
+        )
+    )
+
+    mismatch = bool(
+        fusion.get(
+            "mismatch",
+            False
+        )
+    )
+
+    confidence = float(
+        fusion.get(
+            "combined_confidence",
+            0.0
+        )
+    )
+
+    audio_direction = direction_label(
+        fusion.get(
+            "audio_direction",
+            "unknown"
+        )
+    )
+
+    text_direction = direction_label(
+        fusion.get(
+            "text_direction",
+            "unknown"
+        )
+    )
+
+    interpretation = fusion.get(
+        "interpretation",
+        ""
+    )
+
+    # -----------------------------------------------------
+    # Agreement
+    # -----------------------------------------------------
+
+    if agreement:
+
+        st.success(
+            "✓ Voice and text agree"
         )
 
-    elif agreement:
-        st.success(
-            f"✅ Voice and text agree — "
-            f"combined confidence: {confidence:.1%}"
+    # -----------------------------------------------------
+    # Mismatch
+    # -----------------------------------------------------
+
+    elif mismatch:
+
+        st.warning(
+            "⚠️ Voice/Text mismatch detected"
         )
+
+    # -----------------------------------------------------
+    # Weak disagreement
+    # -----------------------------------------------------
 
     else:
+
         st.info(
-            f"Combined confidence: {confidence:.1%}"
+            "ℹ️ Weak or low-confidence modality disagreement"
         )
 
-    interpretation = fusion.get("interpretation")
+    # -----------------------------------------------------
+    # Direction information
+    # -----------------------------------------------------
+
+    st.caption(
+        f"Voice direction: **{audio_direction}** · "
+        f"Text direction: **{text_direction}** · "
+        f"Fusion confidence: "
+        f"**{confidence:.1%}**"
+    )
 
     if interpretation:
-        st.caption(interpretation)
+
+        st.caption(
+            interpretation
+        )
 
 
-# ---------------------------------------------------------
-# Display analysis results
-# ---------------------------------------------------------
+# =========================================================
+# DISPLAY RESULTS
+# =========================================================
 
-def display_results(result):
+def display_results(
+    result,
+    audio_bytes=None,
+    audio_format="audio/wav",
+):
+    """Display complete analysis results."""
 
-    st.header("📊 Analysis Results")
+    # =====================================================
+    # ANALYSIS OVERVIEW
+    # =====================================================
 
-    # -----------------------------------------------------
-    # Overview
-    # -----------------------------------------------------
+    st.markdown(
+        '<div class="section-title">'
+        '📊 Analysis Overview'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
     col1, col2, col3, col4 = st.columns(4)
 
+    # -----------------------------------------------------
+    # Language
+    # -----------------------------------------------------
+
     with col1:
+
+        language = str(
+            result.get(
+                "language",
+                "Unknown"
+            )
+        ).upper()
+
         st.metric(
-            "Language",
-            result.get("language", "Unknown").upper()
+            "LANGUAGE",
+            language
         )
+
+    # -----------------------------------------------------
+    # Duration
+    # -----------------------------------------------------
 
     with col2:
-        st.metric(
-            "Duration",
-            f"{result.get('duration_seconds', 0):.2f}s"
-        )
 
-    with col3:
-        st.metric(
-            "Segments",
-            len(result.get("segments", []))
-        )
-
-    with col4:
-        probability = float(
+        duration = float(
             result.get(
-                "language_probability",
+                "duration_seconds",
                 0.0
             )
         )
 
         st.metric(
-            "Language Confidence",
-            f"{probability:.1%}"
+            "DURATION",
+            f"{duration:.2f}s"
         )
 
     # -----------------------------------------------------
-    # Transcript
+    # Segments
     # -----------------------------------------------------
 
-    st.subheader("📝 Full Transcript")
+    with col3:
 
-    st.info(
-        result.get(
-            "full_transcript",
+        segments = result.get(
+            "segments",
+            []
+        )
+
+        st.metric(
+            "SEGMENTS",
+            len(segments)
+        )
+
+    # -----------------------------------------------------
+    # Escalation
+    # -----------------------------------------------------
+
+    with col4:
+
+        escalation = result.get(
+            "escalation",
+            {}
+        )
+
+        detected = bool(
+            escalation.get(
+                "escalation_detected",
+                False
+            )
+        )
+
+        st.metric(
+            "ESCALATION",
+            "Detected"
+            if detected
+            else "Not detected"
+        )
+
+    # =====================================================
+    # AUDIO
+    # =====================================================
+
+    if audio_bytes:
+
+        st.markdown(
+            '<div class="section-title">'
+            '🔊 Audio'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        st.audio(
+            audio_bytes,
+            format=audio_format
+        )
+
+    # =====================================================
+    # FULL TRANSCRIPT
+    # =====================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        '📝 Full Transcript'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    transcript = result.get(
+        "full_transcript",
+        ""
+    )
+
+    if transcript:
+
+        st.info(
+            transcript
+        )
+
+    else:
+
+        st.warning(
             "No transcript available."
+        )
+
+    language_probability = float(
+        result.get(
+            "language_probability",
+            0.0
         )
     )
 
-    # -----------------------------------------------------
-    # Emotional Trend
-    # -----------------------------------------------------
+    st.caption(
+        f"Detected language: "
+        f"{language} · "
+        f"Language confidence: "
+        f"{language_probability:.1%}"
+    )
+
+    # =====================================================
+    # EMOTIONAL TREND
+    # =====================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        '📈 Emotional Trend'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
     trend = result.get(
         "emotional_trend",
         {}
     )
 
-    st.subheader("📈 Emotional Trend")
+    trend_col1, trend_col2, trend_col3 = (
+        st.columns(3)
+    )
 
-    trend_col1, trend_col2, trend_col3 = st.columns(3)
+    # -----------------------------------------------------
+    # Trend
+    # -----------------------------------------------------
 
     with trend_col1:
 
         trend_name = (
-            trend.get(
-                "trend",
-                "unknown"
+            str(
+                trend.get(
+                    "trend",
+                    "unknown"
+                )
             )
-            .replace("_", " ")
+            .replace(
+                "_",
+                " "
+            )
             .title()
         )
 
         st.metric(
-            "Trend",
+            "OVERALL TREND",
             trend_name
         )
+
+    # -----------------------------------------------------
+    # Change
+    # -----------------------------------------------------
 
     with trend_col2:
 
@@ -167,26 +448,26 @@ def display_results(result):
         )
 
         st.metric(
-            "Intensity Change",
+            "INTENSITY CHANGE",
             f"{change:+.4f}"
         )
 
+    # -----------------------------------------------------
+    # Escalation
+    # -----------------------------------------------------
+
     with trend_col3:
 
-        escalation = result.get(
-            "escalation",
-            {}
-        )
-
-        detected = escalation.get(
-            "escalation_detected",
-            False
-        )
-
         st.metric(
-            "Escalation",
-            "Detected" if detected else "Not detected"
+            "ESCALATION",
+            "Detected"
+            if detected
+            else "Not detected"
         )
+
+    # -----------------------------------------------------
+    # Intensity chart
+    # -----------------------------------------------------
 
     scores = trend.get(
         "intensity_scores",
@@ -201,30 +482,39 @@ def display_results(result):
             }
         )
 
-    escalation = result.get(
-        "escalation",
-        {}
+    escalation_reason = escalation.get(
+        "reason",
+        ""
     )
 
-    if escalation.get("reason"):
+    if escalation_reason:
 
         st.caption(
-            f"Escalation analysis: "
-            f"{escalation['reason']}"
+            "Escalation analysis: "
+            + escalation_reason
         )
 
-    # -----------------------------------------------------
-    # Segment Analysis
-    # -----------------------------------------------------
+    # =====================================================
+    # CONVERSATION SEGMENTS
+    # =====================================================
 
-    st.subheader("🎙️ Conversation Segments")
-
-    segments = result.get(
-        "segments",
-        []
+    st.markdown(
+        '<div class="section-title">'
+        '🎙️ Conversation Segments'
+        '</div>',
+        unsafe_allow_html=True
     )
 
     for segment in segments:
+
+        # -------------------------------------------------
+        # Basic segment data
+        # -------------------------------------------------
+
+        index = segment.get(
+            "segment_index",
+            "?"
+        )
 
         start = float(
             segment.get(
@@ -238,6 +528,11 @@ def display_results(result):
                 "end_seconds",
                 0.0
             )
+        )
+
+        transcript = segment.get(
+            "transcript",
+            ""
         )
 
         voice = segment.get(
@@ -262,10 +557,13 @@ def display_results(result):
             )
         )
 
+        # -------------------------------------------------
+        # Segment title
+        # -------------------------------------------------
+
         title = (
-            f"Segment "
-            f"{segment.get('segment_index', '?')} "
-            f"| {start:.2f}s → {end:.2f}s"
+            f"Segment {index} · "
+            f"{start:.2f}s → {end:.2f}s"
         )
 
         with st.expander(
@@ -273,110 +571,212 @@ def display_results(result):
             expanded=True
         ):
 
-            st.write(
-                f"**Transcript:** "
-                f"{segment.get('transcript', '')}"
+            # =============================================
+            # TRANSCRIPT
+            # =============================================
+
+            st.markdown(
+                '<div class="segment-label">'
+                'Transcript'
+                '</div>',
+                unsafe_allow_html=True
             )
 
-            c1, c2, c3, c4 = st.columns(4)
+            st.write(
+                transcript
+            )
+
+            # =============================================
+            # METRICS
+            # =============================================
+
+            c1, c2, c3, c4 = (
+                st.columns(4)
+            )
+
+            # -------------------------------------------------
+            # Voice emotion
+            # -------------------------------------------------
 
             with c1:
 
-                st.metric(
-                    "Voice Emotion",
-                    str(
-                        voice.get(
-                            "emotion",
-                            "unknown"
-                        )
-                    ).title(),
-                    f"{float(voice.get('confidence', 0.0)):.1%}"
+                emotion = str(
+                    voice.get(
+                        "emotion",
+                        "unknown"
+                    )
                 )
+
+                voice_confidence = float(
+                    voice.get(
+                        "confidence",
+                        0.0
+                    )
+                )
+
+                st.metric(
+                    "🎙️ Voice Emotion",
+                    (
+                        emotion_icon(
+                            emotion
+                        )
+                        + " "
+                        + emotion.title()
+                    ),
+                    f"{voice_confidence:.1%}"
+                )
+
+            # -------------------------------------------------
+            # Text sentiment
+            # -------------------------------------------------
 
             with c2:
 
-                st.metric(
-                    "Text Sentiment",
-                    str(
-                        sentiment.get(
-                            "sentiment",
-                            "unknown"
-                        )
-                    ).title(),
-                    f"{float(sentiment.get('confidence', 0.0)):.1%}"
+                sentiment_name = str(
+                    sentiment.get(
+                        "sentiment",
+                        "unknown"
+                    )
                 )
+
+                sentiment_confidence = float(
+                    sentiment.get(
+                        "confidence",
+                        0.0
+                    )
+                )
+
+                st.metric(
+                    "📝 Text Sentiment",
+                    sentiment_name.title(),
+                    f"{sentiment_confidence:.1%}"
+                )
+
+            # -------------------------------------------------
+            # Fusion
+            # -------------------------------------------------
 
             with c3:
 
-                st.metric(
-                    "Multimodal Confidence",
-                    f"{float(fusion.get('combined_confidence', 0.0)):.1%}"
+                fusion_confidence = float(
+                    fusion.get(
+                        "combined_confidence",
+                        0.0
+                    )
                 )
+
+                st.metric(
+                    "🔗 Fusion Confidence",
+                    f"{fusion_confidence:.1%}"
+                )
+
+            # -------------------------------------------------
+            # Intensity
+            # -------------------------------------------------
 
             with c4:
 
                 st.metric(
-                    "Intensity",
+                    "📊 Intensity",
                     f"{intensity:.1%}"
                 )
+
+            # =============================================
+            # FUSION STATUS
+            # =============================================
 
             show_fusion_status(
                 fusion
             )
 
 
-# ---------------------------------------------------------
-# Main application
-# ---------------------------------------------------------
+# =========================================================
+# MAIN APPLICATION
+# =========================================================
 
-st.title(
-    "🎙️ Multimodal Emotion Analysis"
+st.markdown(
+    '<div class="main-title">'
+    '🎙️ Multimodal Emotion Analysis'
+    '</div>',
+    unsafe_allow_html=True
 )
 
-st.write(
-    "Analyze spoken audio using voice emotion, "
-    "speech-to-text, text sentiment, multimodal "
-    "fusion, and conversation-level emotional trends."
+st.markdown(
+    '<div class="subtitle">'
+    'Analyze spoken conversations using voice emotion, '
+    'speech-to-text, text sentiment, multimodal fusion, '
+    'and emotional trend analysis.'
+    '</div>',
+    unsafe_allow_html=True
 )
 
 st.divider()
 
-# ---------------------------------------------------------
-# Upload audio
-# ---------------------------------------------------------
+
+# =========================================================
+# UPLOAD
+# =========================================================
+
+st.markdown(
+    '<div class="section-title">'
+    '🎧 Analyze Audio'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 uploaded_file = st.file_uploader(
-    "📁 Upload an audio file",
+    "Upload an audio recording",
     type=[
         "wav",
         "flac",
         "mp3",
         "ogg",
-        "m4a"
+        "m4a",
     ],
     help=(
-        "For the first test, use "
-        "sample_audio/real_voice.wav"
-    )
+        "Upload a clear speech recording. "
+        "WAV files are recommended for testing."
+    ),
 )
 
-# ---------------------------------------------------------
-# Analyze button
-# ---------------------------------------------------------
+
+# =========================================================
+# FILE INFORMATION
+# =========================================================
+
+if uploaded_file is not None:
+
+    file_size_mb = (
+        uploaded_file.size
+        / (1024 * 1024)
+    )
+
+    st.caption(
+        f"Selected file: **{uploaded_file.name}** · "
+        f"{file_size_mb:.2f} MB"
+    )
+
+
+# =========================================================
+# ANALYZE BUTTON
+# =========================================================
 
 analyze_clicked = st.button(
     "🔎 Analyze Audio",
     type="primary",
     disabled=uploaded_file is None,
-    use_container_width=True
+    use_container_width=True,
 )
 
 
-# ---------------------------------------------------------
-# Run analysis
-# ---------------------------------------------------------
+# =========================================================
+# RUN ANALYSIS
+# =========================================================
 
-if analyze_clicked and uploaded_file is not None:
+if (
+    analyze_clicked
+    and uploaded_file is not None
+):
 
     suffix = (
         Path(
@@ -389,6 +789,10 @@ if analyze_clicked and uploaded_file is not None:
 
     try:
 
+        # -------------------------------------------------
+        # Save uploaded audio temporarily
+        # -------------------------------------------------
+
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=suffix
@@ -400,6 +804,10 @@ if analyze_clicked and uploaded_file is not None:
 
             temp_path = temp_audio.name
 
+        # -------------------------------------------------
+        # Run pipeline
+        # -------------------------------------------------
+
         with st.spinner(
             "Running complete multimodal analysis..."
         ):
@@ -410,8 +818,21 @@ if analyze_clicked and uploaded_file is not None:
                 temp_path
             )
 
+        st.success(
+            "Analysis completed successfully."
+        )
+
+        # -------------------------------------------------
+        # Display
+        # -------------------------------------------------
+
         display_results(
-            result
+            result,
+            audio_bytes=uploaded_file.getvalue(),
+            audio_format=(
+                uploaded_file.type
+                or "audio/wav"
+            ),
         )
 
     except Exception as exc:
@@ -426,24 +847,33 @@ if analyze_clicked and uploaded_file is not None:
 
     finally:
 
+        # -------------------------------------------------
+        # Remove temporary file
+        # -------------------------------------------------
+
         if temp_path:
 
             try:
+
                 os.remove(
                     temp_path
                 )
 
             except OSError:
+
                 pass
 
 
-# ---------------------------------------------------------
-# Footer
-# ---------------------------------------------------------
+# =========================================================
+# FOOTER
+# =========================================================
 
 st.divider()
 
-st.caption(
-    "Multimodal Emotion Analysis System | "
-    "Streamlit Dashboard"
+st.markdown(
+    '<div class="footer">'
+    'Multimodal Emotion Analysis System · '
+    'Streamlit Dashboard'
+    '</div>',
+    unsafe_allow_html=True
 )

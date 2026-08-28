@@ -1,10 +1,17 @@
 """
 Conversation Analysis Module.
 
-Builds segment-level multimodal analysis from audio, transcript,
-voice emotion, text sentiment, and fusion results.
+Builds segment-level multimodal analysis from:
+- Audio
+- Voice emotion
+- Speech-to-text
+- Text sentiment
+- Multimodal fusion
 
-Also provides emotional trend and escalation detection.
+Also provides:
+- Emotional trend detection
+- Emotional escalation detection
+- Segment-level emotional intensity
 """
 
 import logging
@@ -29,62 +36,98 @@ class ConversationAnalyzer:
         sentiment_analyzer: SentimentAnalyzer | None = None,
         fusion: MultimodalFusion | None = None,
     ):
-        logger.info("Initializing conversation analysis pipeline...")
+        logger.info(
+            "Initializing conversation analysis pipeline..."
+        )
 
         self.emotion_analyzer = (
-            emotion_analyzer or VoiceEmotionAnalyzer()
+            emotion_analyzer
+            or VoiceEmotionAnalyzer()
         )
 
         self.speech_to_text = (
-            speech_to_text or SpeechToText()
+            speech_to_text
+            or SpeechToText()
         )
 
         self.sentiment_analyzer = (
-            sentiment_analyzer or SentimentAnalyzer()
+            sentiment_analyzer
+            or SentimentAnalyzer()
         )
 
-        self.fusion = fusion or MultimodalFusion()
+        self.fusion = (
+            fusion
+            or MultimodalFusion()
+        )
 
-        logger.info("Conversation analysis pipeline initialized.")
+        logger.info(
+            "Conversation analysis pipeline initialized."
+        )
+
+    # ---------------------------------------------------------
+    # Intensity
+    # ---------------------------------------------------------
 
     @staticmethod
-    def _calculate_intensity(segment: Dict[str, Any]) -> float:
+    def _calculate_intensity(
+        segment: Dict[str, Any]
+    ) -> float:
         """
-        Calculate a simple emotional intensity score.
+        Calculate emotional intensity using multimodal evidence.
 
-        Uses the fusion confidence as the primary signal and gives
-        additional weight to clearly negative emotional states.
+        Agreement between voice and text increases confidence.
+
+        Strong disagreement reduces the influence of the
+        combined confidence so that one unreliable modality
+        does not dominate the final intensity.
 
         Returns:
-            Intensity score between 0.0 and 1.0.
+            Float between 0.0 and 1.0.
         """
 
-        fusion_result = segment["fusion"]
+        fusion = segment["fusion"]
 
         confidence = float(
-            fusion_result.get("combined_confidence", 0.0)
+            fusion.get(
+                "combined_confidence",
+                0.0
+            )
         )
 
-        audio_emotion = segment["voice_emotion"]["emotion"].lower()
-        text_sentiment = segment["text_sentiment"]["sentiment"].lower()
+        agreement = bool(
+            fusion.get(
+                "agreement",
+                False
+            )
+        )
 
-        negative_audio = audio_emotion in {
-            "angry",
-            "sad",
-        }
+        mismatch = bool(
+            fusion.get(
+                "mismatch",
+                False
+            )
+        )
 
-        negative_text = text_sentiment == "negative"
+        if agreement:
+            # Agreement provides stronger multimodal evidence.
+            intensity = confidence + 0.10
 
-        if negative_audio and negative_text:
-            intensity = min(1.0, confidence + 0.10)
-
-        elif negative_audio or negative_text:
-            intensity = min(1.0, confidence + 0.05)
+        elif mismatch:
+            # Reduce intensity when modalities disagree.
+            intensity = confidence * 0.85
 
         else:
-            intensity = confidence
+            # Low-confidence disagreement.
+            intensity = confidence * 0.90
 
-        return round(float(intensity), 4)
+        return round(
+            min(1.0, max(0.0, intensity)),
+            4
+        )
+
+    # ---------------------------------------------------------
+    # Emotional trend
+    # ---------------------------------------------------------
 
     @staticmethod
     def detect_emotional_trend(
@@ -94,11 +137,17 @@ class ConversationAnalyzer:
         Detect the overall emotional intensity trend.
 
         Rules:
-        - Increasing: later average intensity is meaningfully higher.
-        - Decreasing: later average intensity is meaningfully lower.
-        - Stable: change is small.
 
-        This is intentionally simple and explainable.
+        Increasing:
+            Last intensity is at least 0.10 higher
+            than the first.
+
+        Decreasing:
+            Last intensity is at least 0.10 lower
+            than the first.
+
+        Stable:
+            Change is smaller than 0.10.
         """
 
         if len(segments) < 2:
@@ -109,20 +158,31 @@ class ConversationAnalyzer:
             }
 
         intensities = [
-            float(segment.get("intensity", 0.0))
+            float(
+                segment.get(
+                    "intensity",
+                    0.0
+                )
+            )
             for segment in segments
         ]
 
         first = intensities[0]
         last = intensities[-1]
-        change = round(last - first, 4)
+
+        change = round(
+            last - first,
+            4
+        )
 
         threshold = 0.10
 
         if change >= threshold:
             trend = "increasing"
+
         elif change <= -threshold:
             trend = "decreasing"
+
         else:
             trend = "stable"
 
@@ -132,6 +192,10 @@ class ConversationAnalyzer:
             "change": change,
         }
 
+    # ---------------------------------------------------------
+    # Escalation
+    # ---------------------------------------------------------
+
     @staticmethod
     def detect_escalation(
         segments: List[Dict[str, Any]]
@@ -139,13 +203,24 @@ class ConversationAnalyzer:
         """
         Detect emotional escalation.
 
-        Escalation is flagged when:
-        1. There are at least three segments.
-        2. Emotional intensity increases from segment to segment.
-        3. The total increase from the first to final segment is
-           at least 0.20.
+        Escalation requires:
 
-        This rule is transparent and intentionally conservative.
+        1. At least three segments.
+        2. Intensity continuously increases.
+        3. Total increase is at least 0.20.
+
+        Example:
+
+            0.40 → 0.65 → 0.90
+
+        will trigger escalation.
+
+        Example:
+
+            0.75 → 0.67 → 0.97
+
+        will NOT trigger escalation because the increase
+        is not continuous.
         """
 
         if len(segments) < 3:
@@ -156,7 +231,12 @@ class ConversationAnalyzer:
             }
 
         intensities = [
-            float(segment.get("intensity", 0.0))
+            float(
+                segment.get(
+                    "intensity",
+                    0.0
+                )
+            )
             for segment in segments
         ]
 
@@ -167,7 +247,7 @@ class ConversationAnalyzer:
 
         total_change = round(
             intensities[-1] - intensities[0],
-            4,
+            4
         )
 
         escalation_detected = (
@@ -180,6 +260,7 @@ class ConversationAnalyzer:
                 "Emotional intensity increased continuously "
                 "and exceeded the escalation threshold."
             )
+
         else:
             reason = (
                 "Emotional intensity did not show a sufficient "
@@ -192,38 +273,73 @@ class ConversationAnalyzer:
             "intensity_change": total_change,
         }
 
-    def analyze(self, audio_path: str) -> Dict[str, Any]:
+    # ---------------------------------------------------------
+    # Main analysis
+    # ---------------------------------------------------------
+
+    def analyze(
+        self,
+        audio_path: str
+    ) -> Dict[str, Any]:
         """
         Analyze an audio conversation segment by segment.
         """
 
         logger.info(
             "Starting conversation analysis: %s",
-            audio_path,
-        )
-
-        # Load audio once.
-        audio, sr, duration = load_and_preprocess_audio(
             audio_path
         )
 
-        # Generate timestamped transcript segments.
-        transcription = self.speech_to_text.transcribe(
-            audio_path
+        # -----------------------------------------------------
+        # Load audio once
+        # -----------------------------------------------------
+
+        audio, sr, duration = (
+            load_and_preprocess_audio(
+                audio_path
+            )
         )
 
-        segments = transcription["segments"]
+        # -----------------------------------------------------
+        # Speech-to-text
+        # -----------------------------------------------------
+
+        transcription = (
+            self.speech_to_text.transcribe(
+                audio_path
+            )
+        )
+
+        segments = transcription.get(
+            "segments",
+            []
+        )
 
         if not segments:
             raise ValueError(
                 "Speech-to-text returned no usable segments."
             )
 
-        analyzed_segments: List[Dict[str, Any]] = []
+        analyzed_segments: List[
+            Dict[str, Any]
+        ] = []
 
-        for index, segment in enumerate(segments):
-            start = float(segment["start"])
-            end = float(segment["end"])
+        # -----------------------------------------------------
+        # Analyze each transcript segment
+        # -----------------------------------------------------
+
+        for index, segment in enumerate(
+            segments
+        ):
+
+            start = float(
+                segment["start"]
+            )
+
+            end = float(
+                segment["end"]
+            )
+
             text = segment["text"].strip()
 
             if not text:
@@ -237,74 +353,137 @@ class ConversationAnalyzer:
                 end,
             )
 
-            # Voice emotion for this audio segment.
-            voice_result = self.emotion_analyzer.analyze_segment(
-                audio,
-                sr,
-                start,
-                end,
+            # -------------------------------------------------
+            # Voice emotion
+            # -------------------------------------------------
+
+            voice_result = (
+                self.emotion_analyzer.analyze_segment(
+                    audio,
+                    sr,
+                    start,
+                    end,
+                )
             )
 
-            # Text sentiment for this transcript segment.
-            sentiment_result = self.sentiment_analyzer.analyze(
-                text
+            # -------------------------------------------------
+            # Text sentiment
+            # -------------------------------------------------
+
+            sentiment_result = (
+                self.sentiment_analyzer.analyze(
+                    text
+                )
             )
 
-            # Multimodal fusion for this segment.
-            fusion_result = self.fusion.fuse(
-                voice_result,
-                sentiment_result,
+            # -------------------------------------------------
+            # Multimodal fusion
+            # -------------------------------------------------
+
+            fusion_result = (
+                self.fusion.fuse(
+                    voice_result,
+                    sentiment_result,
+                )
             )
+
+            # -------------------------------------------------
+            # Build segment result
+            # -------------------------------------------------
 
             segment_result = {
                 "segment_index": index + 1,
+
                 "start_seconds": start,
+
                 "end_seconds": end,
+
                 "transcript": text,
+
                 "voice_emotion": voice_result,
+
                 "text_sentiment": sentiment_result,
+
                 "fusion": fusion_result,
             }
 
-            # Calculate intensity from actual analysis results.
+            # -------------------------------------------------
+            # Calculate intensity
+            # -------------------------------------------------
+
             segment_result["intensity"] = (
-                self._calculate_intensity(segment_result)
+                self._calculate_intensity(
+                    segment_result
+                )
             )
 
-            analyzed_segments.append(segment_result)
+            analyzed_segments.append(
+                segment_result
+            )
 
         if not analyzed_segments:
             raise ValueError(
                 "No valid conversation segments were produced."
             )
 
-        # Detect overall emotional trend.
-        trend_result = self.detect_emotional_trend(
-            analyzed_segments
+        # -----------------------------------------------------
+        # Emotional trend
+        # -----------------------------------------------------
+
+        trend_result = (
+            self.detect_emotional_trend(
+                analyzed_segments
+            )
         )
 
-        # Detect escalation.
-        escalation_result = self.detect_escalation(
-            analyzed_segments
+        # -----------------------------------------------------
+        # Escalation
+        # -----------------------------------------------------
+
+        escalation_result = (
+            self.detect_escalation(
+                analyzed_segments
+            )
         )
+
+        # -----------------------------------------------------
+        # Final result
+        # -----------------------------------------------------
 
         result = {
             "audio_path": audio_path,
+
             "duration_seconds": duration,
+
             "sample_rate": sr,
-            "language": transcription["language"],
-            "language_probability": transcription[
-                "language_probability"
-            ],
-            "full_transcript": transcription["text"],
+
+            "language": transcription.get(
+                "language",
+                "unknown"
+            ),
+
+            "language_probability": float(
+                transcription.get(
+                    "language_probability",
+                    0.0
+                )
+            ),
+
+            "full_transcript": transcription.get(
+                "text",
+                ""
+            ),
+
             "segments": analyzed_segments,
+
             "emotional_trend": trend_result,
+
             "escalation": escalation_result,
         }
 
         logger.info(
             "Conversation analysis completed: %d segments",
-            len(analyzed_segments),
+            len(analyzed_segments)
         )
 
         return result

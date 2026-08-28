@@ -2,219 +2,327 @@
 
 ## Project: Multimodal Voice & Conversation Emotion Analysis System
 
+A multimodal system that analyzes spoken conversations using:
+
+- Audio processing
+- Voice emotion recognition
+- Speech-to-text
+- Text sentiment analysis
+- Multimodal fusion
+- Conversation-level emotional analysis
+- Streamlit dashboard visualization
+
 ---
+
+# Milestones
 
 ## Milestone 1: Project Setup & Audio Verification — COMPLETED
 
-* **Built:** Verified the Python virtual environment, updated `.gitignore`, standardized base audio dependencies, created `sample_audio/sample_16k.wav`, and implemented `tests/test_audio_setup.py`.
-* **Environment:** Current project environment uses Python 3.11.9.
-* **Audio Libraries:** `librosa==0.11.0`, `soundfile==0.14.0`, `numpy==2.2.6`, `scipy==1.15.3`.
-* **Verification:** Successfully loaded 16 kHz audio and extracted 13 MFCC coefficients.
-* **Notes:** Native WAV/FLAC processing works. FFmpeg is required for broader audio-format support and faster-whisper workflows.
+### Built
+
+- Configured the Python virtual environment.
+- Standardized project dependencies.
+- Updated `.gitignore`.
+- Added audio test fixtures.
+- Added `tests/test_audio_setup.py`.
+- Verified native WAV audio processing.
+
+### Environment
+
+- Python: `3.11.9`
+
+### Audio Libraries
+
+- `librosa==0.11.0`
+- `soundfile==0.14.0`
+- `numpy==2.2.6`
+- `scipy==1.15.3`
+
+### Verification
+
+- Successfully loaded 16 kHz audio.
+- Successfully extracted 13 MFCC coefficients.
+- Audio processing pipeline verified successfully.
+
+### Notes
+
+Native WAV/FLAC processing works correctly.
+
+FFmpeg is required for broader audio-format support and the
+faster-whisper workflow.
 
 ---
 
 ## Milestone 2: Audio Processing Module — COMPLETED
 
-* **Built:** `config.py` and `app/audio_processor.py`.
-* **Features:** Audio validation, format checking, corruption detection, mono conversion, 16 kHz resampling, peak normalization, duration validation, MFCC extraction, RMS energy, pitch/F0, zero-crossing rate, and spectral centroid.
-* **Error Handling:** Added `AudioValidationError` and `AudioProcessingError`.
-* **Tests:** Audio processing tests cover valid audio, unsupported formats, corrupted files, empty files, and feature extraction.
-* **Verification:** Audio processing tests passed successfully.
+### Built
+
+- `config.py`
+- `app/audio_processor.py`
+
+### Features
+
+- Audio file validation
+- Supported-format checking
+- Corrupted-file detection
+- Empty-file detection
+- Mono conversion
+- 16 kHz resampling
+- Peak normalization
+- Duration validation
+- MFCC extraction
+- RMS energy
+- Pitch/F0
+- Zero-crossing rate
+- Spectral centroid
+
+### Error Handling
+
+Implemented:
+
+- `AudioValidationError`
+- `AudioProcessingError`
+
+### Verification
+
+Audio processing tests successfully cover:
+
+- Valid audio
+- Unsupported formats
+- Corrupted files
+- Empty files
+- Audio feature extraction
 
 ---
 
 ## Milestone 3: Voice Emotion Analysis — COMPLETED
 
-* **Model:** `superb/wav2vec2-base-superb-er`
-* **Emotion Classes:** Neutral, Happy, Angry, Sad.
-* **Implementation:** Added segment-level voice emotion analysis using the Wav2Vec2 emotion recognition model.
-* **Verification:** Successfully analyzed `sample_audio/real_voice.wav`.
-* **Example Result:** Sample audio was classified as `sad` with high confidence.
-* **Segment Testing:** Successfully analyzed individual audio segments and returned emotion probabilities.
+### Model
+
+`superb/wav2vec2-base-superb-er`
+
+### Emotion Classes
+
+- Neutral
+- Happy
+- Angry
+- Sad
+
+### Implementation
+
+Implemented Wav2Vec2-based voice emotion analysis with:
+
+- Full-audio emotion prediction
+- Segment-level emotion prediction
+- Emotion probability scores
+- Prediction confidence
+- Timestamp-aware segment analysis
+
+### Verification
+
+Successfully analyzed:
+
+`sample_audio/real_voice.wav`
+
+The model successfully returned an emotion prediction and confidence
+scores.
+
+Segment-level emotion analysis was also verified successfully.
+
+### Important Model Limitation
+
+The current voice emotion model is a pretrained general-purpose model.
+Predictions can vary with:
+
+- Speaker characteristics
+- Voice pitch
+- Speaking style
+- Recording conditions
+- Microphone quality
+- Emotional intensity
+
+Therefore, individual voice-emotion predictions should be interpreted
+as model estimates rather than ground-truth human labels.
 
 ---
 
 ## Milestone 4: Speech-to-Text — COMPLETED
 
-* **Model:** faster-whisper `base`.
-* **Implementation:** Added speech-to-text processing with timestamped transcript segments.
-* **Features:** Language detection, language probability, full transcript generation, and timestamped segments.
-* **Verification:** Successfully transcribed `sample_audio/real_voice.wav`.
-* **Example:** Detected English and produced a timestamped transcript divided into conversation segments.
+### Model
+
+faster-whisper `base`
+
+### Implementation
+
+Added speech-to-text processing with:
+
+- Automatic language detection
+- Language probability
+- Full transcript generation
+- Timestamped transcript segments
+
+### Verification
+
+Successfully transcribed:
+
+`sample_audio/real_voice.wav`
+
+The system successfully detected English and generated timestamped
+conversation segments.
 
 ---
 
 ## Milestone 5: Text Sentiment Analysis — COMPLETED
 
-* **Model:** `cardiffnlp/twitter-roberta-base-sentiment-latest`
-* **Sentiment Classes:** Negative, Neutral, Positive.
-* **Implementation:** Added text sentiment analysis for transcript segments.
-* **Verification:** Successfully generated sentiment predictions and confidence scores for transcript text.
+### Model
+
+`cardiffnlp/twitter-roberta-base-sentiment-latest`
+
+### Sentiment Classes
+
+- Negative
+- Neutral
+- Positive
+
+### Implementation
+
+Added sentiment analysis for transcript segments.
+
+Each segment returns:
+
+- Sentiment label
+- Sentiment confidence
+- Sentiment scores
+
+### Verification
+
+Successfully generated sentiment predictions and confidence scores for
+the tested transcript segments.
 
 ---
 
 ## Milestone 6: Multimodal Fusion — COMPLETED
 
-* **Implementation:** Combined voice emotion and text sentiment results using configurable fusion weights.
-* **Default Weights:** Audio = 0.50, Text = 0.50.
-* **Features:** Agreement detection, mismatch detection, combined confidence, emotional direction, and interpretation.
-* **Verification:** Tested agreement, deliberate mismatch, and neutral agreement scenarios successfully.
+### Implementation
 
-### Fusion Test Results
+Combined:
 
-* Agreement case: correctly detected agreement.
-* Deliberate mismatch case: correctly detected voice/text mismatch.
-* Neutral agreement case: correctly detected neutral agreement.
+- Voice emotion
+- Text sentiment
+
+using configurable fusion weights.
+
+### Default Weights
+
+- Audio: `0.50`
+- Text: `0.50`
+
+### Features
+
+- Voice/text agreement detection
+- Voice/text mismatch detection
+- Combined confidence
+- Emotional direction
+- Multimodal interpretation
+- Segment-level fusion
+
+### Verification
+
+Tested:
+
+- Agreement scenarios
+- Deliberate mismatch scenarios
+- Neutral agreement scenarios
+
+The fusion pipeline correctly identifies agreement and disagreement
+between the two modalities.
 
 ---
 
 ## Milestone 7: Conversation Analysis — COMPLETED
 
-* **Implementation:** Added `app/conversation_analysis.py`.
+### Implementation
 
-* **Features:**
+Added:
 
-  * Timestamped conversation segmentation.
-  * Segment-level voice emotion.
-  * Segment-level text sentiment.
-  * Segment-level multimodal fusion.
-  * Emotional intensity calculation.
-  * Emotional trend detection.
-  * Escalation detection.
-  * Full conversation transcript.
-  * Language detection and confidence.
+`app/conversation_analysis.py`
 
-* **Verification:** Successfully analyzed the sample conversation as multiple timestamped segments.
+### Features
 
-### Example Conversation Result
+- Timestamped conversation segmentation
+- Segment-level voice emotion
+- Segment-level text sentiment
+- Segment-level multimodal fusion
+- Emotional intensity calculation
+- Emotional trend detection
+- Escalation analysis
+- Full conversation transcript
+- Language detection
+- Language confidence
 
-* Language: English.
-* Duration: approximately 13 seconds.
-* Segments: 2.
-* Voice emotion: Sad across the tested segments.
-* Text sentiment: Neutral across the tested segments.
-* Voice/text mismatch: Detected.
-* Emotional trend: Calculated successfully.
-* Escalation: Not detected because the current sample contains fewer than three segments.
+### Verification
+
+Successfully analyzed multiple sample conversations with multiple
+timestamped segments.
+
+The system successfully produces:
+
+- Conversation transcript
+- Segment timestamps
+- Voice emotion
+- Text sentiment
+- Fusion results
+- Emotional intensity
+- Overall emotional trend
+- Escalation status
+
+### Escalation Detection
+
+Escalation analysis requires sufficient segment data.
+
+For conversations containing fewer than three usable segments,
+escalation detection is not considered reliable and the system reports
+that additional segments are required.
 
 ---
 
 ## Milestone 8: Streamlit Dashboard — COMPLETED
 
-* **Implementation:** Added `streamlit_app.py` in the project root.
-* **Dashboard:** Functional Streamlit interface for uploading audio and displaying multimodal conversation analysis.
-* **Displayed Results:**
+### Implementation
 
-  * Language
-  * Language confidence
-  * Audio duration
-  * Number of segments
-  * Full transcript
-  * Emotional trend
-  * Intensity change
-  * Escalation status
-  * Segment timestamps
-  * Voice emotion
-  * Text sentiment
-  * Multimodal confidence
-  * Emotional intensity
-  * Voice/text mismatch
-  * Fusion interpretation
+Added:
+
+`streamlit_app.py`
+
+### Dashboard Capabilities
+
+The functional dashboard supports:
+
+- Audio upload
+- Audio playback
+- End-to-end analysis
+- Full transcript display
+- Language detection
+- Language confidence
+- Audio duration
+- Segment count
+- Emotional trend
+- Intensity change
+- Escalation status
+- Timestamped conversation segments
+- Voice emotion
+- Voice confidence
+- Text sentiment
+- Sentiment confidence
+- Fusion confidence
+- Emotional intensity
+- Voice/text agreement
+- Voice/text mismatch
+- Multimodal interpretation
 
 ### Dashboard Verification
 
-Successfully launched the dashboard with:
+The dashboard was successfully launched using:
 
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.fileWatcherType none
-```
-
-The dashboard successfully analyzed:
-
-`sample_audio/real_voice.wav`
-
-and displayed the complete multimodal analysis.
-
-**Status: FUNCTIONAL**
-
----
-
-## Milestone 9: Testing & Documentation — IN PROGRESS
-
-### Automated Testing
-
-Current test suite:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-Latest result:
-
-```text
-5 passed, 5 warnings
-```
-
-The warnings are dependency deprecation warnings and do not currently cause test failures.
-
-### Documentation
-
-* [x] Core project specification available in `PROJECT_SPEC.md`.
-* [x] `PROGRESS.md` updated through Milestone 8.
-* [ ] Complete `README.md`.
-* [ ] Document installation and environment setup.
-* [ ] Document dashboard usage.
-* [ ] Document project architecture.
-* [ ] Add final screenshots/examples.
-* [ ] Perform final documentation review.
-
-### UI/UX Improvements
-
-The first functional dashboard is complete.
-
-Planned UI/UX improvements will be performed after the functional baseline is preserved. These improvements may include:
-
-* Improved visual hierarchy.
-* Professional dashboard layout.
-* Emotion and sentiment visualization.
-* Emotional timeline.
-* Confidence visualization.
-* Improved segment cards.
-* Better mismatch/escalation indicators.
-* Improved upload and analysis experience.
-* Loading and error states.
-* Final presentation/demo polish.
-
-**Current Status: FUNCTIONAL BASELINE COMPLETE — UI/UX POLISH PENDING**
-
----
-
-## Current Project Status
-
-| Milestone                             | Status      |
-| ------------------------------------- | ----------- |
-| 1. Project Setup & Audio Verification | COMPLETED   |
-| 2. Audio Processing                   | COMPLETED   |
-| 3. Voice Emotion Analysis             | COMPLETED   |
-| 4. Speech-to-Text                     | COMPLETED   |
-| 5. Text Sentiment Analysis            | COMPLETED   |
-| 6. Multimodal Fusion                  | COMPLETED   |
-| 7. Conversation Analysis              | COMPLETED   |
-| 8. Streamlit Dashboard                | COMPLETED   |
-| 9. Testing & Documentation            | IN PROGRESS |
-
-### Current Verification
-
-* Automated tests: **5 passed**
-* Streamlit dashboard: **Functional**
-* End-to-end sample analysis: **Successful**
-* Git working tree: **Clean**
-* GitHub main branch: **Synchronized**
-* Functional baseline tag: **v1.0-functional** *(to be created before UI/UX changes)*
-
-### Next Major Phase
-
-**Dashboard UI/UX Enhancement**
-
-The existing backend and functional dashboard should be treated as the stable baseline. Future UI/UX work should preserve the existing analysis pipeline and model configuration.

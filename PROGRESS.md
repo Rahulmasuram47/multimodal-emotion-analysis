@@ -326,3 +326,65 @@ The dashboard was successfully launched using:
 
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.fileWatcherType none
+```
+
+---
+
+## Milestone 9: Testing & Documentation — COMPLETED
+
+### Built
+
+- `tests/test_audio_processor.py` (pre-existing) — 5 tests covering
+  valid audio loading, unsupported format rejection, corrupted file
+  handling, empty file handling, and acoustic feature extraction.
+- `tests/test_fusion.py` (pre-existing) — 3 tests covering
+  voice/text agreement, high-confidence mismatch, and neutral
+  agreement.
+- `tests/test_conversation_analysis.py` (pre-existing) — 6 tests
+  covering emotional trend detection (increasing/decreasing/stable)
+  and escalation detection (fires, doesn't fire, insufficient
+  segments).
+- `tests/test_sentiment_analyzer.py` (new) — 5 tests covering
+  positive, negative, and neutral text classification, empty-text
+  rejection, and score-dictionary integrity (scores sum to 1.0,
+  reported label matches the highest-scoring class).
+
+### Coverage Against Spec (Section 16)
+
+All six required test categories are now covered: audio validation,
+feature extraction, sentiment analysis, fusion logic, mismatch
+detection, and escalation detection.
+
+### Known Limitation
+
+There is no automated correctness test for `speech_to_text.py`
+transcription output. Whisper's output has no fixed ground truth to
+assert against for arbitrary audio, so transcription is verified
+manually (see Milestone 4) rather than via an automated pytest case.
+This is a documented limitation, not a gap that was silently skipped.
+
+### Verification
+
+Full test suite run confirmed on the project machine:
+
+```text
+19 passed, 4 warnings in 50.58s
+```
+
+All warnings are third-party deprecation notices (`audioread`'s use of
+`aifc`/`audioop`/`sunau`, and a `transformers` tokenizer BPE-init
+deprecation) — not test failures, and not code this project owns.
+
+README.md test count and documentation, previously stale, were
+updated to match the actual suite (19 tests across 4 files). Final
+README content (Section 17 checklist) is complete, including team
+info.
+
+### Open Issues
+
+- None outstanding for this milestone. Speech-to-text still has no
+  automated correctness test — documented as a known limitation
+  rather than an open issue, since it's not solvable without a fixed
+  ground-truth transcript.
+
+---

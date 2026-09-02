@@ -1,94 +1,96 @@
-# 🎙️ Multimodal Voice & Conversation Emotion Analysis
+# 🎙️ Multimodal Voice & Conversation Emotion Analysis System
 
-A B.Tech mini-project that analyzes spoken conversations using **voice
-emotion, speech-to-text, text sentiment, multimodal fusion, and
-conversation-level emotional analysis**, presented through an
-interactive Streamlit dashboard.
+A B.Tech mini-project that analyzes spoken conversations using **voice emotion, speech-to-text, text sentiment, multimodal fusion, and conversation-level emotional analysis**, presented through an interactive Streamlit dashboard.
 
 ---
 
 ## 📌 Problem Statement
 
-Emotion in spoken conversation is carried through two separate
-channels: *how* something is said (tone, pitch, energy) and *what* is
-said (the words themselves). Most simple sentiment tools look only at
-text, and most emotion-recognition demos look only at audio — neither
-alone gives a complete picture, and the two can genuinely disagree
-(e.g. a flat, resigned "I'm fine" spoken sadly). This project builds a
-practical system that analyzes both channels independently and then
-combines them into a single, explainable multimodal result at the
-level of a full conversation, not just a single clip.
+Emotion in spoken conversation is carried through two separate channels:
+
+- **How** something is said — tone, pitch, energy, and other vocal characteristics.
+- **What** is said — the actual words and their textual sentiment.
+
+Most simple sentiment-analysis tools focus only on text, while many emotion-recognition systems focus only on audio. Neither modality alone provides a complete picture of emotional communication, and the two modalities can genuinely disagree.
+
+For example, a speaker may say **"I'm fine"** while using a sad or resigned tone.
+
+This project builds a practical multimodal system that analyzes both audio and text independently and then combines their outputs into a single explainable result at the level of a conversation rather than only a single audio clip.
 
 ---
 
 ## 🎯 Objective
 
-Given an audio recording of speech, the system should:
+Given an audio recording of speech, the system aims to:
 
-1. Transcribe the speech to text.
+1. Transcribe the speech into text.
 2. Predict voice emotion directly from the audio.
-3. Predict text sentiment from the transcript.
-4. Combine both into a transparent, rule-based multimodal result.
-5. Track how that combined emotional signal changes across the
-   conversation, and flag possible mismatches or escalation.
-6. Present all of this through a simple, functional dashboard.
-
----
-
-## 🚀 Project Pipeline
-
-```text
-Audio Input
-    ↓
-Audio Processing
-    ↓
-Voice Emotion Analysis
-    ↓
-Speech-to-Text
-    ↓
-Text Sentiment Analysis
-    ↓
-Multimodal Fusion
-    ↓
-Conversation Analysis
-    ↓
-Streamlit Dashboard
-```
+3. Predict text sentiment from the generated transcript.
+4. Combine both modalities using a transparent, rule-based fusion method.
+5. Track how the combined emotional signal changes throughout the conversation.
+6. Detect possible emotional mismatch and escalation.
+7. Present the analysis through an interactive Streamlit dashboard.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-Audio / Conversation
-        |
-        +----------------------+
-        |                      |
-        v                      v
-Audio Processing          Speech-to-Text
-        |                      |
-        v                      v
-Voice Emotion Analysis   Text Sentiment Analysis
-        |                      |
-        +----------+-----------+
-                   |
-                   v
-          Multimodal Fusion
-                   |
-                   v
-        Conversation Analysis
-                   |
-                   v
-              Dashboard
+                    Audio / Conversation
+                            |
+              +-------------+-------------+
+              |                           |
+              v                           v
+      Audio Processing              Speech-to-Text
+              |                           |
+              v                           v
+    Voice Emotion Analysis       Text Sentiment Analysis
+              |                           |
+              +-------------+-------------+
+                            |
+                            v
+                    Multimodal Fusion
+                            |
+                            v
+                 Conversation Analysis
+                            |
+                            v
+                     Streamlit Dashboard
 ```
 
-Audio is loaded once per file and shared across the voice-emotion and
-speech-to-text stages. Each transcript segment produced by
-speech-to-text becomes one unit of analysis: it gets its own voice
-emotion prediction (sliced from the same audio by timestamp), its own
-text sentiment prediction, and its own fused result. Conversation
-Analysis then looks across all segments to compute trend and
-escalation.
+### Processing Flow
+
+1. **Audio Processing**
+   - Validates the uploaded audio.
+   - Converts audio to mono.
+   - Resamples audio to 16 kHz.
+   - Normalizes the audio.
+   - Extracts acoustic features.
+
+2. **Voice Emotion Analysis**
+   - Analyzes the acoustic signal using a pretrained Wav2Vec2 emotion model.
+   - Produces an emotion label and confidence score.
+
+3. **Speech-to-Text**
+   - Converts spoken audio into text using faster-whisper.
+   - Produces timestamped transcript segments.
+
+4. **Text Sentiment Analysis**
+   - Analyzes each transcript segment.
+   - Produces negative, neutral, or positive sentiment with confidence.
+
+5. **Multimodal Fusion**
+   - Maps voice emotion and text sentiment into comparable emotional directions.
+   - Determines agreement, mismatch, or weak disagreement.
+   - Calculates confidence-weighted combined confidence.
+
+6. **Conversation Analysis**
+   - Analyzes emotional intensity across segments.
+   - Detects overall emotional trends.
+   - Detects possible emotional escalation.
+
+7. **Streamlit Dashboard**
+   - Presents the complete analysis interactively.
 
 ---
 
@@ -96,117 +98,275 @@ escalation.
 
 ### 🎧 Audio Processing
 
-* Audio file validation (existence, supported format, non-empty,
-  not corrupted).
-* Mono conversion.
-* Resampling to 16 kHz.
-* Peak normalization.
-* Duration validation (min/max bounds).
-* Acoustic feature extraction: MFCC, RMS energy, pitch/F0
-  (via YIN), zero-crossing rate, spectral centroid.
+The audio-processing module provides:
 
-### 🎙️ Voice Emotion Analysis
-
-Uses `superb/wav2vec2-base-superb-er` — 4 classes: **neutral, happy,
-angry, sad**. Supports both whole-file prediction and segment-level
-prediction sliced by timestamp from the same preprocessed audio.
-
-### 📝 Speech-to-Text
-
-Uses `faster-whisper` (`base` model, CPU, int8). Produces a full
-transcript, automatic language detection with a confidence score, and
-timestamped transcript segments (with voice-activity filtering to
-skip silence).
-
-### 💬 Text Sentiment Analysis
-
-Uses `cardiffnlp/twitter-roberta-base-sentiment-latest` — 3 classes:
-**negative, neutral, positive**, each with a confidence score and the
-full score distribution.
-
-### 🔀 Multimodal Fusion
-
-Combines voice emotion and text sentiment using an explicit,
-documented rule (see [Fusion Rule](#-fusion-rule-plain-english) below)
-rather than a learned or "black box" fusion model. Produces:
-
-* Voice/text **agreement** or **mismatch** flag.
-* Emotional **direction** for each modality (positive / negative /
-  neutral).
-* Confidence-weighted **combined confidence**.
-* A plain-language **interpretation** string.
-
-Default fusion weights: Audio `0.50` / Text `0.50` — configurable in
-`config.py`, not hardcoded in the fusion logic.
-
-### 📈 Conversation Analysis
-
-* Segments the conversation using Whisper's own segment boundaries.
-* Computes a per-segment **emotional intensity** score from the
-  fusion result (agreement boosts intensity, mismatch or weak
-  disagreement discounts it — see `_calculate_intensity`).
-* Detects an overall **emotional trend** (increasing / decreasing /
-  stable) by comparing the first and last segment's intensity.
-* Detects **possible emotional escalation**: requires at least three
-  segments, a continuously rising intensity across every consecutive
-  pair, and a total rise of at least `0.20`. Conversations with fewer
-  than three usable segments are explicitly reported as
-  "not enough data" rather than skipped silently.
-
-### 🖥️ Streamlit Dashboard
-
-* Audio upload and in-browser playback.
-* One-click end-to-end analysis (models are loaded once via
-  `st.cache_resource` and reused across runs).
-* Full transcript, detected language, and language confidence.
-* Emotional trend metric, intensity-change value, and an intensity
-  line chart across segments.
-* Escalation status with the underlying reason.
-* Per-segment expandable cards: transcript, voice emotion (with
-  confidence), text sentiment (with confidence), fusion confidence,
-  intensity, and the agreement/mismatch/interpretation caption.
-* Graceful error handling — a failed analysis shows an error message
-  in the UI instead of crashing the app.
+- Audio file validation.
+- Supported-format validation.
+- Empty and corrupted-file detection.
+- Mono conversion.
+- Resampling to 16 kHz.
+- Peak normalization.
+- Minimum and maximum duration validation.
+- Acoustic feature extraction:
+  - MFCC
+  - RMS energy
+  - Pitch / F0 using YIN
+  - Zero-crossing rate
+  - Spectral centroid
 
 ---
 
-## 🔀 Fusion Rule (Plain English)
+### 🎙️ Voice Emotion Analysis
 
-1. Voice emotion is mapped to a broad direction: `angry`/`sad` →
-   **negative**, `happy` → **positive**, `neutral` → **neutral**.
-2. Text sentiment (already negative/neutral/positive) is used as its
-   own direction directly.
-3. **Agreement** = the two directions match.
-4. **Mismatch** = the two directions do *not* match, **and** both
-   modalities individually clear the confidence threshold
-   (`CONFIDENCE_THRESHOLD = 0.4` by default). This avoids flagging a
-   "mismatch" when one modality's prediction is too uncertain to
-   trust in the first place.
-5. If the directions disagree but at least one modality is
-   low-confidence, it's reported as **weak/low-confidence
-   disagreement** — a distinct, softer category from a confident
-   mismatch.
-6. **Combined confidence** is a weighted average of the two
-   modalities' individual confidences, using the configured
-   audio/text weights.
+The system uses:
 
-The system never claims a mismatch proves deception or hidden intent
-— only that the two signals point in different directions.
+```text
+superb/wav2vec2-base-superb-er
+```
+
+The model supports four emotion classes:
+
+- Neutral
+- Happy
+- Angry
+- Sad
+
+The system supports both:
+
+- Whole-file emotion prediction.
+- Segment-level emotion prediction using transcript timestamps.
+
+Segment-level predictions are generated from the corresponding preprocessed audio intervals.
+
+---
+
+### 📝 Speech-to-Text
+
+The system uses **faster-whisper** with the base model in CPU/int8 mode.
+
+The speech-to-text component provides:
+
+- Full speech transcript.
+- Automatic language detection.
+- Language confidence score.
+- Timestamped transcript segments.
+- Voice-activity filtering to reduce analysis of silence.
+
+---
+
+### 💬 Text Sentiment Analysis
+
+The primary sentiment model is:
+
+```text
+cardiffnlp/twitter-roberta-base-sentiment-latest
+```
+
+The model provides three sentiment classes:
+
+- Negative
+- Neutral
+- Positive
+
+Each prediction includes:
+
+- Sentiment label.
+- Confidence score.
+- Complete sentiment score distribution.
+
+---
+
+## 🔀 Multimodal Fusion
+
+Voice emotion and text sentiment are combined using an explicit, documented, **rule-based fusion method** rather than a learned or black-box fusion model.
+
+The fusion layer produces:
+
+- Voice/text agreement or mismatch status.
+- Emotional direction for each modality.
+- Confidence-weighted combined confidence.
+- Plain-language interpretation.
+
+### Default Fusion Weights
+
+```text
+Audio: 0.50
+Text:  0.50
+```
+
+The weights are configurable through `config.py`.
+
+---
+
+## 🔀 Fusion Rule
+
+The multimodal fusion process follows these rules.
+
+### 1. Map Voice Emotion to Emotional Direction
+
+```text
+angry  → negative
+sad    → negative
+happy  → positive
+neutral → neutral
+```
+
+### 2. Use Text Sentiment Direction Directly
+
+Text sentiment is already represented as:
+
+```text
+negative
+neutral
+positive
+```
+
+Therefore, the text sentiment direction can be used directly.
+
+### 3. Agreement
+
+Agreement occurs when the voice-emotion direction and text-sentiment direction match.
+
+Example:
+
+```text
+Voice: Happy
+Text:  Positive
+
+Result: Agreement
+```
+
+### 4. Confident Mismatch
+
+Mismatch occurs when:
+
+- The two emotional directions disagree.
+- Both modalities individually exceed the configured confidence threshold.
+
+Default threshold:
+
+```text
+CONFIDENCE_THRESHOLD = 0.4
+```
+
+Example:
+
+```text
+Voice: Sad
+Text:  Positive
+```
+
+This may be classified as a confident mismatch when both predictions have sufficient confidence.
+
+### 5. Weak Disagreement
+
+If the directions disagree but at least one modality has insufficient confidence, the system classifies the result as a weak or low-confidence disagreement rather than a confident mismatch.
+
+### 6. Combined Confidence
+
+Combined confidence is calculated as the weighted average of the individual modality confidences using the configured audio and text weights.
+
+The fusion approach is intentionally transparent so that the reason for a result can be explained rather than hidden inside a learned fusion model.
+
+> The system does not claim that a voice/text mismatch proves deception, hidden intent, or dishonesty. A mismatch only indicates that the two analyzed signals point in different emotional directions.
+
+---
+
+## 📈 Conversation Analysis
+
+The conversation-analysis layer:
+
+- Uses speech-to-text segment boundaries.
+- Performs analysis at the segment level.
+- Calculates a per-segment emotional intensity score.
+- Considers modality agreement, mismatch, and confidence when calculating intensity.
+- Detects an overall emotional trend:
+  - Increasing
+  - Decreasing
+  - Stable
+- Detects possible emotional escalation.
+
+### Escalation Detection
+
+Escalation detection requires:
+
+- At least three usable segments.
+- Continuously increasing intensity across consecutive segments.
+- A total intensity increase of at least `0.20`.
+
+If fewer than three usable segments are available, the system reports insufficient data rather than silently skipping the determination.
+
+---
+
+## 👥 Speaker Diarization
+
+The project includes a dedicated diarization module:
+
+```text
+app/diarization.py
+```
+
+and corresponding tests:
+
+```text
+tests/test_diarization.py
+```
+
+The architecture is prepared for speaker identification and speaker-wise analysis.
+
+However, the project does **not fabricate speaker identities** when reliable speaker information is unavailable.
+
+Complete speaker-wise conversation analysis remains a future enhancement.
+
+---
+
+## 🖥️ Streamlit Dashboard
+
+The Streamlit dashboard provides:
+
+- Audio upload.
+- In-browser audio playback.
+- One-click end-to-end analysis.
+- Reset functionality.
+- Cached model loading using `st.cache_resource`.
+- Full transcript display.
+- Detected language.
+- Language confidence.
+- Audio duration.
+- Segment count.
+- Overall emotional trend.
+- Intensity-change value.
+- Emotional intensity line chart.
+- Escalation status and reason.
+- Voice-emotion results.
+- Text-sentiment results.
+- Multimodal fusion results.
+- Segment-level expandable analysis cards.
+- Voice emotion confidence.
+- Text sentiment confidence.
+- Fusion confidence.
+- Emotional intensity.
+- Agreement/mismatch status.
+- Plain-language interpretation.
+- Graceful error handling.
+- Exportable analysis results.
+
+The dashboard is built from actual pipeline outputs and does not use fabricated demonstration results.
 
 ---
 
 ## 🧠 Models
 
-| Component          | Model                                              |
-| ------------------ | -------------------------------------------------- |
-| Voice Emotion      | `superb/wav2vec2-base-superb-er`                   |
-| Speech-to-Text     | `faster-whisper` (`base`, CPU, int8)               |
-| Text Sentiment     | `cardiffnlp/twitter-roberta-base-sentiment-latest` |
-| Sentiment Fallback | `distilbert-base-uncased-finetuned-sst-2-english`  |
+| Component | Model / Configuration |
+|---|---|
+| Voice Emotion | `superb/wav2vec2-base-superb-er` |
+| Speech-to-Text | `faster-whisper` — base, CPU/int8 |
+| Text Sentiment | `cardiffnlp/twitter-roberta-base-sentiment-latest` |
+| Sentiment Fallback | `distilbert-base-uncased-finetuned-sst-2-english` |
 
-All three are pretrained, publicly available HuggingFace models used
-as-is (no custom training). See [Existing Work](#-existing-work--research-inspiration)
-below for how this relates to prior research.
+All primary models are pretrained and publicly available Hugging Face models used without custom training.
+
+The project focuses on practical end-to-end integration rather than training a new emotion-recognition model.
 
 ---
 
@@ -222,20 +382,21 @@ multimodal-emotion-analysis/
 │   ├── speech_to_text.py
 │   ├── sentiment_analyzer.py
 │   ├── fusion.py
+│   ├── diarization.py
 │   └── conversation_analysis.py
 │
 ├── sample_audio/
-│   ├── real_voice.wav
-│   ├── sample_16k.wav
-│   ├── test_corrupted.wav
-│   └── test_empty.wav
+│   └── real_voice.wav
 │
 ├── tests/
-│   ├── test_audio_setup.py
 │   ├── test_audio_processor.py
+│   ├── test_audio_setup.py
+│   ├── test_emotion_analyzer.py
+│   ├── test_emotion_model.py
 │   ├── test_fusion.py
 │   ├── test_conversation_analysis.py
-│   └── test_sentiment_analyzer.py
+│   ├── test_sentiment_analyzer.py
+│   └── test_diarization.py
 │
 ├── config.py
 ├── PROJECT_SPEC.md
@@ -249,40 +410,39 @@ multimodal-emotion-analysis/
 
 ## ⚙️ Environment
 
+### Recommended Environment
+
 ```text
 Python 3.11.9
 ```
 
 A virtual environment is recommended.
 
-### Create the environment
+### Create the Environment
 
 ```powershell
 py -3.11 -m venv .venv
 ```
 
-### Activate it
+### Activate the Environment
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-### Install dependencies
+### Install Dependencies
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-For testing:
+### Windows Note
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install pytest
-```
+The project is designed for CPU-based inference on a normal laptop.
 
-**Windows note:** the PyTorch wheel installed should be the CPU-only
-build unless a working CUDA setup has been separately verified on the
-machine. `ffmpeg` should be on PATH for broader audio-format support
-and for `faster-whisper`; native WAV/FLAC works without it.
+For broader audio-format support, `ffmpeg` should be available on the system PATH.
+
+Native WAV/FLAC processing can work without ffmpeg in the relevant parts of the pipeline.
 
 ---
 
@@ -294,7 +454,7 @@ From the project root:
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.fileWatcherType none
 ```
 
-The dashboard will be available at:
+The dashboard will normally be available at:
 
 ```text
 http://localhost:8501
@@ -312,166 +472,247 @@ and click **Analyze Audio**.
 
 ## 🧪 How to Test
 
-Run the full automated test suite with:
+Run the complete automated test suite:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The suite currently includes:
+### Current Test Status
 
-* `test_audio_processor.py` — 5 tests (valid audio, unsupported
-  format, corrupted file, empty file, feature extraction).
-* `test_fusion.py` — 3 tests (agreement, high-confidence mismatch,
-  neutral agreement).
-* `test_conversation_analysis.py` — 6 tests (trend
-  increasing/decreasing/stable, escalation fires/doesn't
-  fire/insufficient segments).
-* `test_sentiment_analyzer.py` — 5 tests (positive, negative,
-  neutral, empty-text rejection, score-dictionary integrity).
+```text
+57 passed
+0 failed
+```
 
-To test manually with your own audio, drop a `.wav`/`.flac`/`.mp3`/
-`.ogg`/`.m4a` file into `sample_audio/` and upload it through the
-dashboard, or point any of the `app/` module's `analyze()` /
-`transcribe()` methods at its path directly from a Python shell.
+The current test suite covers:
+
+- Audio setup and preprocessing.
+- Audio validation.
+- Audio feature extraction.
+- Fusion logic.
+- Agreement detection.
+- High-confidence mismatch detection.
+- Neutral agreement.
+- Conversation trend detection.
+- Escalation detection.
+- Insufficient-segment handling.
+- Sentiment analysis.
+- Sentiment score integrity.
+- Diarization module behavior.
+
+The current test suite passes successfully with:
+
+```text
+57 passed, 4 warnings
+```
+
+The warnings are dependency deprecation warnings and do not represent test failures.
+
+---
+
+## 🧪 Manual Testing
+
+Supported audio formats include:
+
+```text
+.wav
+.flac
+.mp3
+.ogg
+.m4a
+```
+
+Audio files can be placed inside `sample_audio/` or uploaded directly through the Streamlit dashboard.
+
+The individual project modules can also be tested directly from a Python environment.
 
 ---
 
 ## 📊 Expected Output
 
-For a short spoken sample, the system produces:
+For a short spoken sample, the system can produce:
 
-* Detected language and language confidence.
-* Audio duration and segment count.
-* A full transcript.
-* Per-segment voice emotion (label + confidence).
-* Per-segment text sentiment (label + confidence).
-* Per-segment fusion result (agreement/mismatch, combined confidence,
-  interpretation).
-* Per-segment emotional intensity.
-* An overall emotional trend and intensity-change value.
-* An escalation status with the reason for that determination.
+- Detected language.
+- Language confidence.
+- Audio duration.
+- Number of transcript segments.
+- Full transcript.
+- Per-segment voice emotion.
+- Voice emotion confidence.
+- Per-segment text sentiment.
+- Text sentiment confidence.
+- Fusion result.
+- Agreement/mismatch status.
+- Combined confidence.
+- Plain-language interpretation.
+- Per-segment emotional intensity.
+- Overall emotional trend.
+- Intensity-change value.
+- Escalation status and explanation.
 
-For the current sample audio (`sample_audio/real_voice.wav`), the
-system detects English, a duration of roughly 13 seconds, and
-classifies the sample as **sad** by voice while the transcript
-sentiment is **neutral** — a voice/text mismatch, since the recording
-is a flatly-spoken test sentence rather than genuinely sad speech.
-This is a useful demonstration case for the mismatch feature, not a
-claim that the speaker was actually sad.
+---
+
+## 🎙️ Current Sample Audio
+
+For:
+
+```text
+sample_audio/real_voice.wav
+```
+
+the system detects English and produces a transcript of approximately 13 seconds of speech.
+
+The current voice-emotion model predicts:
+
+```text
+Sad
+```
+
+with high confidence for the sample audio, while the transcript sentiment is:
+
+```text
+Neutral
+```
+
+This provides a useful example of a voice/text disagreement.
+
+However, this result should **not** be interpreted as proof that the speaker was actually sad. The prediction is a model estimate, and the sample was recorded as a normal test sentence.
 
 ---
 
 ## ⚠️ Limitations
 
-* **Voice emotion model is general-purpose, not fine-tuned for this
-  project.** Predictions can vary with speaker characteristics,
-  pitch, speaking style, recording conditions, microphone quality,
-  and emotional intensity. Results are model estimates, not
-  ground-truth human labels.
-* **No automated correctness test for speech-to-text transcription.**
-  Whisper output has no fixed ground truth to assert against
-  automatically for arbitrary audio; transcription accuracy is
-  verified manually rather than via pytest.
-* **Escalation and trend detection need enough segments.** Fewer than
-  three usable segments means escalation is reported as
-  "not enough data" rather than a real determination.
-* **Speaker-wise analysis is architected for, not fully implemented.**
-  Full diarization was out of scope for the timeframe; the system
-  never fabricates speaker identities or speaker-wise results without
-  a real basis.
-* **CPU-only inference.** All three models run on CPU by design (for
-  a normal laptop), so processing time scales with audio length.
+### Voice Emotion Model
+
+The voice-emotion model is general-purpose and is not fine-tuned specifically for this project.
+
+Predictions can vary because of:
+
+- Speaker characteristics.
+- Pitch.
+- Speaking style.
+- Recording conditions.
+- Microphone quality.
+- Background noise.
+- Emotional intensity.
+
+Therefore, model predictions should be treated as estimates rather than ground-truth human labels.
+
+### Speech-to-Text Evaluation
+
+There is no automated correctness test for arbitrary speech-to-text transcription because arbitrary uploaded recordings do not have a fixed ground-truth transcript.
+
+Transcription quality is therefore verified manually during testing.
+
+### Trend and Escalation Detection
+
+Trend and escalation detection depend on having enough usable segments.
+
+Fewer than three usable segments are reported as insufficient data for escalation detection.
+
+### Speaker Diarization
+
+The project contains a diarization module and tests, but complete speaker-wise conversation analysis is not claimed as a fully completed feature.
+
+The system does not fabricate speaker identities when reliable speaker information is unavailable.
+
+### CPU-Only Inference
+
+The primary models are designed to run on CPU so the project can be demonstrated on a normal laptop.
+
+As a result, processing time increases with audio length and model complexity.
 
 ---
 
 ## 📚 Existing Work & Research Inspiration
 
-Multimodal speech-emotion research (e.g. IEMOCAP/MELD-based systems,
-and older repositories such as `david-yoon/multimodal-speech-emotion`
-built on TensorFlow 1.4 / Python 2.7 / CUDA 8) informed the general
-idea of combining audio and text signals for emotion. No code from
-these repositories was copied, and none of their specific
-architectures (custom RNNs, MDRE/MDREA, exact Luong attention) were
-reproduced.
+Multimodal speech-emotion research, including systems based on datasets such as **IEMOCAP** and **MELD**, informed the general idea of combining audio and text signals for emotion analysis.
 
-## 🆕 What's Different About This Implementation
+Existing research demonstrates that multiple modalities can provide complementary information for understanding emotional communication.
 
-This project does not claim a novel algorithm or improved accuracy
-over existing research. What it demonstrates instead is **practical
-end-to-end system integration**:
+These works provided conceptual inspiration for the project, but no code from external repositories was copied and their specific research architectures were not reproduced.
 
-* A modern, CPU-friendly pipeline using off-the-shelf pretrained
-  models (Wav2Vec2, faster-whisper, RoBERTa) rather than a
-  research-grade custom architecture.
-* Conversation-level analysis (trend + escalation) built on top of
-  segment-level fusion, rather than single-clip classification.
-* A transparent, weighted, rule-based fusion layer — every fusion
-  decision can be explained in plain English (see
-  [Fusion Rule](#-fusion-rule-plain-english)), with no hidden
-  learned-fusion step.
-* A working interactive dashboard suitable for a live demo, built
-  entirely from real pipeline outputs — no hardcoded or fabricated
-  demo data anywhere in the display layer.
+This project does not claim to reproduce or outperform those research systems.
+
+---
+
+## 🆕 What Is Different About This Implementation?
+
+This project does not claim a novel algorithm or improved accuracy over existing research.
+
+Instead, it demonstrates practical end-to-end system integration:
+
+- A modern CPU-friendly pipeline using pretrained Wav2Vec2, faster-whisper, and RoBERTa models.
+- Independent voice-emotion and text-sentiment analysis.
+- Segment-level multimodal fusion.
+- Conversation-level emotional trend analysis.
+- Rule-based emotional escalation detection.
+- Transparent weighted fusion where decisions can be explained in plain English.
+- A working interactive Streamlit dashboard.
+- Real pipeline outputs displayed in the dashboard rather than hardcoded or fabricated demonstration data.
+- Automated tests covering the main functional components.
 
 ---
 
 ## 🔮 Future Enhancements
 
-* Full speaker diarization for genuine speaker-wise analysis.
-* Dashboard UI/UX polish: improved visual design, dedicated
-  emotion/sentiment charts, better segment visualization, and
-  clearer loading/error states (tracked as the next project phase).
-* Configurable/adjustable fusion weights exposed directly in the
-  dashboard, rather than only in `config.py`.
-* Automated regression testing against a small, deliberately curated
-  set of sample recordings with agreed-upon expected labels.
+Possible future improvements include:
+
+- Full production-ready speaker diarization and speaker-wise emotion analysis.
+- More advanced speaker-level conversation analytics.
+- Configurable fusion weights directly from the dashboard.
+- Additional emotion categories.
+- Better visualization of emotion and sentiment changes.
+- Automated regression testing using a curated labeled audio dataset.
+- Performance optimization for longer recordings.
+- GPU acceleration where available.
+- Improved multilingual speech and sentiment support.
+- Further dashboard refinements based on demonstration and user feedback.
 
 ---
 
 ## 🗺️ Project Progress
 
-| Milestone                          | Status         |
-| ----------------------------------- | -------------- |
-| Project Setup & Audio Verification  | ✅ Complete     |
-| Audio Processing                    | ✅ Complete     |
-| Voice Emotion Analysis              | ✅ Complete     |
-| Speech-to-Text                      | ✅ Complete     |
-| Text Sentiment Analysis             | ✅ Complete     |
-| Multimodal Fusion                   | ✅ Complete     |
-| Conversation Analysis               | ✅ Complete     |
-| Streamlit Dashboard                 | ✅ Complete     |
-| Testing & Documentation             | ✅ Complete     |
+| Milestone | Status |
+|---|---|
+| Project Setup & Audio Verification | ✅ Complete |
+| Audio Processing | ✅ Complete |
+| Voice Emotion Analysis | ✅ Complete |
+| Speech-to-Text | ✅ Complete |
+| Text Sentiment Analysis | ✅ Complete |
+| Multimodal Fusion | ✅ Complete |
+| Conversation Analysis | ✅ Complete |
+| Streamlit Dashboard | ✅ Complete |
+| Testing & Documentation | ✅ Complete |
 
-See [`PROGRESS.md`](PROGRESS.md) for detailed development history and
-[`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the full requirements this
-project is built against.
+See [`PROGRESS.md`](PROGRESS.md) for the detailed development history and [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the complete project requirements and design specification.
 
 ---
 
-## 👤 Team / Project Info
+## 👤 Team / Project Information
 
-**B.Tech 3rd-year mini project**
+**B.Tech 3rd-Year Mini Project**
 
 | Name | Roll Number |
-|------|--------------|
+|---|---|
 | Sahithi | 1608-24-737-27 |
 | Akshitha | 1608-24-737-57 |
 | Rahul | 1608-24-737-23 |
 
-**Guide:** Mrs.K.Mounika
+**Internal Guide:** Mrs. K. Mounika
 
 ---
 
 ## 📌 Current Status
 
-**Functional multimodal emotion analysis pipeline: COMPLETE**
+**Multimodal Voice & Conversation Emotion Analysis System**
 
-**Functional Streamlit dashboard: COMPLETE**
+- ✅ Functional multimodal emotion-analysis pipeline — **COMPLETE**
+- ✅ Functional Streamlit dashboard — **COMPLETE**
+- ✅ UI/UX enhancement phase — **COMPLETE**
+- ✅ Automated test suite — **57/57 tests passing**
+- ✅ Project documentation — **COMPLETE**
+- ✅ Git stable milestone — **v1.0-functional**
 
-**Automated tests: 19/19 passing**, covering all required categories
-from the project spec (audio validation, feature extraction,
-sentiment analysis, fusion logic, mismatch detection, escalation
-detection)
-
-**Final UI/UX enhancement: NEXT PHASE**
+The current implementation is suitable for functional demonstration, testing, and academic evaluation.

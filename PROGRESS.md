@@ -10,6 +10,7 @@ A multimodal system that analyzes spoken conversations using:
 - Text sentiment analysis
 - Multimodal fusion
 - Conversation-level emotional analysis
+- Speaker diarization support
 - Streamlit dashboard visualization
 
 ---
@@ -62,19 +63,19 @@ faster-whisper workflow.
 
 ### Features
 
-- Audio file validation
-- Supported-format checking
-- Corrupted-file detection
-- Empty-file detection
-- Mono conversion
-- 16 kHz resampling
-- Peak normalization
-- Duration validation
-- MFCC extraction
-- RMS energy
-- Pitch/F0
-- Zero-crossing rate
-- Spectral centroid
+- Audio file validation.
+- Supported-format checking.
+- Corrupted-file detection.
+- Empty-file detection.
+- Mono conversion.
+- 16 kHz resampling.
+- Peak normalization.
+- Duration validation.
+- MFCC extraction.
+- RMS energy extraction.
+- Pitch/F0 extraction.
+- Zero-crossing rate extraction.
+- Spectral centroid extraction.
 
 ### Error Handling
 
@@ -85,13 +86,13 @@ Implemented:
 
 ### Verification
 
-Audio processing tests successfully cover:
+Audio processing tests cover:
 
-- Valid audio
-- Unsupported formats
-- Corrupted files
-- Empty files
-- Audio feature extraction
+- Valid audio.
+- Unsupported formats.
+- Corrupted files.
+- Empty files.
+- Audio feature extraction.
 
 ---
 
@@ -112,11 +113,11 @@ Audio processing tests successfully cover:
 
 Implemented Wav2Vec2-based voice emotion analysis with:
 
-- Full-audio emotion prediction
-- Segment-level emotion prediction
-- Emotion probability scores
-- Prediction confidence
-- Timestamp-aware segment analysis
+- Full-audio emotion prediction.
+- Segment-level emotion prediction.
+- Emotion probability scores.
+- Prediction confidence.
+- Timestamp-aware segment analysis.
 
 ### Verification
 
@@ -124,22 +125,25 @@ Successfully analyzed:
 
 `sample_audio/real_voice.wav`
 
-The model successfully returned an emotion prediction and confidence
-scores.
+The model returned an emotion prediction and confidence scores.
+
+The sample audio was predicted as **sad** with high confidence.
 
 Segment-level emotion analysis was also verified successfully.
 
 ### Important Model Limitation
 
-The current voice emotion model is a pretrained general-purpose model.
+The current voice-emotion model is a pretrained general-purpose model.
+
 Predictions can vary with:
 
-- Speaker characteristics
-- Voice pitch
-- Speaking style
-- Recording conditions
-- Microphone quality
-- Emotional intensity
+- Speaker characteristics.
+- Voice pitch.
+- Speaking style.
+- Recording conditions.
+- Microphone quality.
+- Background noise.
+- Emotional intensity.
 
 Therefore, individual voice-emotion predictions should be interpreted
 as model estimates rather than ground-truth human labels.
@@ -150,16 +154,23 @@ as model estimates rather than ground-truth human labels.
 
 ### Model
 
-faster-whisper `base`
+`faster-whisper` using the `base` model.
+
+### Configuration
+
+- CPU inference.
+- INT8 computation.
+- Automatic language detection.
 
 ### Implementation
 
 Added speech-to-text processing with:
 
-- Automatic language detection
-- Language probability
-- Full transcript generation
-- Timestamped transcript segments
+- Automatic language detection.
+- Language probability.
+- Full transcript generation.
+- Timestamped transcript segments.
+- Voice-activity filtering.
 
 ### Verification
 
@@ -167,8 +178,16 @@ Successfully transcribed:
 
 `sample_audio/real_voice.wav`
 
-The system successfully detected English and generated timestamped
-conversation segments.
+The system detected English and generated timestamped transcript
+segments covering the recorded speech.
+
+### Known Limitation
+
+There is no automated correctness test for arbitrary speech-to-text
+transcription because arbitrary uploaded recordings do not have a fixed
+ground-truth transcript.
+
+Transcription quality is therefore verified manually during testing.
 
 ---
 
@@ -188,16 +207,22 @@ conversation segments.
 
 Added sentiment analysis for transcript segments.
 
-Each segment returns:
+Each prediction returns:
 
-- Sentiment label
-- Sentiment confidence
-- Sentiment scores
+- Sentiment label.
+- Sentiment confidence.
+- Complete sentiment score distribution.
+
+### Fallback
+
+A fallback sentiment model is available:
+
+`distilbert-base-uncased-finetuned-sst-2-english`
 
 ### Verification
 
-Successfully generated sentiment predictions and confidence scores for
-the tested transcript segments.
+Successfully generated sentiment predictions and confidence scores
+for tested transcript segments.
 
 ---
 
@@ -207,8 +232,8 @@ the tested transcript segments.
 
 Combined:
 
-- Voice emotion
-- Text sentiment
+- Voice emotion.
+- Text sentiment.
 
 using configurable fusion weights.
 
@@ -219,23 +244,34 @@ using configurable fusion weights.
 
 ### Features
 
-- Voice/text agreement detection
-- Voice/text mismatch detection
-- Combined confidence
-- Emotional direction
-- Multimodal interpretation
-- Segment-level fusion
+- Voice/text agreement detection.
+- Voice/text mismatch detection.
+- Weak disagreement handling.
+- Combined confidence.
+- Emotional direction.
+- Multimodal interpretation.
+- Segment-level fusion.
 
 ### Verification
 
 Tested:
 
-- Agreement scenarios
-- Deliberate mismatch scenarios
-- Neutral agreement scenarios
+- Agreement scenarios.
+- High-confidence mismatch scenarios.
+- Neutral agreement scenarios.
+- Low-confidence disagreement handling.
 
 The fusion pipeline correctly identifies agreement and disagreement
-between the two modalities.
+between the two modalities according to the configured rules.
+
+### Design Principle
+
+The fusion logic is intentionally rule-based and explainable.
+
+The system does not use a black-box learned fusion model.
+
+The system also does not interpret a voice/text mismatch as proof of
+deception, dishonesty, or hidden intent.
 
 ---
 
@@ -249,44 +285,98 @@ Added:
 
 ### Features
 
-- Timestamped conversation segmentation
-- Segment-level voice emotion
-- Segment-level text sentiment
-- Segment-level multimodal fusion
-- Emotional intensity calculation
-- Emotional trend detection
-- Escalation analysis
-- Full conversation transcript
-- Language detection
-- Language confidence
+- Timestamped conversation segmentation.
+- Segment-level voice emotion.
+- Segment-level text sentiment.
+- Segment-level multimodal fusion.
+- Emotional intensity calculation.
+- Emotional trend detection.
+- Escalation analysis.
+- Full conversation transcript.
+- Language detection.
+- Language confidence.
+- Segment-level analysis results.
 
-### Verification
+### Emotional Trend Detection
 
-Successfully analyzed multiple sample conversations with multiple
-timestamped segments.
+The system identifies an overall emotional trend as:
 
-The system successfully produces:
-
-- Conversation transcript
-- Segment timestamps
-- Voice emotion
-- Text sentiment
-- Fusion results
-- Emotional intensity
-- Overall emotional trend
-- Escalation status
+- Increasing.
+- Decreasing.
+- Stable.
 
 ### Escalation Detection
 
 Escalation analysis requires sufficient segment data.
 
-For conversations containing fewer than three usable segments,
-escalation detection is not considered reliable and the system reports
-that additional segments are required.
+The implementation:
+
+- Requires at least three usable segments.
+- Requires continuously increasing intensity across consecutive
+  segments.
+- Requires a total intensity increase of at least `0.20`.
+- Reports insufficient data when fewer than three usable segments are
+  available.
+
+### Verification
+
+Conversation-analysis functionality was verified through automated
+tests and end-to-end dashboard analysis.
+
+The system successfully produces:
+
+- Conversation transcript.
+- Segment timestamps.
+- Voice emotion.
+- Text sentiment.
+- Fusion results.
+- Emotional intensity.
+- Overall emotional trend.
+- Escalation status.
 
 ---
 
-## Milestone 8: Streamlit Dashboard — COMPLETED
+## Milestone 8: Speaker Diarization Support — COMPLETED
+
+### Implementation
+
+Added:
+
+`app/diarization.py`
+
+### Tests
+
+Added:
+
+`tests/test_diarization.py`
+
+### Purpose
+
+The diarization module provides architectural support for identifying
+different speakers within an audio conversation.
+
+### Design Decision
+
+The system does not fabricate speaker identities when reliable
+diarization information is unavailable.
+
+Speaker-wise emotion and conversation analysis therefore remain
+dependent on obtaining reliable speaker labels.
+
+### Current Status
+
+- Diarization module implemented.
+- Diarization tests implemented.
+- Speaker-aware architecture prepared.
+- Full production-ready speaker-wise conversation analysis remains a
+  future enhancement.
+
+This distinction is intentionally documented so that the project does
+not claim functionality that cannot be reliably demonstrated.
+
+---
+
+## Milestone 9: Streamlit Dashboard — COMPLETED
 
 ### Implementation
 
@@ -296,29 +386,52 @@ Added:
 
 ### Dashboard Capabilities
 
-The functional dashboard supports:
+The dashboard supports:
 
-- Audio upload
-- Audio playback
-- End-to-end analysis
-- Full transcript display
-- Language detection
-- Language confidence
-- Audio duration
-- Segment count
-- Emotional trend
-- Intensity change
-- Escalation status
-- Timestamped conversation segments
-- Voice emotion
-- Voice confidence
-- Text sentiment
-- Sentiment confidence
-- Fusion confidence
-- Emotional intensity
-- Voice/text agreement
-- Voice/text mismatch
-- Multimodal interpretation
+- Audio upload.
+- Audio playback.
+- End-to-end analysis.
+- Reset functionality.
+- Cached model loading.
+- Full transcript display.
+- Language detection.
+- Language confidence.
+- Audio duration.
+- Segment count.
+- Emotional trend.
+- Intensity change.
+- Escalation status.
+- Timestamped conversation segments.
+- Voice emotion.
+- Voice emotion confidence.
+- Text sentiment.
+- Text sentiment confidence.
+- Fusion confidence.
+- Emotional intensity.
+- Voice/text agreement.
+- Voice/text mismatch.
+- Multimodal interpretation.
+- Segment-level expandable analysis.
+- Exportable analysis results.
+- Graceful error handling.
+
+### UI/UX Enhancement
+
+The dashboard was refined into a technical, structured interface with:
+
+- Clear project branding.
+- Pipeline/workflow visualization.
+- Dark technical dashboard design.
+- Organized result sections.
+- Modality-specific result cards.
+- Fusion explanation.
+- Conversation-dynamics visualization.
+- Emotional intensity chart.
+- Segment-level analysis cards.
+- Audio playback area.
+- Export controls.
+- Reset controls.
+- Responsive Streamlit layout.
 
 ### Dashboard Verification
 
@@ -326,65 +439,217 @@ The dashboard was successfully launched using:
 
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.fileWatcherType none
-```
 
----
+The dashboard was manually verified using the project sample audio and
+confirmed to display real pipeline outputs.
 
-## Milestone 9: Testing & Documentation — COMPLETED
+No fabricated demonstration results are used.
 
-### Built
+Milestone 10: Testing & Documentation — COMPLETED
+Automated Test Suite
 
-- `tests/test_audio_processor.py` (pre-existing) — 5 tests covering
-  valid audio loading, unsupported format rejection, corrupted file
-  handling, empty file handling, and acoustic feature extraction.
-- `tests/test_fusion.py` (pre-existing) — 3 tests covering
-  voice/text agreement, high-confidence mismatch, and neutral
-  agreement.
-- `tests/test_conversation_analysis.py` (pre-existing) — 6 tests
-  covering emotional trend detection (increasing/decreasing/stable)
-  and escalation detection (fires, doesn't fire, insufficient
-  segments).
-- `tests/test_sentiment_analyzer.py` (new) — 5 tests covering
-  positive, negative, and neutral text classification, empty-text
-  rejection, and score-dictionary integrity (scores sum to 1.0,
-  reported label matches the highest-scoring class).
+The project currently contains tests covering the major functional
+components of the system.
 
-### Coverage Against Spec (Section 16)
+Test coverage includes:
 
-All six required test categories are now covered: audio validation,
-feature extraction, sentiment analysis, fusion logic, mismatch
-detection, and escalation detection.
+Audio setup.
+Audio preprocessing.
+Audio validation.
+Acoustic feature extraction.
+Multimodal fusion.
+Agreement detection.
+High-confidence mismatch detection.
+Neutral agreement.
+Conversation trend detection.
+Escalation detection.
+Insufficient-segment handling.
+Sentiment analysis.
+Sentiment score integrity.
+Diarization module behavior.
+Test Files
 
-### Known Limitation
+The current test suite includes:
 
-There is no automated correctness test for `speech_to_text.py`
-transcription output. Whisper's output has no fixed ground truth to
-assert against for arbitrary audio, so transcription is verified
-manually (see Milestone 4) rather than via an automated pytest case.
-This is a documented limitation, not a gap that was silently skipped.
+tests/test_audio_setup.py
+tests/test_audio_processor.py
+tests/test_fusion.py
+tests/test_conversation_analysis.py
+tests/test_sentiment_analyzer.py
+tests/test_diarization.py
+Current Verification
 
-### Verification
+Full automated test suite:
 
-Full test suite run confirmed on the project machine:
+57 passed
+0 failed
 
-```text
-19 passed, 4 warnings in 50.58s
-```
+Latest recorded test execution:
 
-All warnings are third-party deprecation notices (`audioread`'s use of
-`aifc`/`audioop`/`sunau`, and a `transformers` tokenizer BPE-init
-deprecation) — not test failures, and not code this project owns.
+57 passed, 4 warnings in 131.25s
 
-README.md test count and documentation, previously stale, were
-updated to match the actual suite (19 tests across 4 files). Final
-README content (Section 17 checklist) is complete, including team
-info.
+The warnings are third-party dependency deprecation warnings and do not
+represent test failures.
 
-### Open Issues
+Speech-to-Text Testing Limitation
 
-- None outstanding for this milestone. Speech-to-text still has no
-  automated correctness test — documented as a known limitation
-  rather than an open issue, since it's not solvable without a fixed
-  ground-truth transcript.
+There is no automated correctness test for arbitrary
+speech_to_text.py transcription output.
 
----
+Whisper transcription does not have a fixed expected output for
+arbitrary audio files without a ground-truth transcript.
+
+Therefore, speech-to-text functionality is verified through manual
+testing using sample audio rather than through a fixed transcript
+assertion.
+
+This is documented as a testing limitation rather than an unresolved
+software defect.
+
+Current Project Status
+
+The complete functional pipeline is now implemented:
+
+Audio Input
+    ↓
+Audio Processing
+    ↓
+Voice Emotion Analysis
+    ↓
+Speech-to-Text
+    ↓
+Text Sentiment Analysis
+    ↓
+Multimodal Fusion
+    ↓
+Conversation Analysis
+    ↓
+Streamlit Dashboard
+
+Supporting speaker-diarization architecture and tests are also
+included.
+
+Completed Components
+Component	Status
+Project Setup	✅ Complete
+Audio Processing	✅ Complete
+Voice Emotion Analysis	✅ Complete
+Speech-to-Text	✅ Complete
+Text Sentiment Analysis	✅ Complete
+Multimodal Fusion	✅ Complete
+Conversation Analysis	✅ Complete
+Speaker Diarization Support	✅ Complete
+Streamlit Dashboard	✅ Complete
+UI/UX Enhancement	✅ Complete
+Automated Testing	✅ Complete
+Documentation	✅ Complete
+Validation Summary
+
+The current implementation has been validated through:
+
+Automated unit and integration tests.
+Sample-audio processing.
+Voice-emotion model inference.
+Speech-to-text inference.
+Sentiment analysis.
+Multimodal fusion scenarios.
+Conversation trend analysis.
+Escalation detection.
+Diarization module tests.
+Manual Streamlit dashboard verification.
+
+Latest automated test result:
+
+57 passed, 0 failed
+Known Limitations
+
+The project is functional but still has several limitations that are
+important for academic evaluation.
+
+1. Voice Emotion Accuracy
+
+The pretrained voice-emotion model is not specifically trained on this
+project's dataset.
+
+Therefore, predictions are model estimates and may be affected by
+speaker characteristics and recording conditions.
+
+2. Speech-to-Text Ground Truth
+
+Arbitrary uploaded audio does not have a predefined transcript, so
+automated transcription accuracy cannot be verified without a
+ground-truth dataset.
+
+3. Speaker-Wise Analysis
+
+Diarization support is present, but complete production-ready
+speaker-wise emotion analysis is not claimed as fully implemented.
+
+4. CPU Performance
+
+The system is designed to operate on CPU so that it can be demonstrated
+on a normal laptop.
+
+Longer recordings may therefore require additional processing time.
+
+5. Multimodal Fusion
+
+The fusion method is intentionally rule-based and transparent rather
+than learned from a large multimodal training dataset.
+
+Therefore, it should be considered an explainable integration method,
+not a newly trained multimodal emotion-recognition model.
+
+Future Development
+
+Possible future enhancements include:
+
+Full production-ready speaker diarization.
+Complete speaker-wise emotion analysis.
+More advanced speaker-level conversation analytics.
+Configurable fusion weights through the dashboard.
+Additional emotion categories.
+Improved emotional visualization.
+Automated regression testing using a curated labeled dataset.
+Performance optimization for longer recordings.
+GPU acceleration.
+Improved multilingual speech and sentiment support.
+Additional dashboard refinements.
+Documentation Status
+
+The following project documentation is maintained:
+
+README.md — Project overview, architecture, setup, usage,
+limitations, and current status.
+PROJECT_SPEC.md — Project requirements, technical decisions,
+models, and design specification.
+PROGRESS.md — Development milestones and implementation history.
+Git Milestone
+
+The functional milestone has been tagged as:
+
+v1.0-functional
+
+The project also contains the completed UI/UX enhancement work and the
+latest automated test suite.
+
+Final Status
+
+Multimodal Voice & Conversation Emotion Analysis System
+
+✅ Core project setup complete.
+✅ Audio processing complete.
+✅ Voice emotion analysis complete.
+✅ Speech-to-text complete.
+✅ Text sentiment analysis complete.
+✅ Multimodal fusion complete.
+✅ Conversation analysis complete.
+✅ Speaker diarization support complete.
+✅ Streamlit dashboard complete.
+✅ UI/UX enhancement complete.
+✅ Automated testing complete.
+✅ Documentation complete.
+✅ 57/57 automated tests passing.
+
+The project is currently suitable for functional demonstration,
+testing, documentation review, and academic evaluation.

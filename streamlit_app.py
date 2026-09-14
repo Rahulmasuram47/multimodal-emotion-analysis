@@ -35,6 +35,12 @@ from app.recommendation_engine import (
     ActionableRecommendation,
     MANDATORY_RECOMMENDATION_DISCLAIMER,
 )
+from app.microphone import (
+    is_microphone_available,
+    FALLBACK_MICROPHONE_MESSAGE,
+    save_audio_buffer,
+)
+
 
 
 # =========================================================
@@ -1329,37 +1335,90 @@ st.markdown(
 upload_col, action_col = st.columns([3, 1])
 
 with upload_col:
-    uploaded_file = st.file_uploader(
-        "Upload audio recording for multimodal analysis",
-        type=["wav", "flac", "mp3", "ogg", "m4a"],
-        help="Upload spoken audio or conversational recording. WAV format (16kHz) is recommended for highest acoustic fidelity.",
-        label_visibility="collapsed",
-    )
+    tab_upload, tab_mic = st.tabs(["Upload Audio", "Record from Microphone"])
+    with tab_upload:
+        uploaded_file = st.file_uploader(
+            "Upload audio recording for multimodal analysis",
+            type=["wav", "flac", "mp3", "ogg", "m4a"],
+            help="Upload spoken audio or conversational recording. WAV format (16kHz) is recommended for highest acoustic fidelity.",
+            label_visibility="collapsed",
+            key="audio_file_uploader",
+        )
+    with tab_mic:
+        if is_microphone_available():
+            try:
+                recorded_audio = st.audio_input(
+                    "Record audio from microphone for multimodal analysis",
+                    label_visibility="collapsed",
+                    key="audio_mic_recorder",
+                )
+                if recorded_audio is not None:
+                    st.caption("Microphone recording ready for multimodal analysis.")
+            except Exception:
+                st.warning(FALLBACK_MICROPHONE_MESSAGE)
+                recorded_audio = None
+        else:
+            st.warning(FALLBACK_MICROPHONE_MESSAGE)
+            recorded_audio = None
+
+# Determine active audio source
+active_audio = None
+audio_source_label = ""
+
+if recorded_audio is not None and uploaded_file is not None:
+    rec_bytes = recorded_audio.getvalue()
+    up_bytes = uploaded_file.getvalue()
+    if st.session_state.get("_last_rec_bytes") != rec_bytes:
+        st.session_state["_last_rec_bytes"] = rec_bytes
+        st.session_state["_last_active_source"] = "mic"
+    elif st.session_state.get("_last_up_bytes") != up_bytes:
+        st.session_state["_last_up_bytes"] = up_bytes
+        st.session_state["_last_active_source"] = "upload"
+
+    if st.session_state.get("_last_active_source") == "mic":
+        active_audio = recorded_audio
+        audio_source_label = "Microphone Recording"
+    else:
+        active_audio = uploaded_file
+        audio_source_label = "Uploaded Audio File"
+elif recorded_audio is not None:
+    active_audio = recorded_audio
+    audio_source_label = "Microphone Recording"
+    st.session_state["_last_rec_bytes"] = recorded_audio.getvalue()
+    st.session_state["_last_active_source"] = "mic"
+elif uploaded_file is not None:
+    active_audio = uploaded_file
+    audio_source_label = "Uploaded Audio File"
+    st.session_state["_last_up_bytes"] = uploaded_file.getvalue()
+    st.session_state["_last_active_source"] = "upload"
 
 with action_col:
     st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
     analyze_clicked = st.button(
         "ANALYZE AUDIO ▶",
         type="primary",
-        disabled=uploaded_file is None,
+        disabled=active_audio is None,
     )
 
     reset_clicked = st.button("NEW ANALYSIS ↻", use_container_width=True)
     if reset_clicked:
         st.rerun()
 
-    if uploaded_file is not None:
-        file_size_mb = uploaded_file.size / (1024 * 1024)
-        file_ext = Path(uploaded_file.name).suffix.upper().replace(".", "")
+    if active_audio is not None:
+        file_size_mb = active_audio.size / (1024 * 1024)
+        audio_filename = getattr(active_audio, "name", "microphone_recording.wav") or "microphone_recording.wav"
+        file_ext = Path(audio_filename).suffix.upper().replace(".", "") or "WAV"
         st.markdown(
             f"""
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.4;">
-                <div>FILE: <strong style="color: var(--text);">{html.escape(uploaded_file.name)}</strong></div>
+                <div>SOURCE: <strong style="color: var(--voice);">{html.escape(audio_source_label)}</strong></div>
+                <div>FILE: <strong style="color: var(--text);">{html.escape(audio_filename)}</strong></div>
                 <div>SIZE: <strong style="color: var(--text);">{file_size_mb:.2f} MB</strong> · FORMAT: <strong style="color: var(--voice);">{file_ext}</strong></div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
 
 
 
@@ -2945,8 +3004,14 @@ def display_results(result: Dict[str, Any], audio_bytes: bytes = None, audio_for
 
 result = None
 
-if uploaded_file is not None:
-    current_file_id = getattr(uploaded_file, "file_id", uploaded_file.name)
+if active_audio is not None:
+    audio_id_seed = getattr(active_audio, "file_id", getattr(active_audio, "name", "audio_input"))
+    try:
+        content_hash = hashlib.md5(active_audio.getvalue()).hexdigest()[:10]
+        current_file_id = f"{audio_id_seed}_{content_hash}"
+    except Exception:
+        current_file_id = str(audio_id_seed)
+
     if st.session_state.get("active_file_id") != current_file_id:
         st.session_state["active_file_id"] = current_file_id
         st.session_state["analysis_result"] = None
@@ -2954,13 +3019,14 @@ if uploaded_file is not None:
         st.session_state["audio_format"] = None
         st.session_state["seek_time"] = None
 
-if analyze_clicked and uploaded_file is not None:
-    suffix = Path(uploaded_file.name).suffix or ".wav"
+if analyze_clicked and active_audio is not None:
+    audio_name = getattr(active_audio, "name", "recording.wav") or "recording.wav"
+    suffix = Path(audio_name).suffix or ".wav"
     temp_path = None
 
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_audio:
-            temp_audio.write(uploaded_file.getbuffer())
+            temp_audio.write(active_audio.getbuffer())
             temp_path = temp_audio.name
 
         with st.status("Executing Multimodal Analysis Pipeline...", expanded=True) as status_box:
@@ -2989,8 +3055,8 @@ if analyze_clicked and uploaded_file is not None:
         st.toast("Pipeline execution completed successfully.", icon="✅")
 
         st.session_state["analysis_result"] = result
-        st.session_state["audio_bytes"] = uploaded_file.getvalue()
-        st.session_state["audio_format"] = uploaded_file.type or "audio/wav"
+        st.session_state["audio_bytes"] = active_audio.getvalue()
+        st.session_state["audio_format"] = getattr(active_audio, "type", None) or "audio/wav"
         st.session_state["seek_time"] = None
 
     except Exception as exc:
@@ -3004,17 +3070,18 @@ if analyze_clicked and uploaded_file is not None:
             except OSError:
                 pass
 
-if st.session_state.get("analysis_result") is not None and uploaded_file is not None:
+if st.session_state.get("analysis_result") is not None and active_audio is not None:
     result = st.session_state["analysis_result"]
-    audio_bytes = st.session_state.get("audio_bytes", uploaded_file.getvalue())
-    audio_format = st.session_state.get("audio_format", uploaded_file.type or "audio/wav")
+    audio_bytes = st.session_state.get("audio_bytes", active_audio.getvalue())
+    audio_format = st.session_state.get("audio_format", getattr(active_audio, "type", None) or "audio/wav")
     display_results(
         result=result,
         audio_bytes=audio_bytes,
         audio_format=audio_format,
     )
 
-elif uploaded_file is None:
+elif active_audio is None:
+
     # Polished Empty State
     st.markdown(
         """

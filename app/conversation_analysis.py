@@ -13,9 +13,12 @@ Also provides:
 - Emotional escalation detection
 - Segment-level emotional intensity
 - Speaker diarization (Speaker A / Speaker B labels)
+- Modality consistency trajectory (voice vs. text direction agreement)
+- Explainable review-priority attention score (heuristic only)
 """
 
 import logging
+import time
 from typing import Any, Callable, Dict, List, Optional
 
 from app.audio_processor import load_and_preprocess_audio
@@ -24,6 +27,12 @@ from app.speech_to_text import SpeechToText
 from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.diarization import SpeakerDiarizer
+from app.consistency_analysis import (
+    compute_consistency_trajectory,
+    compute_attention_score,
+)
+from app.incongruence_analysis import analyze_conversation_incongruence
+from app.recommendation_engine import generate_recommendation
 
 logger = logging.getLogger(__name__)
 
@@ -497,6 +506,8 @@ class ConversationAnalyzer:
             audio_path
         )
 
+        t_total_start = time.perf_counter()
+
         # -----------------------------------------------------
         # Load audio once
         # -----------------------------------------------------
@@ -505,11 +516,13 @@ class ConversationAnalyzer:
             progress_callback, "Loading audio", 0, 1
         )
 
+        t_load_start = time.perf_counter()
         audio, sr, duration = (
             load_and_preprocess_audio(
                 audio_path
             )
         )
+        t_load_elapsed = time.perf_counter() - t_load_start
 
         if duration is None or duration <= 0 or audio is None or len(audio) == 0:
             raise ValueError(
@@ -524,11 +537,13 @@ class ConversationAnalyzer:
             progress_callback, "Transcribing speech", 0, 1
         )
 
+        t_transcribe_start = time.perf_counter()
         transcription = (
             self.speech_to_text.transcribe(
                 audio_path
             )
         )
+        t_transcribe_elapsed = time.perf_counter() - t_transcribe_start
 
         raw_segments = transcription.get(
             "segments",
@@ -547,6 +562,7 @@ class ConversationAnalyzer:
         # Analyze each transcript segment
         # -----------------------------------------------------
 
+        t_segments_start = time.perf_counter()
         for index, raw_segment in enumerate(raw_segments):
 
             self._report_progress(
@@ -562,6 +578,7 @@ class ConversationAnalyzer:
 
             if segment_result is not None:
                 analyzed_segments.append(segment_result)
+        t_segments_elapsed = time.perf_counter() - t_segments_start
 
         if not analyzed_segments:
             raise ValueError(
@@ -576,9 +593,11 @@ class ConversationAnalyzer:
             progress_callback, "Identifying speakers", 0, 1
         )
 
+        t_diarize_start = time.perf_counter()
         analyzed_segments, diarization_error = self._apply_diarization(
             audio_path, analyzed_segments
         )
+        t_diarize_elapsed = time.perf_counter() - t_diarize_start
 
         # -----------------------------------------------------
         # Emotional trend
@@ -588,6 +607,7 @@ class ConversationAnalyzer:
             progress_callback, "Computing emotional trend", 0, 1
         )
 
+        t_analytics_start = time.perf_counter()
         trend_result = (
             self.detect_emotional_trend(
                 analyzed_segments
@@ -605,7 +625,50 @@ class ConversationAnalyzer:
         )
 
         # -----------------------------------------------------
-        # Final result
+        # Modality consistency trajectory
+        # -----------------------------------------------------
+
+        self._report_progress(
+            progress_callback, "Computing consistency trajectory", 0, 1
+        )
+
+        consistency_trajectory = compute_consistency_trajectory(
+            analyzed_segments
+        )
+
+        # -----------------------------------------------------
+        # Review-priority attention score (heuristic only)
+        # -----------------------------------------------------
+
+        attention_score = compute_attention_score(
+            segments=analyzed_segments,
+            escalation_result=escalation_result,
+            trajectory=consistency_trajectory,
+        )
+
+        # -----------------------------------------------------
+        # Modality incongruence & conflict analysis
+        # -----------------------------------------------------
+
+        incongruence_result = analyze_conversation_incongruence(
+            analyzed_segments
+        )
+        t_analytics_elapsed = time.perf_counter() - t_analytics_start
+
+        t_total_elapsed = time.perf_counter() - t_total_start
+
+        # Timing breakdown in seconds
+        processing_time = {
+            "audio_preprocessing_seconds": round(t_load_elapsed, 3),
+            "transcription_whisper_seconds": round(t_transcribe_elapsed, 3),
+            "segment_emotion_sentiment_fusion_seconds": round(t_segments_elapsed, 3),
+            "speaker_diarization_seconds": round(t_diarize_elapsed, 3),
+            "analytics_and_trajectory_seconds": round(t_analytics_elapsed, 3),
+            "total_processing_seconds": round(t_total_elapsed, 3),
+        }
+
+        # -----------------------------------------------------
+        # Final result assembly & recommendation
         # -----------------------------------------------------
 
         result = {
@@ -638,18 +701,31 @@ class ConversationAnalyzer:
 
             "escalation": escalation_result,
 
+            "consistency_trajectory": consistency_trajectory.to_dict(),
+
+            "attention_score": attention_score.to_dict(),
+
+            "modality_incongruence": incongruence_result,
+
+            "processing_time": processing_time,
+
             "skipped_segments": total - len(analyzed_segments),
             "diarization_error": diarization_error,
         }
+
+        # Synthesize actionable recommendation
+        recommendation = generate_recommendation(result)
+        result["recommendation"] = recommendation.to_dict()
 
         self._report_progress(
             progress_callback, "Done", total, total
         )
 
         logger.info(
-            "Conversation analysis completed: %d/%d segments analyzed",
+            "Conversation analysis completed: %d/%d segments analyzed in %.2fs",
             len(analyzed_segments),
             total,
+            t_total_elapsed,
         )
 
         return result

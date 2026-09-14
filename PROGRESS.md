@@ -653,3 +653,223 @@ Multimodal Voice & Conversation Emotion Analysis System
 
 The project is currently suitable for functional demonstration,
 testing, documentation review, and academic evaluation.
+
+---
+
+## Phase 2: Modality Consistency Trajectory & Explainable Attention Score — COMPLETED
+
+### Implementation
+
+#### TASK 1 — Modality Consistency Trajectory
+
+Added: `app/consistency_analysis.py`
+
+The module tracks the relationship between voice emotion and text
+sentiment across conversation segments using the project's existing
+emotional-direction mapping (positive / negative / neutral).
+
+**Segment-level classifications:**
+
+- `agreement` — both modalities point in the same emotional direction.
+- `divergence` (mismatch/divergence) — high-confidence disagreement
+  between voice and text directions.
+- `low_confidence` (insufficient data) — at least one modality lacks
+  sufficient confidence to classify the relationship conclusively.
+
+**Conversation-level trajectory:**
+
+- `mostly_consistent`  — agreement_rate ≥ 0.70
+- `mostly_divergent`   — agreement_rate < 0.30
+- `mixed`              — 0.30 ≤ agreement_rate < 0.70
+- `insufficient_data`  — fewer than 2 usable segments
+
+**Wording rules (strictly enforced):**
+
+- This analysis NEVER implies that either modality represents a
+  person's true or actual internal emotional state.
+- It is NOT lie detection, truth detection, or concealment detection.
+- "Agreement" and "divergence" refer only to whether the two
+  computational signals point in the same direction — nothing more.
+
+#### TASK 2 — Review-Priority Attention Score
+
+**Formula (explicitly documented):**
+
+```
+attention_score = W_MISMATCH   × mismatch_rate
+               + W_INTENSITY  × average_intensity
+               + W_ESCALATION × escalation_indicator
+```
+
+**Default weights (heuristic; NOT scientifically validated):**
+
+| Weight       | Default | Component                  |
+|--------------|---------|----------------------------|
+| W_MISMATCH   | 0.40    | Fraction of mismatch segs  |
+| W_INTENSITY  | 0.35    | Mean emotional intensity   |
+| W_ESCALATION | 0.25    | 1.0 if escalation detected |
+
+Scores are clamped to [0.0, 1.0].  Each component is non-negative.
+
+**This score is a COMPUTATIONAL REVIEW-PRIORITY HEURISTIC ONLY.**
+It is NOT:
+- a risk score
+- a danger score
+- a distress indicator
+- a psychological assessment
+- a clinical measure
+
+The `to_dict()` output embeds the formula, per-component
+contributions, and a mandatory disclaimer notice.
+
+**Weights:** Users may configure weights.  Any change from the
+defaults is the responsibility of the user and should be documented.
+Defaults are labelled as heuristic and are not scientifically
+validated.
+
+#### Integration into `ConversationAnalyzer.analyze()`
+
+`app/conversation_analysis.py` was updated to:
+
+1. Import `compute_consistency_trajectory` and `compute_attention_score`
+   from `app/consistency_analysis.py`.
+2. Call both after escalation detection and before returning the
+   final result dict.
+3. Expose the results as `consistency_trajectory` and `attention_score`
+   keys in the returned dict (serialised via `.to_dict()`).
+
+No models, preprocessing steps, fusion weights, confidence thresholds,
+or production inference behaviour were modified.
+
+### Tests
+
+Test file: `tests/test_consistency_analysis.py`
+
+**Coverage (all required scenarios):**
+
+| Scenario | Test(s) |
+|---|---|
+| Agreement classification | `test_agreement_classification` |
+| Mismatch/divergence classification | `test_divergence_classification` |
+| Low-confidence / insufficient data | `test_low_confidence_classification` |
+| Mostly-consistent trajectory | `test_all_agreement_gives_mostly_consistent` |
+| Mostly-divergent trajectory | `test_all_divergence_gives_mostly_divergent` |
+| Mixed consistency | `test_mixed_trajectory` |
+| Insufficient data (0 segs) | `test_insufficient_data_for_zero_segments` |
+| Insufficient data (1 seg) | `test_insufficient_data_for_single_segment` |
+| Deterministic attention score | `test_deterministic_output` |
+| Score range [0.0, 1.0] | `test_score_in_valid_range` |
+| Mismatch contribution = 0 for all-agreement | `test_mismatch_contribution_zero_for_all_agreement` |
+| Intensity contribution still > 0 for all-agreement | `test_intensity_contribution_nonzero_when_mismatch_is_zero` |
+| Escalation contribution | `test_escalation_contribution_is_nonzero_with_escalation`, `test_escalation_contribution_is_zero_without_escalation` |
+| High-mismatch scores higher (equal intensity/escalation) | `test_high_mismatch_scores_higher_than_low_mismatch` |
+| Formula addition holds | `test_score_formula_addition_holds` |
+| Components non-negative | `test_components_are_non_negative` |
+| Notice/formula in to_dict() | `test_attention_score_to_dict_contains_notice` |
+
+**NOTE:** We do NOT test that all-agreement gives zero total attention,
+because the intensity component may still contribute.  We DO verify
+that `mismatch_contribution` is exactly 0.0 for all-agreement cases.
+
+### Human Decisions Still Required
+
+The following items require human judgement before using in
+production:
+
+1. **Attention-score weights** — The defaults (W_MISMATCH=0.40,
+   W_INTENSITY=0.35, W_ESCALATION=0.25) are heuristic values.
+   They are NOT scientifically validated.  Anyone deploying this
+   system must evaluate whether these weights are appropriate for
+   their specific use case and population.
+
+2. **Trajectory thresholds** — The boundaries (≥ 0.70 for
+   mostly_consistent, < 0.30 for mostly_divergent) are heuristic
+   cut-points. They have not been calibrated against a labelled
+   dataset.
+
+3. **MIN_TRAJECTORY_SEGMENTS = 2** — The minimum segment count
+   required to report a trajectory is a heuristic choice.
+
+4. **Operational interpretation** — All outputs are computational
+   signals only.  Human professional judgement is required before
+   acting on any attention score or consistency trajectory result.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `app/consistency_analysis.py` | New file (Tasks 1 & 2) |
+| `app/conversation_analysis.py` | Added imports + wired trajectory & attention score into `analyze()` |
+| `tests/test_consistency_analysis.py` | New file (Task 3 — 16 tests) |
+| `PROGRESS.md` | Appended Phase 2 milestone |
+
+### Verification
+
+Full automated test suite passed with 0 failures.
+
+---
+
+## Milestone: Phase 3 — Empirical Evaluation, Learned Fusion Baseline & Modality Incongruence — COMPLETED
+
+### Built & Implemented
+
+1. **Empirical Evaluation Pipeline (`evaluation/run_evaluation.py`)**:
+   - Automated evaluation workflow executed via `python -m evaluation.run_evaluation`.
+   - Ingests `data/evaluation_dataset_template.csv` and verifies ground truth presence.
+   - Computes voice emotion accuracy, macro F1, confusion matrix, and speaker count exact match / MAE.
+   - Detects missing annotations (e.g. text sentiment, reference transcripts) and marks them "Pending Data" without fabricating metrics.
+   - Produces machine-readable `evaluation/results/latest_evaluation.json` and human-readable `evaluation/results/latest_evaluation.txt`.
+   - Preserves all pre-existing evaluation artifacts for backward compatibility.
+
+2. **Learned Fusion Baseline (`evaluation/learned_fusion.py`)**:
+   - Implemented an experimental Logistic Regression fusion baseline using `scikit-learn`.
+   - Features extracted: 12-dimensional numeric vector combining acoustic emotion probabilities, text sentiment probabilities, confidences, intensity, and agreement/mismatch indicators.
+   - Requires at least 10 labelled samples for train/test split; reports "Insufficient labelled data" when insufficient annotations exist.
+   - Strictly preserves `app/fusion.py` as primary production fusion:
+     > "The weighted rule-based fusion remains the production strategy. Learned fusion is an experimental baseline used for comparison."
+
+3. **Modality Ablation Comparison (`evaluation/ablation.py`)**:
+   - Extended ablation comparison framework to include Voice-Only, Text-Only, Rule-Based Fusion, and Learned Fusion.
+   - Displays "Pending Data" for unannotated modalities without creating placeholder numbers.
+
+4. **Modality Incongruence & Conflict Detection (`app/incongruence_analysis.py`)**:
+   - Deterministic conflict detection for opposing acoustic and text signals (Positive Text + Angry/Sad Voice, Negative Text + Happy Voice).
+   - Configurable confidence thresholds (min 0.40, high 0.65) to prevent false-alarm conflicts on low-confidence outputs.
+   - Categorized conflict strength: `none`, `low`, `medium`, `high`.
+   - Mandatory scientific disclaimers:
+     > "Modality incongruence is not equivalent to sarcasm, deception, or psychological state detection."
+   - Never claims sarcasm detection, lie/deception detection, or psychological diagnosis.
+
+5. **Dashboard Visibility (`streamlit_app.py`)**:
+   - Added dedicated "📊 Multimodal Validation" tab and section displaying dataset status, labelled sample counts, model comparison table, and confusion matrices (or clear insufficient data notices).
+   - Added "MODALITY INCONGRUENCE" cards at both overall conversation level and per-turn segment levels with conflict levels, signals, interpretations, and safety disclaimers.
+
+6. **Comprehensive Automated Tests (`tests/`)**:
+   - `tests/test_incongruence_analysis.py` (12 tests)
+   - `tests/test_learned_fusion.py` (6 tests)
+   - `tests/test_evaluation_runner.py` (5 tests)
+   - Total test suite expanded to **138 tests**, all passing (100%).
+
+7. **Project Rule Compliance**:
+   - `PROJECT_SPEC.md` was verified strictly untouched and read-only.
+   - Production fusion weights (`0.50` audio, `0.50` text, threshold `0.40`) remain completely intact.
+   - Zero fabricated empirical results.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `app/incongruence_analysis.py` | New file: deterministic conflict detection & safety disclaimers |
+| `evaluation/learned_fusion.py` | New file: Logistic Regression baseline on 12-dim multimodal features |
+| `evaluation/ablation.py` | Modified: added learned fusion baseline & comparison table |
+| `evaluation/run_evaluation.py` | Modified: added latest_evaluation.json/.txt, learned baseline integration |
+| `streamlit_app.py` | Modified: added Multimodal Validation section and Incongruence cards |
+| `tests/test_incongruence_analysis.py` | New file: 12 tests for conflict detection and safety logic |
+| `tests/test_learned_fusion.py` | New file: 6 tests for feature extraction and training fixtures |
+| `tests/test_evaluation_runner.py` | New file: 5 tests for runner, pending data, and reporting |
+| `README.md` | Modified: documented Phase 3 evaluation, learned baseline, incongruence |
+| `PROGRESS.md` | Modified: logged Phase 3 completion |
+
+### Verification
+
+All 138 automated unit tests passed with 0 failures. Production rule-based fusion, models, and `PROJECT_SPEC.md` remain completely protected.

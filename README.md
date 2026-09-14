@@ -741,6 +741,52 @@ The system never claims "sarcasm detected", lie detection, or psychological diag
 
 ---
 
+### 4. Real-Time Microphone Ingestion & Fallback Workflow (`app/microphone.py`)
+
+Alongside standard audio file upload (WAV, FLAC, MP3, OGG, M4A), the system supports direct microphone recording inside modern desktop browsers:
+
+- **Browser-Native Ingestion**: Built on Streamlit's `st.audio_input` widget (Streamlit 1.63.0), utilizing standard HTML5 MediaRecorder APIs. Audio is recorded at a target sampling rate of **16,000 Hz**, matching the pipeline's acoustic models.
+- **Single Pipeline Reuse**: Recorded audio buffers are persisted as temporary WAV files and routed directly through the existing `ConversationAnalyzer.analyze()` pipeline. There is no secondary, simplified, or parallel analysis logic.
+- **Graceful Environment Fallback**: If browser microphone capture is unavailable, blocked by user permission, or disabled via environment configuration (`DISABLE_MICROPHONE_CAPTURE=1`), the UI displays a clear, non-breaking alert:
+  > *"Microphone capture is unavailable in this environment. Please use the audio upload workflow."*
+- **Upload Unaffected**: Audio file upload remains fully functional regardless of microphone availability.
+
+---
+
+### 5. Actionable Recommendation Engine (`app/recommendation_engine.py`)
+
+Synthesizes conversation-level dynamics, modality incongruence, and emotional trends into contextual, rule-based recommendations across 5 operational categories:
+
+1. **Maintain Positive Trajectory**: For conversations showing constructive emotional progression and positive multimodal alignment.
+2. **De-Escalation Protocol**: Triggered by continuous emotional escalation and rising intensity, advising de-escalation pacing and active listening.
+3. **Clarify Conflicting Cues**: Triggered by high modality incongruence (e.g. positive words spoken with angry vocal tone).
+4. **Active Re-Engagement**: For stable or low-energy negative conversations where rapport building is needed.
+5. **Standard Balanced Interaction**: General advisory guidance for neutral, balanced dialogues.
+
+**Ethical & Safety Notice**: All recommendations include a mandatory human-in-the-loop disclaimer:
+> *"Advisory heuristic only. Not a psychological, psychiatric, deception, or clinical diagnostic assessment. Final decisions require qualified human judgment."*
+
+---
+
+### 6. Transparency, Limitations & Structured Reporting
+
+- **Model Architecture Transparency Panel**: Comprehensive in-app breakdown of Wav2Vec2-SUPERB ER, Faster-Whisper, CardiffNLP RoBERTa, Pyannote Diarization, and Rule-Based Fusion.
+- **10-Point Operational Limitations Panel**: Full disclosure of empirical data status, domain shift, acoustic discretization, non-detection of deception, ambient acoustics, and dialect diversity.
+- **Categorized User-Facing Error Messages**: User-friendly, actionable error handling for corrupted audio, silent/empty files, short recordings, and neural inference errors. Full technical stack traces are preserved in application logs.
+- **Structured JSON Report Export**: Downloads `multimodal_emotion_analysis_report.json` containing the full result dictionary along with an additive `notices_and_limitations` object.
+
+---
+
+## 🚦 Feature Classification
+
+| Status Category | Components / Capabilities |
+|---|---|
+| **IMPLEMENTED (Production)** | • Audio Preprocessing & Validation (16 kHz mono conversion, WAV/MP3/FLAC/OGG/M4A)<br>• Acoustic Feature Extraction (MFCC, Pitch/F0, RMS Energy, Spectrogram)<br>• Acoustic Emotion Recognition (`superb/wav2vec2-base-superb-er` — 4 classes)<br>• Speech Recognition & Alignment (`faster-whisper` base — CPU int8)<br>• Text Sentiment Analysis (`cardiffnlp/twitter-roberta-base-sentiment-latest` — 3 classes)<br>• Production Weighted Rule-Based Fusion (50% voice + 50% text, 0.40 threshold)<br>• Speaker Diarization Integration (`pyannote-audio` with single-speaker fallback)<br>• Conversation Timeline & Intensity Dynamics Tracking<br>• Modality Incongruence & Conflict Detection (`app/incongruence_analysis.py`)<br>• Consistency Trajectory & Attention Score Triage Heuristics<br>• Actionable Recommendation Engine (`app/recommendation_engine.py`)<br>• Real-Time Browser Microphone Recording & Fallback (`st.audio_input`)<br>• Model Architecture Transparency & Professional Limitations Panels<br>• Categorized Actionable Error Handling & Structured JSON/CSV Export |
+| **EXPERIMENTAL-OPTIONAL** | • Learned Fusion Baseline (`evaluation/learned_fusion.py` — Logistic Regression on 12-dim multimodal features, used strictly as an ablation comparison against production rule-based fusion) |
+| **PENDING LABELLED DATA** | • Empirical Benchmarking Metrics (Voice Accuracy, Macro F1, WER, Confusion Matrices on custom conversational ground-truth datasets — displayed honestly as "Pending Data" / "Insufficient Data" without fabrication) |
+
+---
+
 ## 🗺️ Project Progress
 
 | Milestone | Status |
@@ -756,6 +802,7 @@ The system never claims "sarcasm detected", lie detection, or psychological diag
 | Phase 1: Quantitative Evaluation Framework | ✅ Complete |
 | Phase 2: Consistency Trajectory & Attention Score | ✅ Complete |
 | Phase 3: Empirical Evaluation, Learned Baseline & Incongruence | ✅ Complete |
+| Phase 4: UI/UX Enhancements, Microphone Workflow & Hardening | ✅ Complete |
 
 See [`PROGRESS.md`](PROGRESS.md) for the detailed development history and [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the complete project requirements and design specification.
 
@@ -777,16 +824,21 @@ See [`PROGRESS.md`](PROGRESS.md) for the detailed development history and [`PROJ
 
 ## 📌 Current Status
 
-**Multimodal Voice & Conversation Emotion Analysis System — Phase 3**
+**Multimodal Voice & Conversation Emotion Analysis System — Phase 4 Complete**
 
 - ✅ Functional multimodal emotion-analysis pipeline — **COMPLETE**
 - ✅ Production weighted rule-based fusion — **PRESERVED & VERIFIED**
-- ✅ Learned fusion baseline (Logistic Regression) — **COMPLETE**
+- ✅ Learned fusion baseline (Logistic Regression) — **COMPLETE (EXPERIMENTAL)**
 - ✅ Modality incongruence / potential conflict detection — **COMPLETE**
-- ✅ Quantitative evaluation runner (`latest_evaluation.json/.txt`) — **COMPLETE**
-- ✅ Multimodal validation & incongruence dashboard cards — **COMPLETE**
-- ✅ Automated test suite — **138/138 tests passing (100%)**
+- ✅ Real-time browser microphone workflow & fallback handling — **COMPLETE & VERIFIED**
+- ✅ Actionable recommendation engine & safety disclaimers — **COMPLETE & VERIFIED**
+- ✅ Model architecture transparency & operational limitations panels — **COMPLETE & WIRED**
+- ✅ Corrected escalation intensity key mapping (`intensity_change`) — **VERIFIED**
+- ✅ Categorized user-facing error messages & logging — **COMPLETE**
+- ✅ Additive structured JSON report export with limitations — **COMPLETE**
+- ✅ Automated test suite — **162/162 tests passing (100%)**
 - ✅ Honest empirical reporting (zero fabricated data) — **VERIFIED**
 - ✅ `PROJECT_SPEC.md` integrity (locked and read-only) — **VERIFIED UNCHANGED**
 
-The current implementation is suitable for functional demonstration, empirical benchmarking, and academic presentation.
+The current implementation is production-ready for academic presentation, interactive demonstration, and empirical evaluation.
+

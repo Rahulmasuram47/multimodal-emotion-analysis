@@ -873,3 +873,51 @@ Full automated test suite passed with 0 failures.
 ### Verification
 
 All 138 automated unit tests passed with 0 failures. Production rule-based fusion, models, and `PROJECT_SPEC.md` remain completely protected.
+
+---
+
+## Milestone: Phase 4 — UI/UX Enhancements, Microphone Workflow, Decision-Support Recommendations & System Hardening — COMPLETED
+
+### Built & Implemented
+
+1. **Part 1: Real-Time Browser Microphone Workflow (`app/microphone.py`)**:
+   - Integrated browser-native audio recording using `st.audio_input` (Streamlit 1.63.0) capturing 16 kHz audio without requiring external C audio drivers.
+   - Dual-tab ingestion layout: `[ Upload Audio ]` and `[ Record from Microphone ]`.
+   - Temporary WAV buffer persistence (`save_audio_buffer`) passing directly into `ConversationAnalyzer.analyze()`, ensuring identical pipeline reuse (AudioProcessor → Wav2Vec2 → Whisper → RoBERTa → Fusion → Conversation Analysis).
+   - Mandatory environment fallback: When microphone capture is unsupported, restricted, or disabled (`DISABLE_MICROPHONE_CAPTURE=1`), displays non-breaking notice:
+     > *"Microphone capture is unavailable in this environment. Please use the audio upload workflow."*
+   - Upload workflow remains fully operational under all conditions.
+
+2. **Part 2: UI Wiring, Escalation Bugfix & Export Hardening**:
+   - **Escalation Intensity Key Fix**: Corrected key extraction in `streamlit_app.py` from `intensity_increase` to `intensity_change`, fixing the issue where net intensity growth displayed `+0.00` regardless of backend values.
+   - **Wired Orphaned Panels**: Explicitly invoked `render_model_transparency_section()` and `render_professional_limitations_section()` in the main dashboard flow under Explainability & Export.
+   - **Categorized Pipeline Error Handling**: Replaced generic exception displays with user-facing actionable guidance for corrupted audio formats, silent/empty audio, short audio, and model inference errors, while preserving full technical details in application logging.
+   - **Structured JSON Export**: Additively populated `notices_and_limitations` in the downloaded JSON report with decision-support disclaimers, deception non-detection notices, and operational limitations without modifying existing schema fields.
+
+3. **Part 3: Demo-Friendly Primary Workflow & Health Check**:
+   - Reorganized the empty landing state into a clear 7-step primary workflow guide:
+     `01. Ingest (Upload/Record) → 02. Analyze Audio → 03. Review Results → 04. Acoustic Signals → 05. Conflict & Escalation → 06. Recommendations → 07. Export Report`.
+   - Comprehensive health check verifying zero regressions across all phases.
+   - Preserved `PROJECT_SPEC.md` as locked and read-only.
+   - Preserved production rule-based fusion and locked ML models.
+
+### Files Created & Modified in Phase 4
+
+| File | Change |
+|---|---|
+| `app/microphone.py` | New file: microphone availability checks, audio buffer persistence, fallback messaging, export helpers |
+| `streamlit_app.py` | Modified: dual input tabs, escalation bugfix, panel wiring, categorized error handling, additive export, 7-step workflow landing |
+| `tests/test_microphone_workflow.py` | New file: 9 tests for microphone availability, fallbacks, and pipeline routing |
+| `tests/test_ui_wiring.py` | New file: 8 tests for escalation key, panel invocations, error categorization, and JSON export |
+| `README.md` | Modified: documented Phase 4 features, feature categorization, updated progress and status |
+| `PROGRESS.md` | Modified: logged Phase 4 completion |
+
+### Verification Outcome
+
+- **Automated Test Suite**: **162 passed / 0 failed, 3 warnings** across 15 test suites (100% passing).
+  - Baseline: 145 passed
+  - Phase 4 Part 1: +9 passed (154 total)
+  - Phase 4 Part 2: +8 passed (162 total)
+  - Zero regressions.
+- **Microphone Status**: Verified active and operational via `st.audio_input` in Streamlit 1.63.0; verified fallback message triggers reliably when disabled.
+- **Integrity**: `PROJECT_SPEC.md` strictly unchanged (`git diff -- PROJECT_SPEC.md` → 0 lines).

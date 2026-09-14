@@ -1041,7 +1041,121 @@ def load_analyzer() -> ConversationAnalyzer:
 # HELPER FUNCTIONS
 # =========================================================
 
+SYSTEM_NOTICES_AND_LIMITATIONS = {
+    "system_notice": (
+        "This application is a decision-support heuristic designed to extract computational "
+        "acoustic and linguistic features. Outputs are technical indicators, not clinical, "
+        "psychological, psychiatric, or deception assessments."
+    ),
+    "heuristic_nature": "Outputs are algorithmic heuristics intended strictly for advisory decision-support.",
+    "sarcasm_and_deception": (
+        "The system measures computational modality disagreement (incongruence); "
+        "it does NOT detect sarcasm, lies, truth, deception, concealment, or a speaker's inner psychological state."
+    ),
+    "human_in_the_loop": (
+        "All automated outputs, recommendations, and metrics are strictly advisory. "
+        "Final decisions, interventions, and assessments must always be made by qualified human professionals exercising domain judgment."
+    ),
+    "operational_limitations": [
+        "Absence of Ground Truth: Performance metrics reflect runtime heuristics until empirical evaluation is conducted on labelled corpora.",
+        "Pretrained Cross-Corpus Shift: Models were pretrained on external datasets; acoustic and domain shifts may affect accuracy.",
+        "Acoustic Discretization: Categorizes segments into discrete labels (neutral, happy, angry, sad); complex affective states may not be fully represented.",
+        "Sarcasm & Deception Non-Detection: Modality incongruence does not indicate dishonesty or deception.",
+        "Audio Overlap & Acoustics: Overlapping speech, background noise, microphone differences, and reverberation alter acoustic contours.",
+        "Linguistic & Dialect Diversity: Speech recognition and sentiment vary with accents, dialects, and speaking styles.",
+        "Escalation Heuristic: Escalation indicates continuous acoustic/linguistic intensity rise, not psychological crisis.",
+        "Attention Score Heuristic: Attention score is a triage prioritization metric, not a risk or danger index.",
+        "Mandatory Human-in-the-Loop: Automated inferences must be supervised and validated by qualified personnel.",
+    ],
+}
+
+
+def build_json_export_payload(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Create additive export payload containing full analysis result plus structured notices and limitations."""
+    payload = dict(result) if result else {}
+    payload["notices_and_limitations"] = SYSTEM_NOTICES_AND_LIMITATIONS
+    return payload
+
+
+def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
+    """
+    Categorize a pipeline exception into a user-facing title and actionable guidance.
+
+    Returns:
+        Tuple[str, str]: (error_title, user_action_message)
+    """
+    msg = str(exc).lower()
+
+    # 1. Empty or silent audio
+    if (
+        "empty" in msg
+        or "silent" in msg
+        or "0 duration" in msg
+        or "0 bytes" in msg
+        or "no audio frames" in msg
+        or "no speech or conversation" in msg
+        or "no usable segments" in msg
+        or "no valid conversation segments" in msg
+        or "could not be decoded" in msg
+    ):
+        return (
+            "Empty or Silent Audio Detected",
+            "The audio recording appears to be silent or contains no detectable spoken conversation. Please verify that your microphone is working properly, speak clearly into the microphone, or upload an audio file containing audible conversation.",
+        )
+
+    # 2. Extremely short audio
+    if (
+        "shorter than minimum" in msg
+        or "too short" in msg
+        or "minimum required" in msg
+        or "minimum analysis threshold" in msg
+        or ("duration" in msg and "short" in msg)
+    ):
+        return (
+            "Audio Too Short for Analysis",
+            "The audio recording is too short for reliable emotion extraction and conversation dynamics. Please provide a recording of at least 1.0 to 2.0 seconds with spoken dialogue.",
+        )
+
+    # 3. Corrupted or unsupported format
+    if (
+        "unsupported" in msg
+        or "corrupt" in msg
+        or "failed to load audio" in msg
+        or "soundfile" in msg
+        or "audiovalidationerror" in msg
+        or ("format" in msg and ("invalid" in msg or "not supported" in msg))
+    ):
+        return (
+            "Unsupported or Corrupted Audio Format",
+            "The provided audio file could not be decoded or is corrupted. Please try a different audio file in a supported format (WAV, FLAC, MP3, OGG, or M4A).",
+        )
+
+    # 4. Model inference failure
+    if (
+        "cuda" in msg
+        or "torch" in msg
+        or "whisper" in msg
+        or "wav2vec" in msg
+        or "roberta" in msg
+        or "out of memory" in msg
+        or "inference" in msg
+        or isinstance(exc, (RuntimeError, MemoryError))
+    ):
+        return (
+            "Model Inference Failure",
+            "A neural model inference error occurred during acoustic or linguistic processing. Please verify available system resources (CPU/RAM) and retry your analysis.",
+        )
+
+    # 5. General fallback
+    return (
+        "Multimodal Analysis Pipeline Failed",
+        "An unexpected error occurred during multimodal analysis. Please check your audio input and try again.",
+    )
+
+
+
 def safe_float(value: Any, default: float = 0.0) -> float:
+
     """Safely convert any value to float with fallback."""
     try:
         return float(value)
@@ -2768,7 +2882,8 @@ def display_results(result: Dict[str, Any], audio_bytes: bytes = None, audio_for
         esc_factors = []
         if escalation_detected:
             esc_factors.append("<strong>Monotonic Trend:</strong> Each consecutive turn intensity strictly exceeded the previous turn.")
-            esc_factors.append(f"<strong>Net Intensity Growth:</strong> Final turn intensity exceeds baseline turn by +{escalation.get('intensity_increase', 0.0):.2f}.")
+            intensity_growth = float(escalation.get("intensity_change", escalation.get("intensity_increase", 0.0)) or 0.0)
+            esc_factors.append(f"<strong>Net Intensity Growth:</strong> Final turn intensity exceeds baseline turn by +{intensity_growth:.2f}.")
             esc_factors.append("<strong>Acoustic & Linguistic Alignment:</strong> Both acoustic pitch/energy cues and text sentiment vectors reinforced upward emotional activation.")
         else:
             if trend_label.lower() == "increasing":
@@ -3060,8 +3175,10 @@ if analyze_clicked and active_audio is not None:
         st.session_state["seek_time"] = None
 
     except Exception as exc:
-        st.error("Multimodal analysis pipeline failed.")
-        st.exception(exc)
+        import logging
+        logging.getLogger(__name__).error("Multimodal analysis pipeline failed: %s", exc, exc_info=True)
+        err_title, err_guidance = categorize_pipeline_error(exc)
+        st.error(f"⚠️ **{err_title}**\n\n{err_guidance}")
 
     finally:
         if temp_path:
@@ -3128,16 +3245,20 @@ elif active_audio is None:
 if "result" in globals() and isinstance(result, dict) and result:
     render_fusion_explainer()
     render_system_notes()
+    render_model_transparency_section()
+    render_professional_limitations_section()
 
     export_col1, export_col2, export_col3 = st.columns([1, 1, 2])
     with export_col1:
+        export_payload = build_json_export_payload(result)
         st.download_button(
             "DOWNLOAD JSON REPORT",
-            data=__import__("json").dumps(result, indent=2, default=str),
+            data=__import__("json").dumps(export_payload, indent=2, default=str),
             file_name="multimodal_emotion_analysis_report.json",
             mime="application/json",
             use_container_width=True,
         )
+
     with export_col2:
         rows = []
         for s in result.get("segments", []) or []:

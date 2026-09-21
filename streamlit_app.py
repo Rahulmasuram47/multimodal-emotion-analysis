@@ -39,6 +39,8 @@ from app.microphone import (
     is_microphone_available,
     FALLBACK_MICROPHONE_MESSAGE,
     save_audio_buffer,
+    reset_analysis_session_state,
+    RESET_SESSION_KEYS,
 )
 
 
@@ -403,6 +405,94 @@ st.markdown(
     [data-testid="stFileUploaderDeleteBtn"] svg,
     [data-testid="stFileUploaderFileIcon"] svg {
         fill: var(--muted) !important;
+    }
+
+    /* =====================================================
+       MICROPHONE AUDIO INPUT & AUDIO PLAYBACK (DARK THEME)
+       ===================================================== */
+
+    /* Container for st.audio_input ("Record from Microphone") */
+    div[data-testid="stAudioInput"],
+    .stAudioInput {
+        background-color: var(--panel) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--card-radius) !important;
+        padding: 0.85rem !important;
+    }
+
+    /* Blanket reset of child backgrounds so Streamlit's default
+       secondaryBg (light/white) never shows through */
+    div[data-testid="stAudioInput"] *,
+    div[data-testid="stAudioInput"] *::before,
+    div[data-testid="stAudioInput"] *::after,
+    .stAudioInput *,
+    .stAudioInput *::before,
+    .stAudioInput *::after {
+        background-color: transparent !important;
+        color: var(--text) !important;
+    }
+
+    /* Inner card / waveform wrapper */
+    div[data-testid="stAudioInput"] > div,
+    .stAudioInput > div {
+        background-color: var(--panel-2) !important;
+        border: 1px solid var(--border-strong) !important;
+        border-radius: 6px !important;
+        padding: 0.35rem 0.6rem !important;
+    }
+
+    /* WaveSurfer canvas container inside st.audio_input */
+    [data-testid="stAudioInputWaveSurfer"] {
+        background-color: var(--bg) !important;
+        border-radius: 4px !important;
+    }
+
+    /* Waveform timecode readout */
+    [data-testid="stAudioInputWaveformTimeCode"] {
+        color: var(--muted) !important;
+        font-family: 'IBM Plex Mono', monospace !important;
+        font-size: 0.75rem !important;
+        background-color: transparent !important;
+    }
+
+    /* Microphone record / action buttons */
+    [data-testid="stAudioInputActionButton"] {
+        background-color: var(--panel) !important;
+        color: var(--voice) !important;
+        border: 1px solid var(--border-strong) !important;
+        border-radius: 4px !important;
+    }
+
+    [data-testid="stAudioInputActionButton"] svg {
+        fill: var(--voice) !important;
+        color: var(--voice) !important;
+    }
+
+    /* Native audio player container styling */
+    div[data-testid="stAudio"],
+    .stAudio {
+        background-color: var(--panel) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--card-radius) !important;
+        padding: 0.5rem !important;
+        color-scheme: dark !important;
+    }
+
+    audio {
+        border-radius: 6px !important;
+        background-color: var(--panel-2) !important;
+        color-scheme: dark !important;
+    }
+
+    /* Streamlit custom component iframe (WaveSurfer) container */
+    div[data-testid="stCustomComponentV1"],
+    div[data-testid="stCustomComponentV1"] iframe,
+    iframe[title="streamlit_app.render_wavesurfer_player"],
+    iframe {
+        background-color: var(--panel) !important;
+        border: none !important;
+        border-radius: var(--card-radius) !important;
+        color-scheme: dark !important;
     }
 
     .format-pills {
@@ -1449,6 +1539,10 @@ st.markdown(
 upload_col, action_col = st.columns([3, 1])
 
 with upload_col:
+    uploader_version = st.session_state.get("uploader_version", 0)
+    uploader_key = f"audio_file_uploader_{uploader_version}" if uploader_version > 0 else "audio_file_uploader"
+    mic_key = f"audio_mic_recorder_{uploader_version}" if uploader_version > 0 else "audio_mic_recorder"
+
     tab_upload, tab_mic = st.tabs(["Upload Audio", "Record from Microphone"])
     with tab_upload:
         uploaded_file = st.file_uploader(
@@ -1456,7 +1550,7 @@ with upload_col:
             type=["wav", "flac", "mp3", "ogg", "m4a"],
             help="Upload spoken audio or conversational recording. WAV format (16kHz) is recommended for highest acoustic fidelity.",
             label_visibility="collapsed",
-            key="audio_file_uploader",
+            key=uploader_key,
         )
     with tab_mic:
         if is_microphone_available():
@@ -1464,7 +1558,7 @@ with upload_col:
                 recorded_audio = st.audio_input(
                     "Record audio from microphone for multimodal analysis",
                     label_visibility="collapsed",
-                    key="audio_mic_recorder",
+                    key=mic_key,
                 )
                 if recorded_audio is not None:
                     st.caption("Microphone recording ready for multimodal analysis.")
@@ -1516,6 +1610,7 @@ with action_col:
 
     reset_clicked = st.button("NEW ANALYSIS ↻", use_container_width=True)
     if reset_clicked:
+        reset_analysis_session_state(st.session_state)
         st.rerun()
 
     if active_audio is not None:
@@ -2046,16 +2141,29 @@ def render_wavesurfer_player(
 
     wavesurfer_html = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en" style="background-color: #181D24; background: #181D24; color-scheme: dark;">
     <head>
       <meta charset="utf-8">
+      <meta name="color-scheme" content="dark">
       <script src="https://unpkg.com/wavesurfer.js@7"></script>
       <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}
-        body {{ background: #181D24; color: #F1F3F5; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); overflow: hidden; }}
-        #waveform {{ width: 100%; border-radius: 4px; background: #101318; padding: 6px 0; }}
-        .controls {{ display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; }}
-        .btn-group {{ display: flex; align-items: center; gap: 10px; }}
+        html, body {{
+          background-color: #181D24 !important;
+          background: #181D24 !important;
+          color: #F1F3F5;
+          margin: 0;
+          padding: 8px;
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          overflow: hidden;
+          width: 100%;
+          height: 100%;
+          color-scheme: dark;
+        }}
+        #waveform {{ width: 100%; border-radius: 4px; background: #101318 !important; padding: 6px 0; }}
+        .controls {{ display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; background: transparent; }}
+        .btn-group {{ display: flex; align-items: center; gap: 10px; background: transparent; }}
         button.play-btn {{
           background: #E8A33D;
           border: none;
@@ -2075,6 +2183,7 @@ def render_wavesurfer_player(
           font-family: 'IBM Plex Mono', monospace;
           font-size: 12px;
           color: #8E97A6;
+          background: transparent;
         }}
         .status-tag {{
           font-family: 'IBM Plex Mono', monospace;
@@ -2087,7 +2196,7 @@ def render_wavesurfer_player(
         }}
       </style>
     </head>
-    <body>
+    <body style="background-color: #181D24; background: #181D24; color-scheme: dark;">
       <div id="waveform"></div>
       <div class="controls">
         <div class="btn-group">
@@ -2112,6 +2221,7 @@ def render_wavesurfer_player(
           barGap: 1.5,
           barRadius: 2,
           normalize: true,
+          backgroundColor: '#101318',
           url: dataUrl
         }});
 

@@ -231,3 +231,55 @@ def extract_escalation_intensity_change(escalation_data: Dict[str, Any]) -> floa
         return 0.0
     return float(escalation_data.get("intensity_change", escalation_data.get("intensity_increase", 0.0)) or 0.0)
 
+
+# Session state keys required for a clean reset to the initial landing screen
+RESET_SESSION_KEYS = (
+    "analysis_result",
+    "active_file_id",
+    "audio_bytes",
+    "audio_format",
+    "seek_time",
+    "_last_rec_bytes",
+    "_last_up_bytes",
+    "_last_active_source",
+    "audio_file_uploader",
+    "audio_mic_recorder",
+)
+
+
+def reset_analysis_session_state(session_state: Any) -> None:
+    """
+    Clear all session state keys associated with analysis results and audio inputs,
+    allowing the application to cleanly return to the initial upload/record landing screen.
+    """
+    if session_state is None:
+        return
+
+    # Increment uploader version to mount fresh widget instances
+    current_ver = session_state.get("uploader_version", 0)
+    try:
+        session_state["uploader_version"] = current_ver + 1
+    except Exception:
+        pass
+
+    # Pop explicit keys
+    for key in RESET_SESSION_KEYS:
+        if hasattr(session_state, "pop"):
+            session_state.pop(key, None)
+        elif key in session_state:
+            del session_state[key]
+
+    # Pop any versioned widget keys
+    try:
+        keys_to_clear = [
+            k for k in list(session_state.keys())
+            if str(k).startswith("audio_file_uploader") or str(k).startswith("audio_mic_recorder")
+        ]
+        for k in keys_to_clear:
+            if hasattr(session_state, "pop"):
+                session_state.pop(k, None)
+            elif k in session_state:
+                del session_state[k]
+    except Exception:
+        pass
+

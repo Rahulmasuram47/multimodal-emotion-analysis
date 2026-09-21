@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg: #101318;
+    --panel: #181D24;
+    --panel-2: #1D232C;
+    --panel-hover: #222933;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --text: #F1F3F5;
+    --muted: #8E97A6;
+    --muted-dark: #636B78;
+    --voice: #E8A33D;
+    --voice-glow: rgba(232, 163, 61, 0.15);
+    --text-accent: #4FB3A9;
+    --text-glow: rgba(79, 179, 169, 0.15);
+    --positive: #58B889;
+    --positive-bg: rgba(88, 184, 137, 0.12);
+    --negative: #E46B6B;
+    --negative-bg: rgba(228, 107, 107, 0.12);
+    --neutral: #9AA3B2;
+    --neutral-bg: rgba(154, 163, 178, 0.10);
+    --fused: #D7DBE2;
+    --card-radius: 8px;
+}

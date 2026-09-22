@@ -920,4 +920,53 @@ All 138 automated unit tests passed with 0 failures. Production rule-based fusio
   - Phase 4 Part 2: +8 passed (162 total)
   - Zero regressions.
 - **Microphone Status**: Verified active and operational via `st.audio_input` in Streamlit 1.63.0; verified fallback message triggers reliably when disabled.
-- **Integrity**: `PROJECT_SPEC.md` strictly unchanged (`git diff -- PROJECT_SPEC.md` → 0 lines).
+- **Integrity**: `PROJECT_SPEC.md` strictly unchanged (`git diff -- PROJECT_SPEC.md` → 0 lines).
+
+---
+
+## Milestone: Phase 1 — UI Modularization, CSS Externalization & Component Refactor — COMPLETED
+
+### Built & Implemented
+
+1. **CSS Externalization & Full Token Parity (`ui/styles/`)**:
+   - `tokens.css`: Extracted all 21 root design tokens (`--bg`, `--panel`, `--voice`, `--text-accent`, etc.) and font imports.
+   - `layout.css`: App shell, Streamlit chrome overrides, block containers, and responsive `@media` breakpoints.
+   - `components.css`: 121 style blocks including WaveSurfer styling, audio element filters, cards, and animations.
+   - `ui/styles_loader.py`: `load_css()` dynamically injecting all stylesheets cleanly.
+   - **Audit Parity**: Verified 100% exact parity with original inline CSS (21/21 variables, 121/121 CSS blocks, 152/152 selectors).
+
+2. **Modular State & Utilities (`ui/state.py`, `ui/utils.py`)**:
+   - `ui/state.py`: Centralized session state management; cleanly re-exports `reset_analysis_session_state` and `RESET_SESSION_KEYS` from `app/microphone.py`.
+   - `ui/utils.py`: Pure formatting helpers (`safe_float`, `emotion_icon`, `direction_label`, `derive_segment_summary`) with 0 stubs and 0 logic drift.
+
+3. **Pure Rendering Components (`ui/components/`, all < 400 lines)**:
+   - `header.py`: Brand container, system beacon, 7-stage informational pipeline, and technical specs sidebar.
+   - `stepper.py`: 7-step guided primary analysis workflow card for the empty landing state.
+   - `verdict_card.py`: Key finding banner synthesis (`build_key_finding`, `render_verdict_card`).
+   - `modality_cards.py`: Side-by-side Voice, Text, and Cross-Modal Alignment cards with channel confidence meters.
+   - `metric_cards.py`: 6 system overview metrics, diarization speaker metrics, and Altair emotional trajectory chart with escalation diagnostics.
+   - `segment_timeline.py`: Turn-by-turn accordion expander with transcripts, modality cards, channel meters, and conflict indicators.
+   - `incongruence_card.py`: Modality incongruence & conflict rating card with scientific disclaimers.
+   - `recommendation_card.py`: Actionable decision-support recommendation box with status levels and contributing signals.
+   - `waveform_player.py`: WaveSurfer.js 7.0 dark theme player with interactive time scrubbing.
+   - `transparency_panels.py`: Explainable fusion, engineering notes, model transparency, and operational limitations panels.
+   - `export_bar.py`: Additive JSON report payload builder and CSV segment log export.
+
+4. **Synchronized Acoustic Inspection Chart (`ui/charts/inspection.py`)**:
+   - `extract_acoustic_features`: Cached feature extraction for spectrogram, F0 pitch, and RMS energy.
+   - `render_acoustic_inspection`: 3-tier Plotly synchronized visualization with turn boundary markers.
+
+5. **Page Orchestrators (`ui/pages/`)**:
+   - `analysis_view.py`: Tab 1 Conversation & Multimodal Analysis orchestrator.
+   - `acoustic_view.py`: Tab 2 Acoustic Inspection orchestrator.
+   - `validation_view.py`: Tab 3 Multimodal Validation & Empirical Benchmarks.
+
+6. **Thin Orchestrator (`streamlit_app.py`, 227 lines)**:
+   - Shrunk from 3,441 lines down to 227 lines (93.4% reduction) while preserving 100% of functional capabilities, styling, and test assertions.
+
+### Verification Outcome
+
+- **Automated Test Suite**: **165 passed / 0 failed, 3 warnings** (100% passing across all 16 test suites).
+- **Line Count Limits**: Verified all 14 component/page files are under 400 lines, and `streamlit_app.py` is under 250 lines.
+- **Integrity**: `PROJECT_SPEC.md` strictly unchanged. Production rule-based fusion intact. Zero synthetic data.
+

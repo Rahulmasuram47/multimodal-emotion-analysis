@@ -204,6 +204,9 @@ def test_reset_analysis_session_state_clears_required_keys():
 def test_wavesurfer_html_dark_theme_styling():
     """Verify that WaveSurfer template uses dark mode colors and prevents white iframe canvas."""
     app_source = Path("streamlit_app.py").read_text(encoding="utf-8")
+    wf_path = Path("ui/components/waveform_player.py")
+    if wf_path.exists():
+        app_source += "\n" + wf_path.read_text(encoding="utf-8")
 
     # Dark background color for HTML/body
     assert "background-color: #181D24" in app_source or "background: #181D24" in app_source
@@ -217,6 +220,9 @@ def test_wavesurfer_html_dark_theme_styling():
 def test_css_audio_input_and_audio_styling():
     """Verify that custom CSS targets stAudioInput and stAudio widgets with dark theme rules."""
     app_source = Path("streamlit_app.py").read_text(encoding="utf-8")
+    components_css_path = Path("ui/styles/components.css")
+    if components_css_path.exists():
+        app_source += "\n" + components_css_path.read_text(encoding="utf-8")
 
     # stAudioInput container styling
     assert 'data-testid="stAudioInput"' in app_source

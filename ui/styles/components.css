@@ -562,6 +562,13 @@ iframe {
     padding: 0.85rem 1rem !important;
 }
 
+audio {
+    width: 100%;
+    border-radius: 6px;
+    filter: invert(0.9) hue-rotate(180deg);
+    height: 38px;
+}
+
 .transcript-container {
     background: var(--panel);
     border: 1px solid var(--border);

@@ -83,41 +83,53 @@ def render_sidebar() -> None:
     with st.sidebar:
         st.markdown(
             """
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 700; color: var(--text); padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
-                ENGINE SPECIFICATIONS
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--voice); box-shadow: 0 0 8px var(--voice);"></div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 0.85rem; color: var(--text);">
+                    AI ANALYSIS CONSOLE
+                </div>
+            </div>
+            <div style="font-size: 0.72rem; color: var(--muted); margin-bottom: 1.25rem;">
+                B.Tech Mini-Project AI Pipeline
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        st.markdown('<div class="sidebar-heading">Neural Models</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-heading">Models & Architecture</div>', unsafe_allow_html=True)
+
         st.markdown(
             """
             <div class="sidebar-spec-row">
                 <span class="sidebar-spec-key">Acoustic Emotion</span>
-                <span class="sidebar-spec-val">Wav2Vec2-SUPERB</span>
+                <span class="sidebar-spec-val" style="color: var(--voice);">Wav2Vec2-SUPERB ER</span>
             </div>
             <div class="sidebar-spec-row">
                 <span class="sidebar-spec-key">Speech-to-Text</span>
-                <span class="sidebar-spec-val">Faster-Whisper (base)</span>
+                <span class="sidebar-spec-val" style="color: var(--text);">Whisper STT</span>
             </div>
             <div class="sidebar-spec-row">
                 <span class="sidebar-spec-key">Text Sentiment</span>
-                <span class="sidebar-spec-val">CardiffNLP RoBERTa</span>
+                <span class="sidebar-spec-val" style="color: var(--text-accent);">RoBERTa NLP</span>
             </div>
             <div class="sidebar-spec-row">
-                <span class="sidebar-spec-key">Diarization</span>
-                <span class="sidebar-spec-val">Pyannote Community-1</span>
+                <span class="sidebar-spec-key">Speaker ID</span>
+                <span class="sidebar-spec-val" style="color: var(--positive);">Pyannote Diarization</span>
             </div>
             <div class="sidebar-spec-row">
                 <span class="sidebar-spec-key">Fusion Strategy</span>
-                <span class="sidebar-spec-val">Decision-Level Arbitration</span>
+                <span class="sidebar-spec-val" style="color: var(--fused);">Weighted Rule-Based</span>
+            </div>
+            <div class="sidebar-spec-row">
+                <span class="sidebar-spec-key">Dynamics Engine</span>
+                <span class="sidebar-spec-val">Trend & Escalation</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
         st.markdown('<div class="sidebar-heading">Audio Input Specs</div>', unsafe_allow_html=True)
+
         st.markdown(
             """
             <div class="sidebar-spec-row">

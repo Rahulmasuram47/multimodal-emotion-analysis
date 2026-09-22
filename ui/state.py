@@ -7,6 +7,14 @@ import streamlit as st
 
 from app.microphone import RESET_SESSION_KEYS, reset_analysis_session_state
 
+__all__ = [
+    "init_session_state",
+    "get_active_uploader_keys",
+    "reset_session",
+    "reset_analysis_session_state",
+    "RESET_SESSION_KEYS",
+]
+
 
 def init_session_state() -> None:
     """Initialize default session state keys if not already set."""

@@ -1028,4 +1028,6 @@ Build empirical evaluation tooling and real ground-truth annotation infrastructu
 - **Automated Test Suite**: **181 passed / 0 failed, 3 warnings** (165 original + 16 new Phase 2 tests).
 - **Evaluation Runner**: `python -m evaluation.run_evaluation` runs cleanly end-to-end on mixed annotated and unannotated data.
 - **Data Integrity**: Zero fabricated labels; `PROJECT_SPEC.md` strictly unchanged; `data/evaluation_dataset_template.csv` untouched.
-
+
+## Phase 3 — Voice Model Benchmark (N=4, insufficient)
+All 3 candidates (baseline, superb-large, ehcalabres) scored ~25% accuracy on 4 labeled clips — statistically uninformative (1 sample/class). Decision: KEEP current baseline model (superb/wav2vec2-base-superb-er). superb-large costs 3x latency with no proven gain at this N. Re-run this benchmark once >=10-15 labeled clips exist from team recordings.

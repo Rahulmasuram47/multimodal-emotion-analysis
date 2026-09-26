@@ -82,7 +82,47 @@ class AblationResult:
                 d["learned_fusion"] = self.learned_fusion.to_dict()
             elif isinstance(self.learned_fusion, dict):
                 d["learned_fusion"] = self.learned_fusion
+        d["four_way_models"] = self.get_four_way_model_comparison()
         return d
+
+    def get_four_way_model_comparison(self) -> List[Dict[str, Any]]:
+        """Produce 4-way model comparison records (voice-only, text-only, current rule-based fusion, learned fusion)."""
+        lf_acc = None
+        lf_f1 = None
+        if self.learned_fusion is not None:
+            if hasattr(self.learned_fusion, "accuracy"):
+                lf_acc = self.learned_fusion.accuracy
+                lf_f1 = getattr(self.learned_fusion, "f1_macro", None)
+            elif isinstance(self.learned_fusion, dict):
+                lf_acc = self.learned_fusion.get("accuracy")
+                lf_f1 = self.learned_fusion.get("f1_macro")
+
+        return [
+            {
+                "model": "Voice-Only",
+                "accuracy": self.voice_only.accuracy,
+                "f1_macro": self.voice_only.f1_score,
+                "mean_confidence": self.voice_only.mean_confidence,
+            },
+            {
+                "model": "Text-Only",
+                "accuracy": self.text_only.accuracy,
+                "f1_macro": self.text_only.f1_score,
+                "mean_confidence": self.text_only.mean_confidence,
+            },
+            {
+                "model": "Current Fusion (Rule-Based)",
+                "accuracy": self.voice_text_fusion.accuracy,
+                "f1_macro": self.voice_text_fusion.f1_score,
+                "mean_confidence": self.voice_text_fusion.mean_confidence,
+            },
+            {
+                "model": "Learned Fusion (Logistic Regression)",
+                "accuracy": lf_acc,
+                "f1_macro": lf_f1,
+                "mean_confidence": None,
+            },
+        ]
 
     def format_comparison_table(self) -> str:
         """

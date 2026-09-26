@@ -94,10 +94,26 @@ def generate_recommendation(analysis_result: Dict[str, Any]) -> ActionableRecomm
     # 1. Extract core metrics
     escalation_info = analysis_result.get("escalation", {}) or {}
     escalation_detected = bool(escalation_info.get("escalation_detected", False))
-    escalation_change = float(escalation_info.get("intensity_increase", 0.0) or 0.0)
+    # BUG FIX (Phase 4): this previously read "intensity_increase", a key
+    # that detect_escalation()/detect_escalation_advanced() never produce
+    # (the real key is "intensity_change") — escalation_change was always
+    # silently 0.0 regardless of the actual computed rise. Both the legacy
+    # strict result and the Phase 4 advanced result use "intensity_change",
+    # so this single key now correctly reads either.
+    escalation_change = float(escalation_info.get("intensity_change", 0.0) or 0.0)
 
     trend_info = analysis_result.get("emotional_trend", {}) or {}
     trend = str(trend_info.get("trend", "stable")).lower()
+
+    # Phase 4: the unified verdict, when present, is used only to enrich
+    # the reason text for the LOW/STABLE and MODERATE outcomes below — it
+    # does NOT change which status is chosen. The escalation_detected flag
+    # above (from config.ESCALATION_MODE) remains the sole gate for the
+    # HIGH ESCALATION status, since that status has operational
+    # consequences and should stay tied to the deliberately-thresholded
+    # rule rather than the softer descriptive verdict.
+    verdict_info = analysis_result.get("verdict", {}) or {}
+    verdict_label = str(verdict_info.get("verdict", "")).lower()
 
     attention_info = analysis_result.get("attention_score", {}) or {}
     attention_score = float(attention_info.get("score", 0.0) or 0.0)
@@ -192,6 +208,8 @@ def generate_recommendation(analysis_result: Dict[str, Any]) -> ActionableRecomm
             contributing_factors.append("Prevalence of negative voice emotions (angry/sad)")
         if neg_sent_count > len(segments) / 2:
             contributing_factors.append("Prevalence of negative linguistic sentiment")
+        if verdict_label == "fluctuating":
+            contributing_factors.append("Emotional intensity fluctuated across the conversation without a clear escalating trend")
 
         return ActionableRecommendation(
             status=STATUS_MODERATE,
@@ -205,6 +223,8 @@ def generate_recommendation(analysis_result: Dict[str, Any]) -> ActionableRecomm
     contributing_factors.append(f"Stable emotional intensity trend ({trend})")
     contributing_factors.append(f"Low review-priority attention score ({attention_score:.2f})")
     contributing_factors.append(f"Solid multimodal confidence ({avg_fused_conf:.2f})")
+    if verdict_label == "de-escalating":
+        contributing_factors.append("Conversation intensity was actively de-escalating")
 
     return ActionableRecommendation(
         status=STATUS_LOW_STABLE,

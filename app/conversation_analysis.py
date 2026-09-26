@@ -9,9 +9,13 @@ Builds segment-level multimodal analysis from:
 - Multimodal fusion
 
 Also provides:
-- Emotional trend detection
-- Emotional escalation detection
-- Segment-level emotional intensity
+- Emotional trend detection (legacy, first-vs-last delta)
+- Emotional escalation detection (strict AND tolerant modes — Phase 4)
+- A single unified conversation verdict (Phase 4: escalating /
+  de-escalating / stable / fluctuating / insufficient_data)
+- Segment-level emotional intensity (legacy v1 confidence-based formula,
+  and Phase 4's v2 prosody-based formula, selectable via
+  config.INTENSITY_FORMULA_VERSION)
 - Speaker diarization (Speaker A / Speaker B labels)
 - Modality consistency trajectory (voice vs. text direction agreement)
 - Explainable review-priority attention score (heuristic only)
@@ -21,6 +25,8 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
+
 import config
 from app.audio_processor import load_and_preprocess_audio
 from app.emotion_analyzer import VoiceEmotionAnalyzer
@@ -29,6 +35,7 @@ from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.diarization import SpeakerDiarizer
 from app.voice_calibration import VoiceCalibrator, compute_widened_window
+from app.prosody import compute_prosodic_arousal, compute_voice_arousal, compute_text_negativity
 from app.consistency_analysis import (
     compute_consistency_trajectory,
     compute_attention_score,
@@ -122,7 +129,7 @@ class ConversationAnalyzer:
             )
 
     # ---------------------------------------------------------
-    # Intensity
+    # Intensity — v1 (legacy, confidence-based)
     # ---------------------------------------------------------
 
     @staticmethod
@@ -130,13 +137,17 @@ class ConversationAnalyzer:
         segment: Dict[str, Any]
     ) -> float:
         """
-        Calculate emotional intensity using multimodal evidence.
+        LEGACY (v1) intensity formula: pure fusion-confidence based.
+
+        Kept unchanged and still directly unit-tested — this is the
+        pre-Phase-4 formula. Used when config.INTENSITY_FORMULA_VERSION
+        == 'v1', and always available for the ablation comparison against
+        the new v2 (prosody-based) formula in _calculate_intensity_v2.
 
         Agreement between voice and text increases confidence.
-
-        Strong disagreement reduces the influence of the
-        combined confidence so that one unreliable modality
-        does not dominate the final intensity.
+        Strong disagreement reduces the influence of the combined
+        confidence so that one unreliable modality does not dominate
+        the final intensity.
 
         Returns:
             Float between 0.0 and 1.0.
@@ -183,7 +194,69 @@ class ConversationAnalyzer:
         )
 
     # ---------------------------------------------------------
-    # Emotional trend
+    # Intensity — v2 (Phase 4, prosody-based)
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def _calculate_intensity_v2(
+        voice_scores: Dict[str, float],
+        text_scores: Dict[str, float],
+        audio_segment: np.ndarray,
+        sr: int,
+        word_count: int,
+        duration_seconds: float,
+    ) -> Tuple[float, Dict[str, Any]]:
+        """
+        Phase 4 intensity formula: weighted combination of
+
+          1. prosodic_arousal   — this segment's own loudness, pitch
+                                   movement, and speech rate (app/prosody.py)
+          2. voice_arousal      — expected arousal from the voice-emotion
+                                   class probabilities (angry/happy = high,
+                                   sad/neutral = low), not just top-class
+                                   confidence
+          3. text_negativity    — probability mass on the 'negative' text
+                                   sentiment class
+
+        Unlike v1, this is NOT purely a function of model confidence — a
+        confidently-classified "sad" segment does not automatically read
+        as more intense than an unsure one; actual vocal energy and
+        linguistic negativity now drive the score.
+
+        Returns (intensity, components) where components is a dict
+        breaking down every sub-score, for the "why is this 0.82?"
+        transparency requirement.
+        """
+        prosody_result = compute_prosodic_arousal(
+            audio_segment, sr, word_count, duration_seconds
+        )
+        voice_arousal = compute_voice_arousal(voice_scores)
+        text_negativity = compute_text_negativity(text_scores)
+
+        intensity = (
+            config.INTENSITY_V2_WEIGHT_PROSODY * prosody_result.arousal
+            + config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL * voice_arousal
+            + config.INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY * text_negativity
+        )
+        intensity = round(min(1.0, max(0.0, intensity)), 4)
+
+        components = {
+            "formula_version": "v2",
+            "prosodic_arousal": prosody_result.arousal,
+            "prosody_components": prosody_result.components,
+            "voice_arousal": voice_arousal,
+            "text_negativity": text_negativity,
+            "weights": {
+                "prosody": config.INTENSITY_V2_WEIGHT_PROSODY,
+                "voice_arousal": config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL,
+                "text_negativity": config.INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY,
+            },
+        }
+
+        return intensity, components
+
+    # ---------------------------------------------------------
+    # Emotional trend (legacy — first-vs-last delta)
     # ---------------------------------------------------------
 
     @staticmethod
@@ -191,17 +264,19 @@ class ConversationAnalyzer:
         segments: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Detect the overall emotional intensity trend.
+        Detect the overall emotional intensity trend (first-vs-last
+        delta only — kept unchanged from pre-Phase-4 for backward
+        compatibility and direct unit-test coverage). See
+        compute_unified_verdict() for the new Phase 4 slope-based signal
+        that is now the primary user-facing indicator.
 
         Rules:
 
         Increasing:
-            Last intensity is at least 0.10 higher
-            than the first.
+            Last intensity is at least 0.10 higher than the first.
 
         Decreasing:
-            Last intensity is at least 0.10 lower
-            than the first.
+            Last intensity is at least 0.10 lower than the first.
 
         Stable:
             Change is smaller than 0.10.
@@ -250,7 +325,7 @@ class ConversationAnalyzer:
         }
 
     # ---------------------------------------------------------
-    # Escalation
+    # Escalation — strict (legacy, unchanged, still unit-tested)
     # ---------------------------------------------------------
 
     @staticmethod
@@ -258,26 +333,29 @@ class ConversationAnalyzer:
         segments: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Detect emotional escalation.
+        LEGACY strict escalation rule. Kept byte-for-byte unchanged from
+        pre-Phase-4 so existing unit tests keep passing, and so it remains
+        available as config.ESCALATION_MODE == 'strict' / the ablation
+        baseline against the new tolerant rule below.
 
         Escalation requires:
 
         1. At least three segments.
-        2. Intensity continuously increases.
+        2. Intensity continuously increases (every consecutive step, no
+           exceptions).
         3. Total increase is at least 0.20.
 
         Example:
-
             0.40 → 0.65 → 0.90
-
-        will trigger escalation.
+        triggers escalation.
 
         Example:
-
             0.75 → 0.67 → 0.97
-
-        will NOT trigger escalation because the increase
-        is not continuous.
+        does NOT trigger escalation because the increase is not
+        continuous — a single dip breaks the strict rule even though the
+        overall trend and net rise are both upward. (This is exactly the
+        "Trend: Increasing / Escalation: Not Detected" contradiction that
+        Phase 4's tolerant mode below addresses.)
         """
 
         if len(segments) < 3:
@@ -328,6 +406,233 @@ class ConversationAnalyzer:
             "escalation_detected": escalation_detected,
             "reason": reason,
             "intensity_change": total_change,
+        }
+
+    # ---------------------------------------------------------
+    # Escalation — tolerant (Phase 4, robust-slope based)
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def _ols_slope(values: List[float]) -> float:
+        """Ordinary-least-squares slope of values against their index
+        (0, 1, 2, ...). Returns 0.0 for fewer than 2 points."""
+        n = len(values)
+        if n < 2:
+            return 0.0
+        x = np.arange(n, dtype=float)
+        y = np.array(values, dtype=float)
+        # np.polyfit(x, y, 1) returns [slope, intercept]
+        slope, _intercept = np.polyfit(x, y, 1)
+        return float(slope)
+
+    @staticmethod
+    def detect_escalation_advanced(
+        segments: List[Dict[str, Any]],
+        mode: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Phase 4 escalation detection with two selectable modes:
+
+          'strict'    — delegates to the legacy detect_escalation() rule
+                        above (every consecutive step must increase).
+
+          'tolerant'  — (default, config.ESCALATION_MODE) fits a robust
+                        linear slope across all segment intensities and
+                        allows individual dips up to
+                        config.ESCALATION_DIP_TOLERANCE without breaking
+                        the trend. Requires ALL of:
+                          1. at least config.ESCALATION_MIN_SEGMENTS segments
+                          2. slope >= config.ESCALATION_MIN_SLOPE
+                          3. net rise (last - first) >= config.ESCALATION_MIN_NET_RISE
+                          4. no single-step drop exceeds config.ESCALATION_DIP_TOLERANCE
+
+        This directly resolves the contradiction where Trend said
+        "Increasing" but Escalation said "Not Detected" for the same
+        conversation — a conversation with one small dip within
+        tolerance can now be correctly flagged as escalating.
+
+        Returns a dict with: escalation_detected, reason, intensity_change
+        (net rise — same field name as the legacy rule, so
+        recommendation_engine.py's existing .get("intensity_change", ...)
+        read continues to work unchanged), mode, slope, dip_violations
+        (list of {index, drop} for any step that broke tolerance).
+        """
+        mode = mode or config.ESCALATION_MODE
+
+        if mode == "strict":
+            legacy = ConversationAnalyzer.detect_escalation(segments)
+            legacy["mode"] = "strict"
+            legacy["slope"] = None
+            legacy["dip_violations"] = []
+            return legacy
+
+        # --- tolerant mode ---
+        if len(segments) < config.ESCALATION_MIN_SEGMENTS:
+            return {
+                "escalation_detected": False,
+                "reason": f"At least {config.ESCALATION_MIN_SEGMENTS} segments are required.",
+                "intensity_change": 0.0,
+                "mode": "tolerant",
+                "slope": 0.0,
+                "dip_violations": [],
+            }
+
+        intensities = [
+            float(segment.get("intensity", 0.0)) for segment in segments
+        ]
+
+        slope = ConversationAnalyzer._ols_slope(intensities)
+        net_rise = round(intensities[-1] - intensities[0], 4)
+
+        dip_violations = []
+        for i in range(1, len(intensities)):
+            drop = intensities[i - 1] - intensities[i]
+            if drop > config.ESCALATION_DIP_TOLERANCE:
+                dip_violations.append({"index": i, "drop": round(drop, 4)})
+
+        escalation_detected = (
+            slope >= config.ESCALATION_MIN_SLOPE
+            and net_rise >= config.ESCALATION_MIN_NET_RISE
+            and len(dip_violations) == 0
+        )
+
+        if escalation_detected:
+            reason = (
+                f"Intensity rose steadily (slope={slope:.3f}/turn, "
+                f"net rise={net_rise:+.2f}) with no dip exceeding the "
+                f"{config.ESCALATION_DIP_TOLERANCE:.2f} tolerance."
+            )
+        elif dip_violations:
+            reason = (
+                f"Intensity trend was upward overall (slope={slope:.3f}/turn, "
+                f"net rise={net_rise:+.2f}) but a dip of "
+                f"{dip_violations[0]['drop']:.2f} at turn {dip_violations[0]['index'] + 1} "
+                f"exceeded the {config.ESCALATION_DIP_TOLERANCE:.2f} dip tolerance."
+            )
+        elif slope < config.ESCALATION_MIN_SLOPE:
+            reason = (
+                f"Slope ({slope:.3f}/turn) did not reach the minimum "
+                f"required rate of {config.ESCALATION_MIN_SLOPE:.2f}/turn."
+            )
+        else:
+            reason = (
+                f"Net rise ({net_rise:+.2f}) did not reach the minimum "
+                f"threshold of {config.ESCALATION_MIN_NET_RISE:.2f}."
+            )
+
+        return {
+            "escalation_detected": escalation_detected,
+            "reason": reason,
+            "intensity_change": net_rise,
+            "mode": "tolerant",
+            "slope": round(slope, 4),
+            "dip_violations": dip_violations,
+        }
+
+    # ---------------------------------------------------------
+    # Unified verdict (Phase 4)
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def compute_unified_verdict(
+        segments: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Phase 4: a single conversation-level verdict replacing the
+        separate (and sometimes contradictory) Trend + Escalation
+        display. One of:
+
+          'escalating'     — clear sustained upward slope, no large dips
+          'de-escalating'  — clear sustained downward slope, no large
+                              upward spikes
+          'fluctuating'    — notable back-and-forth movement without a
+                              clear net direction
+          'stable'         — small overall movement, no notable spikes
+          'insufficient_data' — fewer than 2 segments
+
+        This uses the same slope/dip-tolerance machinery as
+        detect_escalation_advanced('tolerant') but is INDEPENDENT of
+        config.ESCALATION_MODE — the verdict is always computed the
+        tolerant way, since it is meant to be a softer, always-available
+        descriptive signal. escalation_detected (used for the "HIGH
+        ESCALATION" critical recommendation) remains gated by
+        config.ESCALATION_MIN_SEGMENTS and whichever mode is configured;
+        the verdict may say "escalating" even for a 2-segment rise that
+        would not by itself trigger a HIGH ESCALATION recommendation.
+        """
+        if len(segments) < 2:
+            return {
+                "verdict": "insufficient_data",
+                "reason": "At least 2 segments are required to assess a trend.",
+                "slope": 0.0,
+                "net_change": 0.0,
+            }
+
+        intensities = [
+            float(segment.get("intensity", 0.0)) for segment in segments
+        ]
+
+        slope = ConversationAnalyzer._ols_slope(intensities)
+        net_change = round(intensities[-1] - intensities[0], 4)
+
+        max_drop = 0.0
+        max_rise = 0.0
+        for i in range(1, len(intensities)):
+            delta = intensities[i] - intensities[i - 1]
+            if delta < 0:
+                max_drop = max(max_drop, -delta)
+            else:
+                max_rise = max(max_rise, delta)
+
+        is_escalating = (
+            slope >= config.ESCALATION_MIN_SLOPE
+            and net_change >= config.ESCALATION_MIN_NET_RISE
+            and max_drop <= config.ESCALATION_DIP_TOLERANCE
+        )
+        is_deescalating = (
+            slope <= -config.ESCALATION_MIN_SLOPE
+            and net_change <= -config.ESCALATION_MIN_NET_RISE
+            and max_rise <= config.ESCALATION_DIP_TOLERANCE
+        )
+        # Fluctuating: notable single-step movement in either direction
+        # (beyond a relaxed 1.5x tolerance) without qualifying as a clean
+        # escalating/de-escalating trend.
+        has_notable_swing = (
+            max_drop > config.ESCALATION_DIP_TOLERANCE * 1.5
+            or max_rise > config.ESCALATION_DIP_TOLERANCE * 1.5
+        )
+
+        if is_escalating:
+            verdict = "escalating"
+            reason = (
+                f"Intensity rose steadily across the conversation "
+                f"(slope={slope:+.3f}/turn, net change={net_change:+.2f})."
+            )
+        elif is_deescalating:
+            verdict = "de-escalating"
+            reason = (
+                f"Intensity fell steadily across the conversation "
+                f"(slope={slope:+.3f}/turn, net change={net_change:+.2f})."
+            )
+        elif has_notable_swing:
+            verdict = "fluctuating"
+            reason = (
+                f"Intensity moved back and forth without a clear net "
+                f"direction (largest rise={max_rise:.2f}, "
+                f"largest drop={max_drop:.2f}, net change={net_change:+.2f})."
+            )
+        else:
+            verdict = "stable"
+            reason = (
+                f"Intensity stayed roughly constant across the conversation "
+                f"(net change={net_change:+.2f}, slope={slope:+.3f}/turn)."
+            )
+
+        return {
+            "verdict": verdict,
+            "reason": reason,
+            "slope": round(slope, 4),
+            "net_change": net_change,
         }
 
     # ---------------------------------------------------------
@@ -432,6 +737,15 @@ class ConversationAnalyzer:
             end,
         )
 
+        # Raw (unwidened) audio slice for this segment's transcript
+        # window — used by both voice calibration and Phase 4's v2
+        # intensity formula (prosodic arousal). Computed once here,
+        # unconditionally, regardless of which downstream features are
+        # enabled.
+        start_sample = max(0, int(start * sr))
+        end_sample = min(len(audio), int(end * sr))
+        segment_audio = audio[start_sample:end_sample]
+
         # -----------------------------------------------------
         # Phase 3: widen the acoustic window for short segments
         # so the emotion model has enough signal. The transcript
@@ -481,10 +795,6 @@ class ConversationAnalyzer:
         # -----------------------------------------------------
         if config.VOICE_CALIBRATION_ENABLED:
             try:
-                start_sample = max(0, int(start * sr))
-                end_sample = min(len(audio), int(end * sr))
-                segment_audio = audio[start_sample:end_sample]
-
                 calibration = self.voice_calibrator.calibrate_segment(
                     raw_scores=voice_result["scores"],
                     audio_segment=segment_audio,
@@ -535,16 +845,45 @@ class ConversationAnalyzer:
             "fusion": fusion_result,
         }
 
+        # -----------------------------------------------------
+        # Phase 4: intensity — v2 (prosody-based) by default, with
+        # a defensive fallback to v1 (legacy, confidence-based) if
+        # anything in the new formula fails, so a bug here degrades
+        # gracefully rather than aborting analysis of this segment.
+        # -----------------------------------------------------
         try:
-            segment_result["intensity"] = self._calculate_intensity(
-                segment_result
-            )
+            if config.INTENSITY_FORMULA_VERSION == "v2":
+                word_count = len(text.split())
+                seg_duration = max(0.0, end - start)
+                intensity_v2, intensity_components = self._calculate_intensity_v2(
+                    voice_scores=voice_result.get("scores", {}),
+                    text_scores=sentiment_result.get("scores", {}),
+                    audio_segment=segment_audio,
+                    sr=sr,
+                    word_count=word_count,
+                    duration_seconds=seg_duration,
+                )
+                segment_result["intensity"] = intensity_v2
+                segment_result["intensity_components"] = intensity_components
+            else:
+                segment_result["intensity"] = self._calculate_intensity(segment_result)
+                segment_result["intensity_components"] = {"formula_version": "v1"}
         except Exception:
             logger.exception(
-                "Intensity calculation failed for segment %d; defaulting to 0.0.",
+                "Intensity calculation (v2) failed for segment %d; "
+                "falling back to legacy v1 formula.",
                 index + 1,
             )
-            segment_result["intensity"] = 0.0
+            try:
+                segment_result["intensity"] = self._calculate_intensity(segment_result)
+                segment_result["intensity_components"] = {"formula_version": "v1_fallback"}
+            except Exception:
+                logger.exception(
+                    "Legacy intensity fallback also failed for segment %d; defaulting to 0.0.",
+                    index + 1,
+                )
+                segment_result["intensity"] = 0.0
+                segment_result["intensity_components"] = {}
 
         return segment_result
 
@@ -679,7 +1018,7 @@ class ConversationAnalyzer:
         t_diarize_elapsed = time.perf_counter() - t_diarize_start
 
         # -----------------------------------------------------
-        # Emotional trend
+        # Emotional trend (legacy, first-vs-last delta)
         # -----------------------------------------------------
 
         self._report_progress(
@@ -694,14 +1033,21 @@ class ConversationAnalyzer:
         )
 
         # -----------------------------------------------------
-        # Escalation
+        # Escalation — legacy strict (kept for ablation/transparency)
+        # and Phase 4 advanced (mode-selectable; this is now the
+        # primary user-facing escalation result under result["escalation"])
         # -----------------------------------------------------
 
-        escalation_result = (
-            self.detect_escalation(
-                analyzed_segments
-            )
-        )
+        escalation_legacy_strict = self.detect_escalation(analyzed_segments)
+        escalation_result = self.detect_escalation_advanced(analyzed_segments)
+
+        # -----------------------------------------------------
+        # Phase 4: single unified verdict (always computed the
+        # tolerant way, independent of config.ESCALATION_MODE — see
+        # compute_unified_verdict's docstring)
+        # -----------------------------------------------------
+
+        verdict_result = self.compute_unified_verdict(analyzed_segments)
 
         # -----------------------------------------------------
         # Modality consistency trajectory
@@ -778,7 +1124,17 @@ class ConversationAnalyzer:
 
             "emotional_trend": trend_result,
 
+            # Phase 4: "escalation" now holds the ADVANCED result
+            # (strict or tolerant per config.ESCALATION_MODE — default
+            # tolerant). This is the key both streamlit_app.py and
+            # recommendation_engine.py read. The original strict-only
+            # result is preserved separately for transparency/ablation.
             "escalation": escalation_result,
+            "escalation_legacy_strict": escalation_legacy_strict,
+
+            # Phase 4: single unified verdict — the new primary
+            # conversation-level signal (see compute_unified_verdict).
+            "verdict": verdict_result,
 
             "consistency_trajectory": consistency_trajectory.to_dict(),
 

@@ -102,3 +102,23 @@ SHORT_SEGMENT_CONTEXT_PADDING_SECONDS: float = 0.5
 # widened due to being under SHORT_SEGMENT_THRESHOLD_SECONDS. A normal-
 # length segment gets reliability 1.0.
 SHORT_SEGMENT_RELIABILITY_SCORE: float = 0.6
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 3: Speech-to-Text Configuration
+# ─────────────────────────────────────────────────────────────────────────
+# faster-whisper model size actually used at runtime. STT_MODEL_SIZE above
+# was already defined but not wired into SpeechToText's default — this is
+# now the single source of truth for production Whisper size.
+# Options: 'tiny', 'base', 'small', 'medium', 'large-v3' (CPU-feasible: base/small).
+
+# Language forced on transcription. 'auto' lets Whisper detect it per file
+# (matches current/original behavior exactly). Set to an ISO 639-1 code
+# (e.g. 'en') to force a language when you know all input will be English —
+# this skips language-detection uncertainty entirely.
+STT_LANGUAGE: str = 'auto'
+
+# Per-segment ASR confidence threshold used by the UI to flag a transcript
+# segment as "uncertain" (low avg_logprob or high no_speech_prob). These
+# are faster-whisper's own native segment-level signals.
+STT_LOW_CONFIDENCE_AVG_LOGPROB: float = -1.0   # more negative = less confident
+STT_HIGH_NO_SPEECH_PROB_THRESHOLD: float = 0.6  # closer to 1.0 = likely non-speech

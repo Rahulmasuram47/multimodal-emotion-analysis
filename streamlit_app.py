@@ -27,6 +27,7 @@ from ui.components.transparency_panels import (
 )
 from ui.pages.acoustic_view import render_acoustic_page
 from ui.pages.analysis_view import render_analysis_page
+from ui.pages.annotation_view import render_annotation_page
 from ui.pages.validation_view import render_multimodal_validation_section
 from ui.state import get_active_uploader_keys, init_session_state, reset_session
 from ui.styles_loader import load_css
@@ -166,10 +167,11 @@ if result:
 
     dom_voice, dom_text, agree_count, mismatch_count = derive_segment_summary(segments)
 
-    tab_analysis, tab_acoustic, tab_validation = st.tabs([
+    tab_analysis, tab_acoustic, tab_validation, tab_annotation = st.tabs([
         "💬 Conversation & Multimodal Analysis",
         "🎛️ Acoustic Inspection",
         "📊 Multimodal Validation",
+        "🏷️ Annotation Helper",
     ])
 
     with tab_analysis:
@@ -200,6 +202,9 @@ if result:
     with tab_validation:
         render_multimodal_validation_section()
 
+    with tab_annotation:
+        render_annotation_page()
+
     # Explainability & System Transparency Panels
     render_fusion_explainer()
     render_system_notes()
@@ -210,9 +215,17 @@ if result:
     render_export_bar(result)
 
 elif active_audio is None:
-    render_workflow_stepper()
-    st.markdown("<br>", unsafe_allow_html=True)
-    render_multimodal_validation_section()
+    # Show annotation helper + validation as top-level tabs even without an analysis result
+    tab_empty_validation, tab_empty_annotation = st.tabs([
+        "📊 Multimodal Validation",
+        "🏷️ Annotation Helper",
+    ])
+    with tab_empty_validation:
+        render_workflow_stepper()
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_multimodal_validation_section()
+    with tab_empty_annotation:
+        render_annotation_page()
 
 # 6. DASHBOARD FOOTER
 st.markdown(

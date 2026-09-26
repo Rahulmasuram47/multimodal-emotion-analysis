@@ -5,7 +5,8 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 
-data/
+data/*
+!data/*.csv
 data/*.wav
 data/*.mp3
 data/*.flac

@@ -33,3 +33,36 @@ TEXT_SENTIMENT_CLASSES = ['negative', 'neutral', 'positive']
 DEFAULT_AUDIO_WEIGHT = 0.5
 DEFAULT_TEXT_WEIGHT = 0.5
 CONFIDENCE_THRESHOLD = 0.4
+
+# Evaluation & Annotation Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Minimum number of annotated samples required before a metric is reported.
+# Rationale: with N < 5, a single misclassification swings accuracy by ≥ 20 pp,
+# making the metric statistically uninformative. 5 is the practical floor.
+EVAL_MIN_N: int = 5
+
+# Number of bootstrap resampling iterations for 95% CI estimation.
+# 1000 gives stable CI width; 2000 is better if run time permits.
+EVAL_BOOTSTRAP_ITERATIONS: int = 1000
+
+# Random seed for bootstrap and learned-fusion CV (reproducibility).
+EVAL_RANDOM_SEED: int = 42
+
+# Path (relative to project root) for the annotation-ready evaluation dataset.
+# The original template is kept untouched at data/evaluation_dataset_template.csv.
+EVAL_DATASET_PATH: str = 'data/evaluation_dataset.csv'
+
+# Folder where team recordings should be saved (created by Annotation Helper).
+RECORDINGS_DIR: str = 'recordings'
+
+# Escalation classes used for binary escalation metrics.
+ESCALATION_CLASSES = ['yes', 'no']
+
+# Incongruence classes used for binary incongruence metrics.
+INCONGRUENCE_CLASSES = ['yes', 'no']
+
+# Voice emotion label options shown in Annotation Helper dropdowns.
+VOICE_EMOTION_OPTIONS = ['neutral', 'happy', 'angry', 'sad']
+
+# Text sentiment label options shown in Annotation Helper dropdowns.
+TEXT_SENTIMENT_OPTIONS = ['positive', 'neutral', 'negative']

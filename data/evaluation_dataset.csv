@@ -1,0 +1,8 @@
+file,source,true_voice_emotion,true_text_sentiment,true_transcript,true_speaker_count,true_escalation,true_incongruent,notes,annotator
+sample_audio/happy_sample.wav,sample_audio,happy,,,1,,,Ground-truth voice emotion labelled happy based on recording intent; text/transcript labels pending annotation,
+sample_audio/angry_sample.wav,sample_audio,angry,,,1,,,Ground-truth voice emotion labelled angry based on recording intent; text/transcript labels pending annotation,
+sample_audio/sad_sample.wav,sample_audio,sad,,,1,,,Ground-truth voice emotion labelled sad based on recording intent; text/transcript labels pending annotation,
+sample_audio/neutral_sample.wav,sample_audio,neutral,,,1,,,Ground-truth voice emotion labelled neutral based on recording intent; text/transcript labels pending annotation,
+sample_audio/real_voice.wav,sample_audio,,,,1,,,Real voice recording; no independent emotion or sentiment ground truth annotated,
+sample_audio/rising_tone.wav,sample_audio,,,,,,,Designed to demonstrate rising emotional intensity; not assigned single ground-truth emotion,
+sample_audio/sample_16k.wav,sample_audio,,,,,,,Audio resampling test sample; not an emotion ground-truth sample,

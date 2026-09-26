@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "dataset_path": "data/evaluation_dataset_template.csv",
+    "dataset_path": "data/evaluation_dataset.csv",
     "total_dataset_records": 7,
     "evaluated_samples_count": 7,
     "failed_samples_count": 0,
@@ -71,7 +71,7 @@
     "recall_macro": null,
     "f1_macro": null,
     "confusion_matrix": null,
-    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required for train/test split is 10).",
+    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
     "feature_names": [
       "prob_audio_neutral",
       "prob_audio_happy",
@@ -89,26 +89,25 @@
   },
   "speech_to_text": {
     "status": "NO_DATA",
+    "n": 0,
     "total_evaluated": 0,
     "average_wer": null,
+    "average_cer": null,
     "overall_wer": null
   },
   "speaker_count": {
     "status": "OK",
-    "count": 7,
+    "count": 5,
+    "n": 5,
     "exact_match_accuracy": 1.0,
     "mae": 0.0,
+    "mae_ci": {
+      "mean": 0.0,
+      "ci_lower": 0.0,
+      "ci_upper": 0.0,
+      "n": 5
+    },
     "per_sample": [
-      {
-        "true_speaker_count": 1,
-        "predicted_speaker_count": 1,
-        "diff": 0
-      },
-      {
-        "true_speaker_count": 1,
-        "predicted_speaker_count": 1,
-        "diff": 0
-      },
       {
         "true_speaker_count": 1,
         "predicted_speaker_count": 1,

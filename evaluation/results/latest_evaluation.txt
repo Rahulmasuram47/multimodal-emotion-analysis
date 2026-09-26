@@ -31,7 +31,7 @@ ANNOTATION & GROUND TRUTH STATUS:
    Status: Pending Data (no reference transcripts provided)
 
 4. SPEAKER COUNT METRICS:
-   Evaluated:            7
+   Evaluated:            5
    Exact Match Accuracy: 1.0000
    Mean Absolute Error:  0.0000
 
@@ -44,7 +44,7 @@ Rule-Based Fusion        Pending Data Pending Data
 Learned Fusion           Pending Data Pending Data
 
 LEARNED FUSION BASELINE DETAILS:
-  Learned Fusion Baseline: Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required for train/test split is 10).
+  Learned Fusion Baseline: Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).
 
 ================================================================
 MANDATORY SCIENTIFIC DISCLAIMER:

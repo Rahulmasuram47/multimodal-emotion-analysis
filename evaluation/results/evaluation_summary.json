@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "dataset_path": "data/evaluation_dataset_template.csv",
+    "dataset_path": "data/evaluation_dataset.csv",
     "total_dataset_records": 7,
     "evaluated_samples_count": 7,
     "failed_samples_count": 0,
@@ -13,10 +13,23 @@
     "voice_emotion": {
       "status": "OK",
       "total_samples": 4,
+      "n": 4,
       "accuracy": 0.25,
       "precision_macro": 0.0625,
       "recall_macro": 0.25,
       "f1_macro": 0.1,
+      "accuracy_ci": {
+        "mean": 0.25,
+        "ci_lower": 0.0,
+        "ci_upper": 0.75,
+        "n": 4
+      },
+      "f1_macro_ci": {
+        "mean": 0.25,
+        "ci_lower": 0.0,
+        "ci_upper": 0.75,
+        "n": 4
+      },
       "per_class": {
         "neutral": {
           "precision": 0.0,
@@ -105,10 +118,23 @@
     "text_sentiment": {
       "status": "NO_DATA",
       "total_samples": 0,
+      "n": 0,
       "accuracy": null,
       "precision_macro": null,
       "recall_macro": null,
       "f1_macro": null,
+      "accuracy_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_macro_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
       "per_class": {},
       "confusion_matrix": {},
       "labels": [
@@ -119,26 +145,25 @@
     },
     "speech_to_text": {
       "status": "NO_DATA",
+      "n": 0,
       "total_evaluated": 0,
       "average_wer": null,
+      "average_cer": null,
       "overall_wer": null
     },
     "speaker_count": {
       "status": "OK",
-      "count": 7,
+      "count": 5,
+      "n": 5,
       "exact_match_accuracy": 1.0,
       "mae": 0.0,
+      "mae_ci": {
+        "mean": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "n": 5
+      },
       "per_sample": [
-        {
-          "true_speaker_count": 1,
-          "predicted_speaker_count": 1,
-          "diff": 0
-        },
-        {
-          "true_speaker_count": 1,
-          "predicted_speaker_count": 1,
-          "diff": 0
-        },
         {
           "true_speaker_count": 1,
           "predicted_speaker_count": 1,
@@ -166,20 +191,57 @@
         }
       ]
     },
-    "sample_records": [
-      {
-        "filename": "sample_audio/real_voice.wav",
-        "true_voice_emotion": null,
-        "pred_voice_emotion": "sad",
-        "true_text_sentiment": null,
-        "pred_text_sentiment": "neutral",
-        "true_speaker_count": 1,
-        "pred_speaker_count": 1,
-        "true_transcript": null,
-        "pred_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
-        "wer": null,
-        "notes": "Manually labelled as a single-speaker real voice recording; emotion and sentiment ground truth not independently annotated"
+    "escalation": {
+      "status": "NO_DATA",
+      "n": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "precision_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
       },
+      "recall_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      }
+    },
+    "incongruence": {
+      "status": "NO_DATA",
+      "n": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "precision_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "recall_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      }
+    },
+    "sample_records": [
       {
         "filename": "sample_audio/happy_sample.wav",
         "true_voice_emotion": "happy",
@@ -191,7 +253,8 @@
         "true_transcript": null,
         "pred_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
         "wer": null,
-        "notes": "Ground-truth voice emotion labelled happy based on the recording's intended emotion; single speaker"
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled happy based on recording intent; text/transcript labels pending annotation"
       },
       {
         "filename": "sample_audio/angry_sample.wav",
@@ -204,7 +267,8 @@
         "true_transcript": null,
         "pred_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
         "wer": null,
-        "notes": "Ground-truth voice emotion labelled angry based on the recording's intended emotion; single speaker"
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled angry based on recording intent; text/transcript labels pending annotation"
       },
       {
         "filename": "sample_audio/sad_sample.wav",
@@ -217,7 +281,8 @@
         "true_transcript": null,
         "pred_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
         "wer": null,
-        "notes": "Ground-truth voice emotion labelled sad based on the recording's intended emotion; single speaker"
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled sad based on recording intent; text/transcript labels pending annotation"
       },
       {
         "filename": "sample_audio/neutral_sample.wav",
@@ -230,7 +295,22 @@
         "true_transcript": null,
         "pred_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
         "wer": null,
-        "notes": "Ground-truth voice emotion labelled neutral based on the recording's intended emotion; single speaker"
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled neutral based on recording intent; text/transcript labels pending annotation"
+      },
+      {
+        "filename": "sample_audio/real_voice.wav",
+        "true_voice_emotion": null,
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "neutral",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
+        "wer": null,
+        "cer": null,
+        "notes": "Real voice recording; no independent emotion or sentiment ground truth annotated"
       },
       {
         "filename": "sample_audio/rising_tone.wav",
@@ -238,12 +318,13 @@
         "pred_voice_emotion": "sad",
         "true_text_sentiment": null,
         "pred_text_sentiment": "negative",
-        "true_speaker_count": 1,
+        "true_speaker_count": null,
         "pred_speaker_count": 1,
         "true_transcript": null,
         "pred_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
         "wer": null,
-        "notes": "Designed to demonstrate rising emotional intensity over time; not assigned a single ground-truth emotion"
+        "cer": null,
+        "notes": "Designed to demonstrate rising emotional intensity; not assigned single ground-truth emotion"
       },
       {
         "filename": "sample_audio/sample_16k.wav",
@@ -251,12 +332,13 @@
         "pred_voice_emotion": "neu",
         "true_text_sentiment": null,
         "pred_text_sentiment": null,
-        "true_speaker_count": 1,
+        "true_speaker_count": null,
         "pred_speaker_count": 1,
         "true_transcript": null,
         "pred_transcript": "",
         "wer": null,
-        "notes": "Audio setup and resampling test sample; not intended as an emotion ground-truth sample"
+        "cer": null,
+        "notes": "Audio resampling test sample; not an emotion ground-truth sample"
       }
     ]
   },
@@ -285,18 +367,6 @@
       "f1_score": null
     },
     "per_sample": [
-      {
-        "filename": "sample_audio/real_voice.wav",
-        "voice_only_confidence": 0.9533993601799011,
-        "text_only_confidence": 0.8558564782142639,
-        "fusion_confidence": 0.9046279191970825,
-        "voice_direction": "negative",
-        "text_direction": "neutral",
-        "fusion_direction": "negative",
-        "ground_truth_direction": null,
-        "agreement": false,
-        "mismatch": true
-      },
       {
         "filename": "sample_audio/happy_sample.wav",
         "voice_only_confidence": 0.9063600897789001,
@@ -338,6 +408,18 @@
         "voice_only_confidence": 0.898344099521637,
         "text_only_confidence": 0.8310960531234741,
         "fusion_confidence": 0.8647200763225555,
+        "voice_direction": "negative",
+        "text_direction": "neutral",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": false,
+        "mismatch": true
+      },
+      {
+        "filename": "sample_audio/real_voice.wav",
+        "voice_only_confidence": 0.9533993601799011,
+        "text_only_confidence": 0.8558564782142639,
+        "fusion_confidence": 0.9046279191970825,
         "voice_direction": "negative",
         "text_direction": "neutral",
         "fusion_direction": "negative",
@@ -439,7 +521,7 @@
       "recall_macro": null,
       "f1_macro": null,
       "confusion_matrix": null,
-      "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required for train/test split is 10).",
+      "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
       "feature_names": [
         "prob_audio_neutral",
         "prob_audio_happy",
@@ -466,7 +548,7 @@
     "recall_macro": null,
     "f1_macro": null,
     "confusion_matrix": null,
-    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required for train/test split is 10).",
+    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
     "feature_names": [
       "prob_audio_neutral",
       "prob_audio_happy",

@@ -31,7 +31,7 @@ Ground Truth Present: True
    Status: N/A (no ground truth transcripts provided)
 
 4. SPEAKER COUNT METRICS:
-   Evaluated:            7
+   Evaluated:            5
    Exact Match Accuracy: 1.0
    Mean Absolute Error:  0.0
 ================================================================

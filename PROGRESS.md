@@ -969,4 +969,63 @@ All 138 automated unit tests passed with 0 failures. Production rule-based fusio
 - **Automated Test Suite**: **165 passed / 0 failed, 3 warnings** (100% passing across all 16 test suites).
 - **Line Count Limits**: Verified all 14 component/page files are under 400 lines, and `streamlit_app.py` is under 250 lines.
 - **Integrity**: `PROJECT_SPEC.md` strictly unchanged. Production rule-based fusion intact. Zero synthetic data.
+
+---
+
+## Milestone 6: Phase 2 — Evaluation Data & Annotation Tooling — COMPLETED
+
+### Context & Goals
+
+Build empirical evaluation tooling and real ground-truth annotation infrastructure for the multimodal emotion analysis system without fabricating any labels, transcripts, or metrics. Enable the annotation team (Sahithi, Akshitha, Rahul) to record, draft-transcribe, and label real conversation samples with transparent 2-annotator protocols.
+
+### Key Changes Built
+
+1. **Extended Evaluation Dataset Schema (`data/evaluation_dataset.csv`)**:
+   - Redesigned dataset schema with 10 explicit columns: `file, source, true_voice_emotion, true_text_sentiment, true_transcript, true_speaker_count, true_escalation, true_incongruent, notes, annotator`.
+   - Legacy template `data/evaluation_dataset_template.csv` preserved untouched.
+   - Dual-schema parser in `evaluation/dataset.py` auto-detects legacy vs. extended format with column validation.
+   - Blank / N/A cells are stored as `None` and strictly excluded from metric computation — never counted as a category.
+
+2. **Standardized Data Collection Guide (`docs/DATA_COLLECTION_GUIDE.md`)**:
+   - 25 structured recording scenarios across 5 groups (Single Emotion, Cross-Modal Mismatch, 3-Turn Escalation, 2-Speaker Dialogue, Edge Cases & Noise).
+   - Audio specifications: 16 kHz mono WAV, 16-bit PCM, 5–30s duration, quiet room.
+   - 2-annotator labeling protocol with independent scoring, majority resolution, and escalation to blank when persistently ambiguous.
+
+3. **Interactive Annotation Helper (`ui/pages/annotation_view.py`)**:
+   - Integrated as 4th Streamlit tab `🏷️ Annotation Helper` in `streamlit_app.py` (available in both empty landing and analyzed states).
+   - Lists audio files from `sample_audio/` and `recordings/` with visual annotation status indicators (`✅` / `⬜`).
+   - Native audio playback component for in-browser listening.
+   - On-demand Faster-Whisper draft transcription for reference (explicitly labeled as machine draft; never automatically saved as ground truth).
+   - Standardized dropdowns for all 6 target annotation dimensions.
+   - Atomic CSV persistence with overwrite safety confirmation to prevent accidental data loss.
+   - Real-time annotation progress and metric readiness dashboard tracking sample counts against `EVAL_MIN_N`.
+
+4. **Extended Metric Suite with Bootstrap 95% Confidence Intervals (`evaluation/metrics.py`)**:
+   - Voice Emotion: Accuracy, Macro F1, Precision, Recall, Confusion Matrix, and 95% Bootstrap CIs.
+   - Text Sentiment: Accuracy, Macro F1, Precision, Recall, Confusion Matrix, and 95% Bootstrap CIs.
+   - Speech-to-Text: Word Error Rate (WER) and Character Error Rate (CER) via Levenshtein dynamic programming.
+   - Speaker Count: Mean Absolute Error (MAE) and Exact Match Accuracy with bootstrap CIs.
+   - Escalation & Incongruence: Precision, Recall, and F1 binary detection metrics with bootstrap CIs.
+   - Unannotated exclusion: all metric functions report explicit sample size `N` alongside metrics.
+
+5. **Leave-One-Out Cross-Validation for Learned Fusion Baseline (`evaluation/learned_fusion.py`)**:
+   - Auto-strategy selection: when `MIN_TRAINING_SAMPLES` (10) ≤ N < `MIN_LOO_CV_THRESHOLD` (30), applies Leave-One-Out Cross-Validation (LOO-CV) across all available samples instead of a fragile single train/test split.
+   - Falls back to 30% held-out test split when N ≥ 30, and reports `INSUFFICIENT_DATA` when N < 10.
+   - Primary rule-based fusion remains the production path; Logistic Regression remains an experimental comparison baseline.
+
+6. **4-Way Modality Ablation (`evaluation/ablation.py`)**:
+   - Structured 4-way comparison across Voice-Only, Text-Only, Current Rule-Based Fusion, and Learned Fusion Baseline.
+   - Added `get_four_way_model_comparison()` method returning standardized metric records.
+
+7. **Empirical Validation UI & Automated Markdown Report (`ui/pages/validation_view.py`, `evaluation/run_evaluation.py`)**:
+   - Auto-generates `evaluation/results/EVALUATION_REPORT.md` on every evaluation run.
+   - `validation_view.py` dynamically displays metrics with sample size `N` and 95% CIs.
+   - Displays clear `"Insufficient data (N = …)"` notices whenever N < `EVAL_MIN_N` (`5`), preventing misleading conclusions from small sample sizes.
+   - Centralized configuration in `config.py`: `EVAL_MIN_N`, `EVAL_BOOTSTRAP_ITERATIONS`, `EVAL_RANDOM_SEED`, `EVAL_DATASET_PATH`, `RECORDINGS_DIR`.
+
+### Verification Outcome
+
+- **Automated Test Suite**: **181 passed / 0 failed, 3 warnings** (165 original + 16 new Phase 2 tests).
+- **Evaluation Runner**: `python -m evaluation.run_evaluation` runs cleanly end-to-end on mixed annotated and unannotated data.
+- **Data Integrity**: Zero fabricated labels; `PROJECT_SPEC.md` strictly unchanged; `data/evaluation_dataset_template.csv` untouched.
 

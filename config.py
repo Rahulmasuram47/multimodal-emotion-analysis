@@ -66,3 +66,21 @@ VOICE_EMOTION_OPTIONS = ['neutral', 'happy', 'angry', 'sad']
 
 # Text sentiment label options shown in Annotation Helper dropdowns.
 TEXT_SENTIMENT_OPTIONS = ['positive', 'neutral', 'negative']
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 3: Voice Emotion Calibration
+# ─────────────────────────────────────────────────────────────────────────
+# Master switch. When False, calibration is fully bypassed and raw model
+# output is used everywhere (identical to pre-Phase-3 behavior).
+VOICE_CALIBRATION_ENABLED: bool = True
+
+# Prosody sanity rule (data-free heuristic, usable even at very small N).
+VOICE_CALIBRATION_PROSODY_RULE_ENABLED: bool = True
+VOICE_CALIBRATION_RMS_THRESHOLD: float = 0.05          # tune once labeled data exists
+VOICE_CALIBRATION_ZCR_STD_THRESHOLD: float = 0.02      # tune once labeled data exists
+VOICE_CALIBRATION_SAD_DAMPENING_FACTOR: float = 0.5    # 0.5 = halve 'sad' mass when rule fires
+
+# Temperature scaling (data-fitted; refuses to fit below this many labeled
+# voice-emotion samples, to avoid overfitting a correction to a handful
+# of clips). Re-run fitting once more team recordings are annotated.
+VOICE_CALIBRATION_MIN_FIT_SAMPLES: int = 15

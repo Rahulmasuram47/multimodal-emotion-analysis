@@ -21,12 +21,14 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+import config
 from app.audio_processor import load_and_preprocess_audio
 from app.emotion_analyzer import VoiceEmotionAnalyzer
 from app.speech_to_text import SpeechToText
 from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.diarization import SpeakerDiarizer
+from app.voice_calibration import VoiceCalibrator
 from app.consistency_analysis import (
     compute_consistency_trajectory,
     compute_attention_score,
@@ -50,6 +52,7 @@ class ConversationAnalyzer:
         sentiment_analyzer: SentimentAnalyzer | None = None,
         fusion: MultimodalFusion | None = None,
         diarizer: SpeakerDiarizer | None = None,
+        voice_calibrator: VoiceCalibrator | None = None,
     ):
         logger.info(
             "Initializing conversation analysis pipeline..."
@@ -80,6 +83,15 @@ class ConversationAnalyzer:
         self.diarizer = (
             diarizer
             or SpeakerDiarizer()
+        )
+
+        # Phase 3: voice emotion calibration (prosody sanity rule +
+        # temperature scaling). Inert (identity behavior) until enough
+        # labeled samples exist to fit temperature scaling; the prosody
+        # rule can still apply from very small N since it is data-free.
+        self.voice_calibrator = (
+            voice_calibrator
+            or VoiceCalibrator()
         )
 
         logger.info(
@@ -431,6 +443,37 @@ class ConversationAnalyzer:
                 index + 1,
             )
             return None
+
+        # -----------------------------------------------------
+        # Phase 3: voice calibration (prosody sanity rule +
+        # temperature scaling, when fitted). Runs on the raw
+        # scores returned above; raw values are preserved
+        # alongside the calibrated ones for transparency.
+        # -----------------------------------------------------
+        if config.VOICE_CALIBRATION_ENABLED:
+            try:
+                start_sample = max(0, int(start * sr))
+                end_sample = min(len(audio), int(end * sr))
+                segment_audio = audio[start_sample:end_sample]
+
+                calibration = self.voice_calibrator.calibrate_segment(
+                    raw_scores=voice_result["scores"],
+                    audio_segment=segment_audio,
+                    sr=sr,
+                )
+
+                voice_result["raw_emotion"] = voice_result["emotion"]
+                voice_result["raw_confidence"] = voice_result["confidence"]
+                voice_result["raw_scores"] = dict(voice_result["scores"])
+                voice_result["emotion"] = calibration.emotion
+                voice_result["confidence"] = calibration.confidence
+                voice_result["scores"] = calibration.scores
+                voice_result["calibration_applied_rules"] = calibration.applied_rules
+            except Exception:
+                logger.exception(
+                    "Voice calibration failed for segment %d; using raw model output.",
+                    index + 1,
+                )
 
         try:
             sentiment_result = self.sentiment_analyzer.analyze(text)

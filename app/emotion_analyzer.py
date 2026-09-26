@@ -5,7 +5,7 @@ Uses Wav2Vec2 to predict emotion from speech audio.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import torch
@@ -15,6 +15,7 @@ from transformers import (
 )
 
 from app.audio_processor import load_and_preprocess_audio
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,16 @@ logger = logging.getLogger(__name__)
 class VoiceEmotionAnalyzer:
     """Analyze speech emotion using a pretrained Wav2Vec2 model."""
 
-    def __init__(self):
-        self.model_id = "superb/wav2vec2-base-superb-er"
+    def __init__(self, model_id: Optional[str] = None):
+        # Falls back to the locked-in production model from config.py when
+        # no model_id is given, so existing callers (ConversationAnalyzer,
+        # etc.) keep using the same model as before with zero code changes.
+        # A caller (e.g. the Phase 3 benchmark script) can still pass a
+        # different model_id to compare candidates without touching
+        # production config.
+        self.model_id = model_id or config.AUDIO_EMOTION_MODEL_NAME
 
-        logger.info("Loading Wav2Vec2 emotion model...")
+        logger.info("Loading Wav2Vec2 emotion model: %s", self.model_id)
 
         self.extractor = Wav2Vec2FeatureExtractor.from_pretrained(
             self.model_id
@@ -157,7 +164,7 @@ class VoiceEmotionAnalyzer:
         )
 
         logger.info(
-            "Segment emotion: %.2f-%.2fs → %s "
+            "Segment emotion: %.2f-%.2fs â†’ %s "
             "(confidence=%.4f)",
             start_seconds,
             end_seconds,

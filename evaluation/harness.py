@@ -15,7 +15,10 @@ from evaluation.dataset import EvaluationDataset, EvaluationSample, load_evaluat
 from evaluation.metrics import (
     compute_classification_metrics,
     compute_word_error_rate,
+    compute_character_error_rate,
     compute_speaker_metrics,
+    compute_binary_detection_metrics,
+    bootstrap_ci,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,8 @@ class EvaluationResult:
     speaker_count_metrics: Dict[str, Any]
     sample_records: List[Dict[str, Any]]
     has_ground_truth: bool
+    escalation_metrics: Dict[str, Any] = field(default_factory=dict)
+    incongruence_metrics: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -53,6 +58,8 @@ class EvaluationResult:
             "text_sentiment": self.text_sentiment_metrics,
             "speech_to_text": self.speech_to_text_metrics,
             "speaker_count": self.speaker_count_metrics,
+            "escalation": self.escalation_metrics,
+            "incongruence": self.incongruence_metrics,
             "sample_records": self.sample_records,
         }
 
@@ -183,9 +190,16 @@ class EvaluationHarness:
         ts_pred: List[str] = []
 
         wer_results: List[Dict[str, Any]] = []
+        cer_results: List[Dict[str, Any]] = []
 
         spk_true: List[Optional[int]] = []
         spk_pred: List[Optional[int]] = []
+
+        # Binary detection: escalation and incongruence
+        esc_true: List[Optional[str]] = []
+        esc_pred: List[Optional[str]] = []
+        inc_true: List[Optional[str]] = []
+        inc_pred: List[Optional[str]] = []
 
         sample_records: List[Dict[str, Any]] = []
         has_any_gt = False
@@ -206,6 +220,7 @@ class EvaluationHarness:
                 "true_transcript": sample.true_transcript,
                 "pred_transcript": pred.pred_transcript,
                 "wer": None,
+                "cer": None,
                 "notes": sample.notes,
             }
 
@@ -223,19 +238,39 @@ class EvaluationHarness:
                     ts_true.append(sample.true_text_sentiment)
                     ts_pred.append(pred.pred_text_sentiment)
 
-            # 3. Transcript / WER
+            # 3. Transcript / WER + CER
             if sample.true_transcript is not None:
                 has_any_gt = True
                 wer_info = compute_word_error_rate(sample.true_transcript, pred.pred_transcript)
                 if wer_info is not None:
                     record["wer"] = wer_info["wer"]
                     wer_results.append(wer_info)
+                cer_info = compute_character_error_rate(sample.true_transcript, pred.pred_transcript)
+                if cer_info is not None:
+                    record["cer"] = cer_info["cer"]
+                    cer_results.append(cer_info)
 
             # 4. Speaker count
             if sample.true_speaker_count is not None:
                 has_any_gt = True
                 spk_true.append(sample.true_speaker_count)
                 spk_pred.append(pred.pred_speaker_count)
+
+            # 5. Escalation (binary; pred derived from fusion escalation flag in extra)
+            if sample.true_escalation is not None:
+                has_any_gt = True
+                pred_esc = pred.extra.get("escalation_detected")
+                esc_true.append(sample.true_escalation)
+                esc_pred.append("yes" if pred_esc else "no")
+
+            # 6. Incongruence (binary; pred derived from fusion mismatch flag in extra)
+            if sample.true_incongruent is not None:
+                has_any_gt = True
+                # Check fusion result for mismatch indicator
+                fusion_res = (pred.extra.get("fusion_result") or {})
+                pred_inc = fusion_res.get("mismatch", False)
+                inc_true.append(sample.true_incongruent)
+                inc_pred.append("yes" if pred_inc else "no")
 
             sample_records.append(record)
 
@@ -247,6 +282,8 @@ class EvaluationHarness:
             ts_true, ts_pred, labels=self.sentiment_classes
         )
         spk_metrics = compute_speaker_metrics(spk_true, spk_pred)
+        esc_metrics = compute_binary_detection_metrics(esc_true, esc_pred, positive_class="yes")
+        inc_metrics = compute_binary_detection_metrics(inc_true, inc_pred, positive_class="yes")
 
         # Aggregate WER
         if wer_results:
@@ -261,11 +298,19 @@ class EvaluationHarness:
                 if total_ref > 0
                 else 0.0
             )
+            # CER aggregate
+            if cer_results:
+                macro_cer = round(sum(c["cer"] for c in cer_results) / len(cer_results), 4)
+            else:
+                macro_cer = None
+
             stt_metrics = {
                 "status": "OK",
                 "total_evaluated": len(wer_results),
+                "n": len(wer_results),
                 "average_wer": macro_wer,
                 "overall_wer": micro_wer,
+                "average_cer": macro_cer,
                 "total_reference_words": total_ref,
                 "total_hypothesis_words": total_hyp,
                 "total_substitutions": total_subs,
@@ -275,8 +320,10 @@ class EvaluationHarness:
         else:
             stt_metrics = {
                 "status": "NO_DATA",
+                "n": 0,
                 "total_evaluated": 0,
                 "average_wer": None,
+                "average_cer": None,
                 "overall_wer": None,
             }
 
@@ -286,6 +333,9 @@ class EvaluationHarness:
             text_sentiment_metrics=ts_metrics,
             speech_to_text_metrics=stt_metrics,
             speaker_count_metrics=spk_metrics,
+            escalation_metrics=esc_metrics,
+            incongruence_metrics=inc_metrics,
             sample_records=sample_records,
             has_ground_truth=has_any_gt,
         )
+

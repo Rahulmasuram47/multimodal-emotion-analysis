@@ -329,7 +329,7 @@ def render_annotation_page() -> None:
 
         transcript_input = st.text_area(
             "True transcript (verbatim)",
-            value=pre.true_transcript or "",
+            value=(pre.true_transcript if pre else "") or "",
             height=80,
             placeholder="Type or paste the verbatim transcript. Leave blank if unintelligible.",
             help="Ground-truth transcript. Use [inaudible] for unclear sections.",

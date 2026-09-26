@@ -100,6 +100,16 @@ elif uploaded_file is not None:
     format_map = {".wav": "audio/wav", ".mp3": "audio/mp3", ".ogg": "audio/ogg", ".flac": "audio/flac", ".m4a": "audio/mp4"}
     audio_format = format_map.get(suffix, "audio/wav")
     current_source = "upload"
+elif st.query_params.get("sample"):
+    sample_name = str(st.query_params.get("sample"))
+    candidate = Path("sample_audio") / (sample_name if sample_name.endswith(".wav") else f"{sample_name}.wav")
+    if candidate.exists():
+        with open(candidate, "rb") as f:
+            sample_bytes = f.read()
+        active_audio = io.BytesIO(sample_bytes)
+        active_audio.name = candidate.name
+        audio_format = "audio/wav"
+        current_source = "sample"
 
 if current_source != st.session_state.get("_last_active_source"):
     st.session_state["_last_active_source"] = current_source
@@ -108,8 +118,9 @@ if current_source != st.session_state.get("_last_active_source"):
 
 # Analysis trigger & action buttons
 btn_col1, btn_col2, _ = st.columns([1.5, 1, 3])
+auto_analyze = st.query_params.get("auto_analyze") in ("true", "1")
 with btn_col1:
-    analyze_clicked = st.button("ANALYZE AUDIO ▶", type="primary", use_container_width=True, disabled=(active_audio is None))
+    analyze_clicked = st.button("ANALYZE AUDIO ▶", type="primary", use_container_width=True, disabled=(active_audio is None)) or (auto_analyze and active_audio is not None and not st.session_state.get("analysis_result"))
 with btn_col2:
     if st.button("RESET SESSION ⟲", use_container_width=True):
         reset_session()

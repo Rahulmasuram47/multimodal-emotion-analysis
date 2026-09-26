@@ -35,7 +35,7 @@ DEFAULT_TEXT_WEIGHT = 0.5
 CONFIDENCE_THRESHOLD = 0.4
 
 # Evaluation & Annotation Configuration
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────
 # Minimum number of annotated samples required before a metric is reported.
 # Rationale: with N < 5, a single misclassification swings accuracy by ≥ 20 pp,
 # making the metric statistically uninformative. 5 is the practical floor.
@@ -84,3 +84,21 @@ VOICE_CALIBRATION_SAD_DAMPENING_FACTOR: float = 0.5    # 0.5 = halve 'sad' mass 
 # voice-emotion samples, to avoid overfitting a correction to a handful
 # of clips). Re-run fitting once more team recordings are annotated.
 VOICE_CALIBRATION_MIN_FIT_SAMPLES: int = 15
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 3: Short-Segment Handling
+# ─────────────────────────────────────────────────────────────────────────
+# Segments shorter than this are considered too short for reliable acoustic
+# emotion inference on their own. Their audio window is widened using
+# neighboring context before running the acoustic model.
+SHORT_SEGMENT_THRESHOLD_SECONDS: float = 1.0
+
+# When widening a short segment's audio window, expand by this many seconds
+# on each side (clamped to the full audio's bounds and to not overlap past
+# the midpoint of an adjacent segment).
+SHORT_SEGMENT_CONTEXT_PADDING_SECONDS: float = 0.5
+
+# Reliability score assigned to a segment whose acoustic window had to be
+# widened due to being under SHORT_SEGMENT_THRESHOLD_SECONDS. A normal-
+# length segment gets reliability 1.0.
+SHORT_SEGMENT_RELIABILITY_SCORE: float = 0.6

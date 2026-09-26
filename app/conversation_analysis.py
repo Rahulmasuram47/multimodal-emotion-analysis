@@ -19,7 +19,7 @@ Also provides:
 
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import config
 from app.audio_processor import load_and_preprocess_audio
@@ -28,7 +28,7 @@ from app.speech_to_text import SpeechToText
 from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.diarization import SpeakerDiarizer
-from app.voice_calibration import VoiceCalibrator
+from app.voice_calibration import VoiceCalibrator, compute_widened_window
 from app.consistency_analysis import (
     compute_consistency_trajectory,
     compute_attention_score,
@@ -393,6 +393,8 @@ class ConversationAnalyzer:
         sr,
         raw_segment: Dict[str, Any],
         index: int,
+        all_segment_bounds: List[Tuple[float, float]],
+        audio_duration_seconds: float,
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single transcript segment.
@@ -430,12 +432,34 @@ class ConversationAnalyzer:
             end,
         )
 
+        # -----------------------------------------------------
+        # Phase 3: widen the acoustic window for short segments
+        # so the emotion model has enough signal. The transcript
+        # window (start/end used everywhere else) is unchanged;
+        # only the audio slice passed to analyze_segment below is
+        # widened. Wrapped defensively: a failure here must never
+        # abort the whole pipeline, it should just fall back to
+        # the original (unwidened) window.
+        # -----------------------------------------------------
+        acoustic_start, acoustic_end, was_widened = start, end, False
+        try:
+            acoustic_start, acoustic_end, was_widened = compute_widened_window(
+                start, end, all_segment_bounds, audio_duration_seconds
+            )
+        except Exception:
+            logger.exception(
+                "Short-segment window widening failed for segment %d; "
+                "using original (unwidened) window.",
+                index + 1,
+            )
+            acoustic_start, acoustic_end, was_widened = start, end, False
+
         try:
             voice_result = self.emotion_analyzer.analyze_segment(
                 audio,
                 sr,
-                start,
-                end,
+                acoustic_start,
+                acoustic_end,
             )
         except Exception:
             logger.exception(
@@ -443,6 +467,11 @@ class ConversationAnalyzer:
                 index + 1,
             )
             return None
+
+        voice_result["voice_reliability"] = (
+            config.SHORT_SEGMENT_RELIABILITY_SCORE if was_widened else 1.0
+        )
+        voice_result["acoustic_window_widened"] = was_widened
 
         # -----------------------------------------------------
         # Phase 3: voice calibration (prosody sanity rule +
@@ -605,6 +634,13 @@ class ConversationAnalyzer:
         # Analyze each transcript segment
         # -----------------------------------------------------
 
+        # Pre-compute all segment bounds once so each segment's short-
+        # segment widening can see its neighbors without re-scanning.
+        all_segment_bounds: List[Tuple[float, float]] = [
+            (float(s.get("start", 0.0) or 0.0), float(s.get("end", 0.0) or 0.0))
+            for s in raw_segments
+        ]
+
         t_segments_start = time.perf_counter()
         for index, raw_segment in enumerate(raw_segments):
 
@@ -616,7 +652,7 @@ class ConversationAnalyzer:
             )
 
             segment_result = self._analyze_segment(
-                audio, sr, raw_segment, index
+                audio, sr, raw_segment, index, all_segment_bounds, duration
             )
 
             if segment_result is not None:

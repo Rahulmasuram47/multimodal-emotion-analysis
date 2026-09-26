@@ -13,17 +13,22 @@ result so it can be explained in the UI/viva):
    not fit from data, so it can run even with very few labeled samples.
 
 2. Temperature scaling + per-class prior correction (DATA-FITTED):
-   Requires config.CALIBRATION_MIN_FIT_SAMPLES labeled samples per class
-   before it will do anything. Below that threshold, calibrate() is a
-   documented no-op — it does NOT guess a correction from too little data,
-   since that would just overfit to those exact few clips.
+   Requires config.VOICE_CALIBRATION_MIN_FIT_SAMPLES labeled samples per
+   class before it will do anything. Below that threshold, calibrate() is
+   a documented no-op — it does NOT guess a correction from too little
+   data, since that would just overfit to those exact few clips.
+
+Also provides compute_widened_window(), used by ConversationAnalyzer to
+widen the acoustic-only audio window for very short segments (see
+config.SHORT_SEGMENT_THRESHOLD_SECONDS), giving the acoustic model more
+signal without changing the segment's transcript/text boundaries.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -48,9 +53,53 @@ def _renormalize(scores: Dict[str, float]) -> Dict[str, float]:
     return {k: v / total for k, v in scores.items()}
 
 
-def _top_class(scores: Dict[str, float]) -> tuple[str, float]:
+def _top_class(scores: Dict[str, float]) -> Tuple[str, float]:
     label = max(scores, key=scores.get)
     return label, scores[label]
+
+
+def compute_widened_window(
+    start_seconds: float,
+    end_seconds: float,
+    all_segment_bounds: List[Tuple[float, float]],
+    audio_duration_seconds: float,
+) -> Tuple[float, float, bool]:
+    """Widen a short segment's time window for acoustic-only inference.
+
+    Returns (widened_start, widened_end, was_widened). The transcript/text
+    window is NEVER changed by this — only the audio slice used for the
+    acoustic emotion model. Widening never crosses into a neighboring
+    segment's own time range, so it only borrows silence/breath/trailing-
+    tone context, never another segment's speech content.
+
+    all_segment_bounds: list of (start, end) for every segment in the
+        conversation (including this one), used to avoid overlapping a
+        neighbor's speech.
+    """
+    duration = end_seconds - start_seconds
+    if duration >= config.SHORT_SEGMENT_THRESHOLD_SECONDS:
+        return start_seconds, end_seconds, False
+
+    padding = config.SHORT_SEGMENT_CONTEXT_PADDING_SECONDS
+
+    # Find the nearest neighbor bounds so we don't eat into their speech.
+    prev_end = 0.0
+    next_start = audio_duration_seconds
+    for (other_start, other_end) in all_segment_bounds:
+        if other_end <= start_seconds and other_end > prev_end:
+            prev_end = other_end
+        if other_start >= end_seconds and other_start < next_start:
+            next_start = other_start
+
+    widened_start = max(prev_end, start_seconds - padding, 0.0)
+    widened_end = min(next_start, end_seconds + padding, audio_duration_seconds)
+
+    # Guard against a degenerate widened window (shouldn't happen given the
+    # clamps above, but never allow it to invert or return empty).
+    if widened_end <= widened_start:
+        return start_seconds, end_seconds, False
+
+    return widened_start, widened_end, True
 
 
 def apply_prosody_sanity_rule(
@@ -78,10 +127,10 @@ def apply_prosody_sanity_rule(
         try:
             rms = float(np.sqrt(np.mean(np.square(audio_segment))))
 
-            # Cheap pitch-range proxy: autocorrelation-based F0 estimate is
-            # expensive per-segment: use zero-crossing-rate variability as a
-            # fast stand-in for pitch variation (higher ZCR variance ~ more
-            # pitch movement, correlates loosely with arousal).
+            # Cheap pitch-range proxy: a full autocorrelation-based F0
+            # estimate is expensive per-segment, so zero-crossing-rate
+            # variability stands in as a fast proxy (higher ZCR variance
+            # ~ more pitch movement, correlates loosely with arousal).
             frame_len = max(1, sr // 50)  # ~20ms frames
             n_frames = len(audio_segment) // frame_len
             zcr_values = []
@@ -136,10 +185,10 @@ class VoiceCalibrator:
         self.is_fitted: bool = False
         self.fit_n_samples: int = 0
 
-    def fit(self, labeled_scores: List[tuple[Dict[str, float], str]]) -> None:
+    def fit(self, labeled_scores: List[Tuple[Dict[str, float], str]]) -> None:
         """Fit temperature scaling from (raw_scores, true_label) pairs.
 
-        Refuses to fit (stays a no-op) below config.CALIBRATION_MIN_FIT_SAMPLES,
+        Refuses to fit (stays a no-op) below config.VOICE_CALIBRATION_MIN_FIT_SAMPLES,
         to avoid overfitting a correction to a handful of clips.
         """
         self.fit_n_samples = len(labeled_scores)

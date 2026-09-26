@@ -17,7 +17,7 @@ import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, LeaveOneOut
 
 from config import AUDIO_EMOTION_CLASSES, TEXT_SENTIMENT_CLASSES
 from evaluation.metrics import compute_classification_metrics
@@ -40,6 +40,10 @@ FEATURE_NAMES: List[str] = [
 ]
 
 MIN_TRAINING_SAMPLES: int = 10
+
+# When labelled samples fall below this threshold, use Leave-One-Out CV
+# instead of a fixed 30% hold-out to maximise use of scarce data.
+MIN_LOO_CV_THRESHOLD: int = 30
 
 
 @dataclass
@@ -199,9 +203,14 @@ class LearnedFusionBaseline:
         samples_data: Sequence[Dict[str, Any]],
         ground_truth_labels: Sequence[Optional[str]],
         test_size: float = 0.30,
-    ) -> LearnedFusionResult:
-        """
-        Train on training split and evaluate on unseen test split.
+    ) -> "LearnedFusionResult":
+        """Train and evaluate the learned fusion baseline.
+
+        Selection rule (transparent, configurable via MIN_LOO_CV_THRESHOLD in
+        learned_fusion.py):
+          - N ≥ MIN_LOO_CV_THRESHOLD  →  30% held-out test split
+          - MIN_TRAINING_SAMPLES ≤ N < MIN_LOO_CV_THRESHOLD  →  Leave-One-Out CV
+          - N < MIN_TRAINING_SAMPLES  →  INSUFFICIENT_DATA
 
         If labelled samples < MIN_TRAINING_SAMPLES or unique classes < 2:
         Returns LearnedFusionResult with status="INSUFFICIENT_DATA".
@@ -231,7 +240,7 @@ class LearnedFusionBaseline:
                 message=(
                     f"Insufficient labelled data for learned fusion model "
                     f"({total_labelled} labelled sample(s) available; "
-                    f"minimum required for train/test split is {MIN_TRAINING_SAMPLES})."
+                    f"minimum required is {MIN_TRAINING_SAMPLES})."
                 ),
                 feature_names=FEATURE_NAMES,
             )
@@ -244,13 +253,81 @@ class LearnedFusionBaseline:
                 train_samples=0,
                 test_samples=0,
                 message=(
-                    f"Insufficient class diversity: all labelled samples belong to '{list(unique_classes)[0]}'. "
-                    f"At least 2 distinct classes are required to train a classifier."
+                    f"Insufficient class diversity: all labelled samples belong to "
+                    f"'{list(unique_classes)[0]}'. At least 2 distinct classes are required."
                 ),
                 feature_names=FEATURE_NAMES,
             )
 
-        # Check if stratified split is possible (each class needs at least 2 samples)
+        # Auto-select evaluation strategy
+        if total_labelled < MIN_LOO_CV_THRESHOLD:
+            return self._loo_evaluate(valid_X, valid_y, len(samples_data))
+        else:
+            return self._split_evaluate(valid_X, valid_y, len(samples_data), test_size)
+
+    def _loo_evaluate(
+        self,
+        valid_X: List[List[float]],
+        valid_y: List[str],
+        total_dataset_samples: int,
+    ) -> "LearnedFusionResult":
+        """Leave-One-Out Cross-Validation evaluation."""
+        loo = LeaveOneOut()
+        X_arr = np.array(valid_X, dtype=np.float32)
+        y_arr = np.array(valid_y)
+
+        y_true_all: List[str] = []
+        y_pred_all: List[str] = []
+
+        try:
+            for train_idx, test_idx in loo.split(X_arr):
+                X_tr, X_te = X_arr[train_idx], X_arr[test_idx]
+                y_tr, y_te = y_arr[train_idx], y_arr[test_idx]
+
+                model = LogisticRegression(
+                    max_iter=self.max_iter,
+                    random_state=self.random_state,
+                    solver="lbfgs",
+                )
+                model.fit(X_tr, y_tr)
+                y_pred_all.extend([str(p) for p in model.predict(X_te)])
+                y_true_all.extend([str(t) for t in y_te])
+        except Exception as e:
+            return LearnedFusionResult(
+                status="ERROR",
+                total_samples=total_dataset_samples,
+                train_samples=0,
+                test_samples=0,
+                message=f"LOO-CV failed: {e}",
+                feature_names=FEATURE_NAMES,
+            )
+
+        labels = sorted(list(set(valid_y)))
+        metrics = compute_classification_metrics(y_true_all, y_pred_all, labels=labels)
+
+        return LearnedFusionResult(
+            status="OK",
+            total_samples=total_dataset_samples,
+            train_samples=len(valid_y) - 1,   # typical LOO train size
+            test_samples=len(valid_y),          # n predictions total
+            accuracy=metrics.get("accuracy"),
+            precision_macro=metrics.get("precision_macro"),
+            recall_macro=metrics.get("recall_macro"),
+            f1_macro=metrics.get("f1_macro"),
+            confusion_matrix=metrics.get("confusion_matrix"),
+            message=f"Leave-One-Out CV ({len(valid_y)} folds). Used because N={len(valid_y)} < {MIN_LOO_CV_THRESHOLD}.",
+            feature_names=FEATURE_NAMES,
+        )
+
+    def _split_evaluate(
+        self,
+        valid_X: List[List[float]],
+        valid_y: List[str],
+        total_dataset_samples: int,
+        test_size: float,
+    ) -> "LearnedFusionResult":
+        """Stratified train/test split evaluation."""
+        unique_classes = set(valid_y)
         class_counts = {c: valid_y.count(c) for c in unique_classes}
         can_stratify = all(cnt >= 2 for cnt in class_counts.values())
 
@@ -265,26 +342,22 @@ class LearnedFusionBaseline:
         except Exception as e:
             return LearnedFusionResult(
                 status="ERROR",
-                total_samples=len(samples_data),
+                total_samples=total_dataset_samples,
                 train_samples=0,
                 test_samples=0,
                 message=f"Split failed: {e}",
                 feature_names=FEATURE_NAMES,
             )
 
-        # Train model
         self.fit(X_train, y_train)
-
-        # Predict on test split
         y_pred = self.predict(X_test)
 
-        # Calculate metrics using EvaluationHarness metrics utility
         labels = sorted(list(unique_classes))
         metrics = compute_classification_metrics(y_test, y_pred, labels=labels)
 
         return LearnedFusionResult(
             status="OK",
-            total_samples=len(samples_data),
+            total_samples=total_dataset_samples,
             train_samples=len(X_train),
             test_samples=len(X_test),
             accuracy=metrics.get("accuracy"),
@@ -295,3 +368,4 @@ class LearnedFusionBaseline:
             message="Trained and evaluated on held-out test split.",
             feature_names=FEATURE_NAMES,
         )
+

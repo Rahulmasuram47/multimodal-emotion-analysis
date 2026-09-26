@@ -29,7 +29,7 @@ from ui.pages.acoustic_view import render_acoustic_page
 from ui.pages.analysis_view import render_analysis_page
 from ui.pages.annotation_view import render_annotation_page
 from ui.pages.validation_view import render_multimodal_validation_section
-from ui.state import get_active_uploader_keys, init_session_state, reset_session
+from ui.state import get_active_uploader_keys, init_session_state, reset_session, clear_results
 from ui.styles_loader import load_css
 from ui.utils import derive_segment_summary, safe_float
 
@@ -114,7 +114,7 @@ elif st.query_params.get("sample"):
 if current_source != st.session_state.get("_last_active_source"):
     st.session_state["_last_active_source"] = current_source
     if active_audio is not None:
-        reset_session()
+        clear_results()
 
 # Analysis trigger & action buttons
 btn_col1, btn_col2, _ = st.columns([1.5, 1, 3])

@@ -13,6 +13,7 @@ __all__ = [
     "reset_session",
     "reset_analysis_session_state",
     "RESET_SESSION_KEYS",
+    "clear_results",
 ]
 
 
@@ -40,5 +41,25 @@ def get_active_uploader_keys() -> tuple[str, str]:
 
 
 def reset_session() -> None:
-    """Reset all analysis state and increment uploader version."""
+    """Reset all analysis state and increment uploader version.
+
+    This remounts the upload/mic widgets (via a new widget key), so it must
+    ONLY be called from an explicit user action (e.g. the RESET SESSION
+    button) — never automatically when a new file/source is detected,
+    otherwise the freshly-uploaded file gets dropped before it can be
+    analyzed.
+    """
     reset_analysis_session_state(st.session_state)
+
+
+def clear_results() -> None:
+    """Clear analysis result state only, without remounting upload/mic widgets.
+
+    Use this when a new audio source is detected (upload/mic/sample switch)
+    so stale results don't linger, WITHOUT changing the uploader/mic widget
+    keys — changing those keys mid-flow causes Streamlit to treat the
+    widget as brand new on the next rerun, silently dropping the file the
+    user just selected before the analyze click can process it.
+    """
+    for key in ("analysis_result", "audio_bytes", "audio_format", "seek_time"):
+        st.session_state[key] = None

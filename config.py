@@ -122,3 +122,66 @@ STT_LANGUAGE: str = 'auto'
 # are faster-whisper's own native segment-level signals.
 STT_LOW_CONFIDENCE_AVG_LOGPROB: float = -1.0   # more negative = less confident
 STT_HIGH_NO_SPEECH_PROB_THRESHOLD: float = 0.6  # closer to 1.0 = likely non-speech
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 4: Prosody-Based Intensity
+# ─────────────────────────────────────────────────────────────────────────
+# 'v2' = new prosody-based intensity (this phase). 'v1' = legacy pure-
+# confidence formula (pre-Phase-4), kept available for the ablation
+# comparison so the old and new formulas can be reported side by side.
+INTENSITY_FORMULA_VERSION: str = 'v2'
+
+# v2 intensity = weighted sum of three components (weights should sum to
+# ~1.0, not strictly enforced so you can experiment):
+#   prosodic_arousal      — loudness + pitch movement + speech rate, from
+#                            this segment's own audio (see app/prosody.py)
+#   voice_arousal         — expected arousal from the voice-emotion class
+#                            probabilities (angry/happy = high arousal,
+#                            sad/neutral = low), NOT just top-class confidence
+#   text_negativity       — probability mass on the 'negative' text class
+INTENSITY_V2_WEIGHT_PROSODY: float = 0.35
+INTENSITY_V2_WEIGHT_VOICE_AROUSAL: float = 0.35
+INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY: float = 0.30
+
+# Per-class arousal weights used to compute the expected-value "voice
+# arousal" component above. Heuristic starting points (angry/happy =
+# high-arousal emotions, sad/neutral = low-arousal) — tune once labeled
+# escalation data exists to check whether they help or hurt agreement
+# with human-labeled true_escalation.
+VOICE_EMOTION_AROUSAL_MAP: dict = {
+    'angry': 1.0,
+    'happy': 0.75,
+    'neutral': 0.25,
+    'sad': 0.15,
+}
+
+# Reference maximums used to normalize raw prosodic features into [0, 1]
+# before combining. These are heuristic starting points, not derived from
+# a labeled dataset — re-tune once enough annotated clips exist.
+PROSODY_RMS_REFERENCE_MAX: float = 0.15          # RMS amplitude considered "loud"
+PROSODY_ZCR_STD_REFERENCE_MAX: float = 0.05      # ZCR variability considered "highly varied pitch"
+PROSODY_SPEECH_RATE_REFERENCE_MAX: float = 4.0   # words/sec considered a "fast/agitated" rate
+
+# Weights for combining the three normalized prosodic sub-features into
+# one prosodic_arousal score (should sum to ~1.0).
+PROSODY_WEIGHT_RMS: float = 0.5
+PROSODY_WEIGHT_PITCH_VARIATION: float = 0.3
+PROSODY_WEIGHT_SPEECH_RATE: float = 0.2
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 4: Escalation Detection
+# ─────────────────────────────────────────────────────────────────────────
+# 'strict' = original rule (every consecutive segment must strictly
+#            increase, total rise >= ESCALATION_MIN_NET_RISE). Kept
+#            available for the ablation comparison.
+# 'tolerant' = new robust-slope rule: fits a linear slope across segment
+#            intensities, allows individual dips up to
+#            ESCALATION_DIP_TOLERANCE without breaking the trend, and
+#            requires both a minimum slope AND a minimum net rise.
+ESCALATION_MODE: str = 'tolerant'
+
+ESCALATION_MIN_SEGMENTS: int = 3
+ESCALATION_MIN_SLOPE: float = 0.03          # minimum intensity rise per turn (OLS slope)
+ESCALATION_MIN_NET_RISE: float = 0.20       # minimum total rise from first to last segment
+ESCALATION_DIP_TOLERANCE: float = 0.08      # max single-step drop still tolerated as "still escalating"

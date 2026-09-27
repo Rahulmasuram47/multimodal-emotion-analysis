@@ -165,7 +165,17 @@ if result:
     audio_meta = result.get("audio_metadata", {}) or {}
     transcript_info = result.get("transcript_language", {}) or {}
     trend = result.get("emotional_trend", {}) or {}
-    escalation = result.get("escalation_analysis", {}) or {}
+    # BUG FIX (Phase 4): this previously read "escalation_analysis", a
+    # key that ConversationAnalyzer.analyze() never produces (the real
+    # key is "escalation") — escalation_detected/escalation_reason below
+    # were always silently False/"" regardless of the actual computed
+    # result, so the ESCALATION STATUS card never reflected reality.
+    escalation = result.get("escalation", {}) or {}
+    # Phase 4: the new unified verdict (escalating/de-escalating/
+    # stable/fluctuating/insufficient_data), independent of the raw
+    # escalation flag above. Optional — .get() default keeps this safe
+    # even if an older cached result dict lacks the key.
+    verdict = result.get("verdict", {}) or {}
 
     duration = safe_float(audio_meta.get("duration_seconds", 0.0))
     language = transcript_info.get("language", "en").upper()
@@ -205,6 +215,7 @@ if result:
             escalation=escalation,
             escalation_detected=escalation_detected,
             escalation_reason=escalation_reason,
+            verdict=verdict,
         )
 
     with tab_acoustic:

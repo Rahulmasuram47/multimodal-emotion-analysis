@@ -3,12 +3,23 @@ Overview metrics, speaker metrics, and conversational dynamics cards.
 """
 
 import html
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import altair as alt
 import pandas as pd
 import streamlit as st
 
 from ui.utils import emotion_icon, safe_float
+
+# Phase 4: icons for the unified verdict labels (kept separate from
+# emotion_icon, which maps emotion words like happy/sad, not verdict
+# words like escalating/fluctuating).
+_VERDICT_ICONS: Dict[str, str] = {
+    "escalating": "📈",
+    "de-escalating": "📉",
+    "fluctuating": "🔀",
+    "stable": "➖",
+    "insufficient_data": "❔",
+}
 
 
 def render_overview_metrics(
@@ -21,8 +32,16 @@ def render_overview_metrics(
     trend_delta: float,
     escalation_detected: bool,
     latency_val: str,
+    verdict_label: Optional[str] = None,
 ) -> None:
-    """Render top 6 system-level metrics."""
+    """Render top system-level metrics.
+
+    Phase 4: an optional 7th "CONVERSATION VERDICT" card is shown when
+    verdict_label is provided (result["verdict"]["verdict"]). It sits
+    alongside the original 6 cards — including the original raw
+    EMOTIONAL TREND and ESCALATION STATUS cards below, which are kept
+    unchanged for transparency/ablation rather than removed.
+    """
     st.markdown(
         """
         <div class="section-header-bar">
@@ -33,7 +52,10 @@ def render_overview_metrics(
         unsafe_allow_html=True,
     )
 
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    n_cols = 7 if verdict_label else 6
+    cols = st.columns(n_cols)
+    m1, m2, m3, m4, m5, m6 = cols[:6]
+    m7 = cols[6] if verdict_label else None
 
     with m1:
         with st.container(key="metric_language"):
@@ -94,6 +116,18 @@ def render_overview_metrics(
             delta_color="off",
         )
 
+    if m7 is not None:
+        with m7:
+            icon = _VERDICT_ICONS.get(verdict_label, "❔")
+            display_label = verdict_label.replace("_", " ").title()
+            is_negative_direction = verdict_label in ("escalating", "fluctuating")
+            st.metric(
+                label="CONVERSATION VERDICT",
+                value=f"{icon} {display_label}",
+                delta="Single unified signal",
+                delta_color="inverse" if is_negative_direction else "normal",
+            )
+
 
 def render_speaker_metrics(
     unique_speakers: List[str],
@@ -140,8 +174,20 @@ def render_dynamics_card(
     trend_label: str,
     escalation_detected: bool,
     escalation_reason: str,
+    verdict: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Render temporal emotional trajectory chart and explainable escalation card."""
+    """Render temporal emotional trajectory chart, the Phase 4 unified
+    verdict panel, and the legacy explainable escalation card.
+
+    verdict (optional): result["verdict"] — {"verdict", "reason", "slope",
+    "net_change"}. When provided, a "Unified Conversation Verdict" panel
+    is shown above the chart, framed as the primary interpretation. The
+    original Trend/Escalation explanation below is kept unchanged as
+    supporting detail — this is intentional: showing both side by side,
+    with the unified verdict framed as authoritative, resolves the old
+    "Trend: Increasing / Escalation: Not Detected" contradiction without
+    hiding the legacy metrics that the ablation/report still relies on.
+    """
     st.markdown(
         """
         <div class="section-header-bar">
@@ -151,6 +197,45 @@ def render_dynamics_card(
         """,
         unsafe_allow_html=True,
     )
+
+    # -------------------------------------------------------------
+    # Phase 4: Unified Verdict panel (primary interpretation)
+    # -------------------------------------------------------------
+    if verdict:
+        verdict_label = str(verdict.get("verdict", "")).lower()
+        verdict_reason = str(verdict.get("reason", "")).strip()
+        slope = safe_float(verdict.get("slope", 0.0))
+        net_change = safe_float(verdict.get("net_change", 0.0))
+        icon = _VERDICT_ICONS.get(verdict_label, "❔")
+        display_label = verdict_label.replace("_", " ").title() if verdict_label else "Unknown"
+
+        verdict_color_var = {
+            "escalating": "var(--negative)",
+            "fluctuating": "var(--negative)",
+            "de-escalating": "var(--positive)",
+            "stable": "var(--positive)",
+            "insufficient_data": "var(--muted)",
+        }.get(verdict_label, "var(--muted)")
+
+        st.markdown(
+            f"""
+            <div class="modality-card" style="border-left: 3px solid {verdict_color_var}; margin-bottom: 0.8rem;">
+                <div class="card-meta-label">UNIFIED CONVERSATION VERDICT</div>
+                <div style="display:flex;align-items:baseline;gap:0.6rem;margin-top:0.2rem;">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.1rem;color:{verdict_color_var};">
+                        {icon} {html.escape(display_label)}
+                    </div>
+                    <div style="font-size:0.76rem;color:var(--muted);">
+                        slope={slope:+.3f}/turn &middot; net change={net_change:+.2f}
+                    </div>
+                </div>
+                <div style="margin-top:0.4rem;font-size:0.8rem;color:var(--text);line-height:1.5;">
+                    {html.escape(verdict_reason)}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     scores = trend.get("intensity_scores", []) or []
 
@@ -281,7 +366,7 @@ def render_dynamics_card(
     st.markdown(
         f"""
         <div class="modality-card" style="margin-top:0.8rem;">
-            <div class="card-meta-label">CONVERSATION DYNAMICS & ESCALATION EXPLANATION</div>
+            <div class="card-meta-label">CONVERSATION DYNAMICS & ESCALATION EXPLANATION (LEGACY DETAIL)</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
                 <div>
                     <div style="font-size:0.8rem;color:var(--muted);">Overall Emotional Trend</div>
@@ -300,7 +385,7 @@ def render_dynamics_card(
                 {html.escape(trend_explanation)} {html.escape(continuous_note)}
             </div>
             <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);font-size:0.74rem;color:var(--muted);">
-                <strong style="color:var(--text);">Why was escalation {'detected' if escalation_detected else 'not detected'}?</strong>
+                <strong style="color:var(--text);">Why was escalation {'detected' if escalation_detected else 'not detected'} (legacy rule)?</strong>
                 <ul style="margin: 0.3rem 0 0 1.2rem; padding: 0;">
                     {esc_factors_html}
                 </ul>

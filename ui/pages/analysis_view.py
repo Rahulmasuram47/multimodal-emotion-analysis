@@ -3,7 +3,7 @@ Conversation & Multimodal Analysis page orchestrator (Tab 1).
 """
 
 import html
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import streamlit as st
 
 from ui.components.incongruence_card import render_incongruence_card
@@ -39,8 +39,17 @@ def render_analysis_page(
     escalation: Dict[str, Any],
     escalation_detected: bool,
     escalation_reason: str,
+    verdict: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Orchestrate Tab 1 Conversation & Multimodal Analysis widgets."""
+    """Orchestrate Tab 1 Conversation & Multimodal Analysis widgets.
+
+    verdict (Phase 4, optional): result["verdict"] — the single unified
+    conversation-level signal (escalating/de-escalating/stable/
+    fluctuating/insufficient_data). Defaults to None so this function
+    still works if a caller doesn't pass it. When provided, it's shown
+    as a 7th overview metric and as a dedicated panel above the
+    trend/escalation chart.
+    """
     # 1. Key Finding banner
     finding = build_key_finding(
         dominant_voice=dominant_voice,
@@ -71,10 +80,12 @@ def render_analysis_page(
     rec_data = result.get("recommendation", {}) or {}
     render_recommendation_card(rec_data)
 
-    # 4. Overview Metrics (6 cards)
+    # 4. Overview Metrics (6 cards, or 7 when a verdict is available)
     proc_time = result.get("processing_time", {}) or {}
     tot_time = proc_time.get("total_processing_seconds")
     latency_val = f"{tot_time:.2f}s" if tot_time is not None else "Near-RT"
+
+    verdict_label = str(verdict.get("verdict", "")).lower() if verdict else None
 
     render_overview_metrics(
         language=language,
@@ -86,6 +97,7 @@ def render_analysis_page(
         trend_delta=trend_delta,
         escalation_detected=escalation_detected,
         latency_val=latency_val,
+        verdict_label=verdict_label,
     )
 
     # 5. Modality Cards & Alignment
@@ -152,13 +164,14 @@ def render_analysis_page(
         else:
             st.warning("No speech transcript detected in audio stream.")
 
-    # 8. Emotional Dynamics & Escalation Chart
+    # 8. Emotional Dynamics, Unified Verdict & Escalation Chart
     render_dynamics_card(
         trend=trend,
         escalation=escalation,
         trend_label=trend_label,
         escalation_detected=escalation_detected,
         escalation_reason=escalation_reason,
+        verdict=verdict,
     )
 
     # 9. Conversation Segments Breakdown

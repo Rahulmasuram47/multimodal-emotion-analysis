@@ -5,6 +5,7 @@ Session state management for the Multimodal Emotion Analysis dashboard.
 from typing import Any, Dict
 import streamlit as st
 
+import config
 from app.microphone import RESET_SESSION_KEYS, reset_analysis_session_state
 
 __all__ = [
@@ -14,6 +15,8 @@ __all__ = [
     "reset_analysis_session_state",
     "RESET_SESSION_KEYS",
     "clear_results",
+    "get_fusion_settings",
+    "reset_fusion_settings",
 ]
 
 
@@ -30,6 +33,13 @@ def init_session_state() -> None:
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
+
+    # Phase 5: fusion settings (audio weight, confidence threshold),
+    # session-scoped only — config.py is never mutated at runtime.
+    if "fusion_audio_weight" not in st.session_state:
+        st.session_state["fusion_audio_weight"] = config.FUSION_SETTINGS_DEFAULTS["audio_weight"]
+    if "fusion_confidence_threshold" not in st.session_state:
+        st.session_state["fusion_confidence_threshold"] = config.FUSION_SETTINGS_DEFAULTS["confidence_threshold"]
 
 
 def get_active_uploader_keys() -> tuple[str, str]:
@@ -63,3 +73,34 @@ def clear_results() -> None:
     """
     for key in ("analysis_result", "audio_bytes", "audio_format", "seek_time"):
         st.session_state[key] = None
+
+
+def get_fusion_settings() -> Dict[str, float]:
+    """Return the current session's fusion settings (audio_weight,
+    text_weight derived as 1 - audio_weight, confidence_threshold).
+
+    These are session-scoped overrides only. They take effect on the
+    NEXT "ANALYZE AUDIO" run — not instantly on slider drag — since
+    applying them requires constructing a fresh (cheap, non-ML)
+    MultimodalFusion instance, which happens in streamlit_app.py right
+    before analyze() is called.
+    """
+    audio_weight = float(
+        st.session_state.get("fusion_audio_weight", config.FUSION_SETTINGS_DEFAULTS["audio_weight"])
+    )
+    confidence_threshold = float(
+        st.session_state.get(
+            "fusion_confidence_threshold", config.FUSION_SETTINGS_DEFAULTS["confidence_threshold"]
+        )
+    )
+    return {
+        "audio_weight": audio_weight,
+        "text_weight": round(1.0 - audio_weight, 4),
+        "confidence_threshold": confidence_threshold,
+    }
+
+
+def reset_fusion_settings() -> None:
+    """Reset fusion settings back to config.py defaults for this session."""
+    st.session_state["fusion_audio_weight"] = config.FUSION_SETTINGS_DEFAULTS["audio_weight"]
+    st.session_state["fusion_confidence_threshold"] = config.FUSION_SETTINGS_DEFAULTS["confidence_threshold"]

@@ -136,6 +136,19 @@ if analyze_clicked and active_audio is not None:
         try:
             status.write("Initializing ConversationAnalyzer...")
             analyzer = load_analyzer()
+            # Phase 5: apply this session's fusion settings (sidebar
+            # sliders) on this run. Constructing MultimodalFusion is
+            # cheap (no ML weights), so this does not reload any model —
+            # only the cached analyzer's speech/emotion/sentiment models
+            # are reused via load_analyzer()'s @st.cache_resource.
+            from app.fusion import MultimodalFusion
+            from ui.state import get_fusion_settings
+            fusion_settings = get_fusion_settings()
+            analyzer.fusion = MultimodalFusion(
+                audio_weight=fusion_settings["audio_weight"],
+                text_weight=fusion_settings["text_weight"],
+                confidence_threshold=fusion_settings["confidence_threshold"],
+            )
             temp_path = save_audio_buffer(audio_bytes, suffix=Path(getattr(active_audio, "name", "record.wav")).suffix or ".wav")
             status.write("Executing neural speech, acoustic emotion, text sentiment & fusion models...")
             result = analyzer.analyze(temp_path)

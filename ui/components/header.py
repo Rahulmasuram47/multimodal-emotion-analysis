@@ -4,6 +4,8 @@ Header, brand banner, pipeline stages, and sidebar rendering components.
 
 import streamlit as st
 
+from ui.state import get_fusion_settings, reset_fusion_settings
+
 
 def render_header() -> None:
     """Render the top brand banner, beacon, title, and architecture chips."""
@@ -79,7 +81,7 @@ def render_pipeline_steps() -> None:
 
 
 def render_sidebar() -> None:
-    """Render technical specifications in the sidebar."""
+    """Render technical specifications and (Phase 5) fusion settings in the sidebar."""
     with st.sidebar:
         st.markdown(
             """
@@ -151,3 +153,38 @@ def render_sidebar() -> None:
             """,
             unsafe_allow_html=True,
         )
+
+        # -----------------------------------------------------
+        # Phase 5: Fusion Settings (session-scoped; applied on the
+        # NEXT "ANALYZE AUDIO" click, not instantly — see
+        # ui/state.py::get_fusion_settings docstring for why).
+        # -----------------------------------------------------
+        st.markdown('<div class="sidebar-heading">Fusion Settings</div>', unsafe_allow_html=True)
+        st.caption("Applied on your next ANALYZE AUDIO run, not instantly.")
+
+        settings = get_fusion_settings()
+
+        new_audio_weight = st.slider(
+            "Audio weight",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(settings["audio_weight"]),
+            step=0.05,
+            key="fusion_audio_weight",
+            help="Text weight is automatically 1 minus this value.",
+        )
+        st.caption(f"Text weight: {1.0 - new_audio_weight:.2f}")
+
+        st.slider(
+            "Agreement confidence threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(settings["confidence_threshold"]),
+            step=0.05,
+            key="fusion_confidence_threshold",
+            help="Minimum confidence, in both modalities, required to flag a mismatch.",
+        )
+
+        if st.button("Reset fusion settings to defaults", use_container_width=True):
+            reset_fusion_settings()
+            st.rerun()

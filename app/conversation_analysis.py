@@ -814,14 +814,26 @@ class ConversationAnalyzer:
                     index + 1,
                 )
 
-        try:
-            sentiment_result = self.sentiment_analyzer.analyze(text)
-        except Exception:
-            logger.exception(
+                try:
+                    sentiment_result = self.sentiment_analyzer.analyze(text)
+                except Exception:
+                    logger.exception(
                 "Text sentiment analysis failed for segment %d; skipping.",
                 index + 1,
             )
             return None
+
+        # -----------------------------------------------------
+        # Phase 5: attach text reliability from Phase 3's ASR
+        # confidence flag (raw_segment["is_low_confidence"]), so
+        # fusion can down-weight a segment whose transcript itself
+        # was uncertain. Defaults to 1.0 (fully reliable) when the
+        # flag is absent — identical to pre-Phase-5 behavior.
+        # -----------------------------------------------------
+        is_low_confidence_asr = bool(raw_segment.get("is_low_confidence", False))
+        sentiment_result["text_reliability"] = (
+            config.FUSION_TEXT_LOW_ASR_RELIABILITY if is_low_confidence_asr else 1.0
+        )
 
         try:
             fusion_result = self.fusion.fuse(

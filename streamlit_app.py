@@ -175,8 +175,16 @@ audio_format = st.session_state.get("audio_format", "audio/wav")
 if result:
     overall = result.get("overall", {}) or {}
     segments = result.get("segments", []) or []
-    audio_meta = result.get("audio_metadata", {}) or {}
-    transcript_info = result.get("transcript_language", {}) or {}
+    # FIX: ConversationAnalyzer.analyze() puts duration_seconds, sample_rate,
+    # language, and language_probability directly on the top-level result
+    # dict — there is no nested "audio_metadata" or "transcript_language"
+    # key. Reading from those non-existent keys silently defaulted duration
+    # to 0.0 and language confidence to 100% regardless of the real values.
+    audio_meta = result
+    transcript_info = {
+        "language": result.get("language", "en"),
+        "probability": result.get("language_probability", 1.0),
+    }
     trend = result.get("emotional_trend", {}) or {}
     # BUG FIX (Phase 4): this previously read "escalation_analysis", a
     # key that ConversationAnalyzer.analyze() never produces (the real
@@ -193,7 +201,7 @@ if result:
     duration = safe_float(audio_meta.get("duration_seconds", 0.0))
     language = transcript_info.get("language", "en").upper()
     language_prob = safe_float(transcript_info.get("probability", 1.0))
-    skipped_segments = int(result.get("skipped_segments_count", 0))
+    skipped_segments = int(result.get("skipped_segments", 0))
     trend_label = trend.get("trend", "stable").lower()
     trend_delta = safe_float(trend.get("delta", 0.0))
     escalation_detected = bool(escalation.get("escalation_detected", False))

@@ -249,7 +249,7 @@ if result:
     # Report Export Bar
     render_export_bar(result)
 
-elif active_audio is None:
+else:
     # Show annotation helper + validation as top-level tabs even without an analysis result
     tab_empty_validation, tab_empty_annotation = st.tabs([
         "📊 Multimodal Validation",

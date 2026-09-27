@@ -11,6 +11,100 @@ from ui.components.modality_cards import render_channel_meters_html
 from ui.utils import direction_label, emotion_icon, safe_float
 
 
+def _render_why_this_result(fusion: Dict[str, Any]) -> None:
+    """Phase 5: 'Why this result?' expander — shows the declarative
+    pattern rule that fired, the evidence behind it, and the effective
+    (reliability-weighted) fusion weights actually used for this segment.
+
+    Reads keys added by app/fusion.py's fuse() in Phase 5. Uses .get()
+    with safe defaults throughout so this never breaks on an older
+    cached result dict that predates Phase 5.
+    """
+    pattern_label = str(fusion.get("pattern_label", "")).strip()
+    pattern_explanation = str(fusion.get("pattern_explanation", "")).strip()
+    rule_ids = fusion.get("rule_ids_fired", []) or []
+
+    audio_arousal = fusion.get("audio_arousal")
+    text_arousal = fusion.get("text_arousal", "unknown")
+
+    audio_reliability = safe_float(fusion.get("audio_reliability", 1.0))
+    text_reliability = safe_float(fusion.get("text_reliability", 1.0))
+
+    base_weights = fusion.get("base_weights", {}) or {}
+    effective_weights = fusion.get("effective_weights", {}) or {}
+    base_audio_w = safe_float(base_weights.get("audio_weight", 0.0))
+    base_text_w = safe_float(base_weights.get("text_weight", 0.0))
+    eff_audio_w = safe_float(effective_weights.get("audio_weight", base_audio_w))
+    eff_text_w = safe_float(effective_weights.get("text_weight", base_text_w))
+
+    weights_shifted = (
+        abs(eff_audio_w - base_audio_w) > 0.001
+        or abs(eff_text_w - base_text_w) > 0.001
+    )
+
+    if not pattern_label:
+        return  # nothing to show for an older/incomplete fusion dict
+
+    with st.expander("🔎 Why this result?", expanded=False):
+        st.markdown(
+            f"""
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--fused); text-transform: uppercase; margin-bottom: 0.3rem;">
+                Pattern: {html.escape(pattern_label)}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text); line-height: 1.5; margin-bottom: 0.6rem;">
+                {html.escape(pattern_explanation)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if rule_ids:
+            rule_ids_str = ", ".join(html.escape(str(r)) for r in rule_ids)
+            st.markdown(
+                f"""
+                <div style="font-size: 0.68rem; color: var(--muted); margin-bottom: 0.6rem;">
+                    Rule ID(s) fired: <code>{rule_ids_str}</code>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        arousal_display = f"{safe_float(audio_arousal):.2f}" if isinstance(audio_arousal, (int, float)) else "n/a"
+        st.markdown(
+            f"""
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;">
+                <div>Voice arousal: <strong style="color:var(--text);">{arousal_display}</strong></div>
+                <div>Text arousal: <strong style="color:var(--text);">{html.escape(str(text_arousal))}</strong> (not modeled — RoBERTa gives no arousal signal)</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        weight_note = (
+            " (adjusted from base due to segment reliability)"
+            if weights_shifted
+            else " (equal to base weights — both modalities fully reliable)"
+        )
+        st.markdown(
+            f"""
+            <div style="font-size:0.72rem;color:var(--muted);">
+                <div style="margin-bottom:0.2rem;">
+                    Base weights: audio {base_audio_w:.2f} / text {base_text_w:.2f}
+                </div>
+                <div>
+                    Effective weights used: <strong style="color:var(--text);">audio {eff_audio_w:.2f} / text {eff_text_w:.2f}</strong>{weight_note}
+                </div>
+                <div style="margin-top:0.3rem;">
+                    Reliability — voice: {audio_reliability:.2f}, text: {text_reliability:.2f}
+                    {' (widened short-segment window)' if audio_reliability < 1.0 else ''}
+                    {' (low ASR confidence)' if text_reliability < 1.0 else ''}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
     """Render the per-turn expander list with fine-grained multimodal details."""
     st.markdown(
@@ -158,6 +252,11 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+            # Phase 5: "Why this result?" — declarative rule trace and
+            # effective (reliability-weighted) fusion weights for this
+            # specific segment.
+            _render_why_this_result(fusion)
 
             render_incongruence_card(
                 acoustic_label=v_emotion,

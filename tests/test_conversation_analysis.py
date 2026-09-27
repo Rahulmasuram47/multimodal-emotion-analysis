@@ -236,3 +236,158 @@ def test_intensity_is_never_negative():
     intensity = ConversationAnalyzer._calculate_intensity(segment)
 
     assert intensity == 0.0
+
+# ---------------------------------------------------------------------
+# Regression test: sentiment analysis must always run after voice
+# calibration — whether calibration succeeds or fails — and the
+# segment must not be silently dropped.
+#
+# Bug being guarded against: sentiment analysis was previously nested
+# INSIDE voice calibration's `except` block, with a stray unconditional
+# `return None` at the end of the whole calibration `if` block. That
+# meant sentiment analysis only ran when calibration FAILED, and
+# _analyze_segment returned None unconditionally regardless of outcome
+# — so every segment silently vanished whenever calibration succeeded
+# (the normal, expected case), producing a generic "No valid
+# conversation segments were produced" error with no exception ever
+# logged.
+# ---------------------------------------------------------------------
+
+import numpy as np
+import config
+from app.conversation_analysis import ConversationAnalyzer
+
+
+class _DummyCalibrationResult:
+    def __init__(self, emotion="sad", confidence=0.7, scores=None, applied_rules=None):
+        self.emotion = emotion
+        self.confidence = confidence
+        self.scores = scores or {"sad": 0.7, "neutral": 0.2, "angry": 0.05, "happy": 0.05}
+        self.applied_rules = applied_rules or []
+
+
+class _DummyEmotionAnalyzer:
+    def analyze_segment(self, audio, sr, start, end):
+        return {
+            "emotion": "sad",
+            "confidence": 0.9,
+            "scores": {"sad": 0.9, "neutral": 0.05, "angry": 0.03, "happy": 0.02},
+        }
+
+
+class _DummySentimentAnalyzer:
+    def __init__(self):
+        self.call_count = 0
+
+    def analyze(self, text):
+        self.call_count += 1
+        return {
+            "sentiment": "negative",
+            "confidence": 0.8,
+            "scores": {"negative": 0.8, "neutral": 0.15, "positive": 0.05},
+        }
+
+
+class _DummyFusion:
+    def fuse(self, voice_result, sentiment_result):
+        return {
+            "combined_confidence": 0.85,
+            "agreement": True,
+            "mismatch": False,
+            "pattern_label": "test-pattern",
+        }
+
+
+class _DummyVoiceCalibratorSuccess:
+    """Simulates calibration succeeding — the normal, everyday case."""
+
+    def calibrate_segment(self, raw_scores, audio_segment, sr):
+        return _DummyCalibrationResult()
+
+
+class _DummyVoiceCalibratorFailure:
+    """Simulates calibration raising an exception."""
+
+    def calibrate_segment(self, raw_scores, audio_segment, sr):
+        raise RuntimeError("simulated calibration failure")
+
+
+def _make_analyzer_with_calibrator(calibrator):
+    analyzer = ConversationAnalyzer.__new__(ConversationAnalyzer)
+    analyzer.emotion_analyzer = _DummyEmotionAnalyzer()
+    analyzer.sentiment_analyzer = _DummySentimentAnalyzer()
+    analyzer.fusion = _DummyFusion()
+    analyzer.voice_calibrator = calibrator
+    return analyzer
+
+
+def test_segment_not_dropped_when_calibration_succeeds(monkeypatch):
+    """
+    This is the exact regression case: calibration succeeds, so the
+    buggy code's `except` block (which was the only place sentiment
+    analysis used to run) never fires. Before the fix, this always
+    returned None. After the fix, sentiment analysis must still run
+    and the segment must be produced.
+    """
+    monkeypatch.setattr(config, "VOICE_CALIBRATION_ENABLED", True)
+    monkeypatch.setattr(config, "INTENSITY_FORMULA_VERSION", "v1")
+
+    analyzer = _make_analyzer_with_calibrator(_DummyVoiceCalibratorSuccess())
+
+    audio = np.zeros(16000 * 5, dtype=np.float32)
+    sr = 16000
+    raw_segment = {
+        "start": 0.5,
+        "end": 3.0,
+        "text": "This needs to be fixed immediately.",
+    }
+    all_segment_bounds = [(0.5, 3.0)]
+
+    result = analyzer._analyze_segment(
+        audio, sr, raw_segment, index=0,
+        all_segment_bounds=all_segment_bounds,
+        audio_duration_seconds=5.0,
+    )
+
+    assert result is not None, (
+        "_analyze_segment returned None even though calibration, "
+        "sentiment, and fusion should all have succeeded. This is "
+        "the exact regression this test guards against."
+    )
+    assert analyzer.sentiment_analyzer.call_count == 1, (
+        "Sentiment analysis was not called when calibration succeeded."
+    )
+    assert result["text_sentiment"]["sentiment"] == "negative"
+    assert result["voice_emotion"]["emotion"] == "sad"
+    assert "intensity" in result
+
+
+def test_segment_not_dropped_when_calibration_fails(monkeypatch):
+    """
+    Companion case: sentiment analysis and segment production must
+    ALSO still succeed when calibration itself fails, since that was
+    the one path the original buggy code happened to exercise.
+    """
+    monkeypatch.setattr(config, "VOICE_CALIBRATION_ENABLED", True)
+    monkeypatch.setattr(config, "INTENSITY_FORMULA_VERSION", "v1")
+
+    analyzer = _make_analyzer_with_calibrator(_DummyVoiceCalibratorFailure())
+
+    audio = np.zeros(16000 * 5, dtype=np.float32)
+    sr = 16000
+    raw_segment = {
+        "start": 0.5,
+        "end": 3.0,
+        "text": "This needs to be fixed immediately.",
+    }
+    all_segment_bounds = [(0.5, 3.0)]
+
+    result = analyzer._analyze_segment(
+        audio, sr, raw_segment, index=0,
+        all_segment_bounds=all_segment_bounds,
+        audio_duration_seconds=5.0,
+    )
+
+    assert result is not None
+    assert analyzer.sentiment_analyzer.call_count == 1
+    assert result["text_sentiment"]["sentiment"] == "negative"

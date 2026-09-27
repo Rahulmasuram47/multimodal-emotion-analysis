@@ -163,12 +163,18 @@ def render_sidebar() -> None:
         st.caption("Applied on your next ANALYZE AUDIO run, not instantly.")
 
         settings = get_fusion_settings()
-
+        # FIX: no `value=` here — the widget's value is driven entirely
+        # by st.session_state["fusion_audio_weight"], which
+        # init_session_state() seeds once with the config default and
+        # reset_fusion_settings() overwrites on reset. Passing both
+        # `value=` and a pre-existing session_state[key] triggers
+        # Streamlit's "widget created with a default value but also had
+        # its value set via the Session State API" warning (soon to be
+        # a hard error).
         new_audio_weight = st.slider(
             "Audio weight",
             min_value=0.0,
-            max_value=1.0,
-            value=float(settings["audio_weight"]),
+            max_value=1.0,            
             step=0.05,
             key="fusion_audio_weight",
             help="Text weight is automatically 1 minus this value.",
@@ -179,7 +185,6 @@ def render_sidebar() -> None:
             "Agreement confidence threshold",
             min_value=0.0,
             max_value=1.0,
-            value=float(settings["confidence_threshold"]),
             step=0.05,
             key="fusion_confidence_threshold",
             help="Minimum confidence, in both modalities, required to flag a mismatch.",

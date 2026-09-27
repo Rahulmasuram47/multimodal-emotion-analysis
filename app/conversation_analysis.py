@@ -792,6 +792,17 @@ class ConversationAnalyzer:
         # temperature scaling, when fitted). Runs on the raw
         # scores returned above; raw values are preserved
         # alongside the calibrated ones for transparency.
+        #
+        # FIX: sentiment analysis was previously nested INSIDE this
+        # block's `except` clause, with a stray unconditional
+        # `return None` at the end of the whole `if` block. That meant
+        # sentiment analysis only ran when calibration FAILED, and the
+        # segment was dropped unconditionally regardless of outcome —
+        # so every segment silently vanished whenever calibration
+        # succeeded (the normal case), producing a generic "no valid
+        # segments" error with no exception ever logged. Sentiment
+        # analysis is now its own independent step below, always run
+        # after calibration, whether calibration succeeded or failed.
         # -----------------------------------------------------
         if config.VOICE_CALIBRATION_ENABLED:
             try:
@@ -814,10 +825,10 @@ class ConversationAnalyzer:
                     index + 1,
                 )
 
-                try:
-                    sentiment_result = self.sentiment_analyzer.analyze(text)
-                except Exception:
-                    logger.exception(
+        try:
+            sentiment_result = self.sentiment_analyzer.analyze(text)
+        except Exception:
+            logger.exception(
                 "Text sentiment analysis failed for segment %d; skipping.",
                 index + 1,
             )

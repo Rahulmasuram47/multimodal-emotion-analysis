@@ -185,3 +185,38 @@ ESCALATION_MIN_SEGMENTS: int = 3
 ESCALATION_MIN_SLOPE: float = 0.03          # minimum intensity rise per turn (OLS slope)
 ESCALATION_MIN_NET_RISE: float = 0.20       # minimum total rise from first to last segment
 ESCALATION_DIP_TOLERANCE: float = 0.08      # max single-step drop still tolerated as "still escalating"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 5: Fusion Internals
+# ─────────────────────────────────────────────────────────────────────────
+# When both audio_reliability and text_reliability equal 1.0 (the default
+# when neither Phase 3 short-segment widening nor low ASR confidence
+# applied to this segment), the formulas below are mathematically
+# IDENTICAL to the pre-Phase-5 fusion — this is intentional, so nothing
+# that currently passes changes behavior unless a real reliability signal
+# is present.
+
+# Reliability assigned to a text-sentiment result when its segment's
+# speech-to-text confidence was flagged low (see Phase 3:
+# is_low_confidence in app/speech_to_text.py). 1.0 = full reliability,
+# used whenever this signal is absent (identical to pre-Phase-5).
+FUSION_TEXT_LOW_ASR_RELIABILITY: float = 0.6
+
+# Arousal threshold (from VOICE_EMOTION_AROUSAL_MAP, Phase 4) above which
+# a negative-direction voice emotion is described as "high-arousal"
+# (anger-like) rather than "low-arousal" (sadness-like) in the fusion
+# pattern label. Purely descriptive — never a diagnostic claim about the
+# speaker.
+FUSION_HIGH_AROUSAL_THRESHOLD: float = 0.6
+
+# Default fusion weights exposed to the Phase 5 sidebar settings panel
+# (session-state overrides only — config.py itself is never mutated at
+# runtime). These mirror DEFAULT_AUDIO_WEIGHT/DEFAULT_TEXT_WEIGHT/
+# CONFIDENCE_THRESHOLD above and exist so the UI has an explicit
+# "reset to defaults" target.
+FUSION_SETTINGS_DEFAULTS: dict = {
+    "audio_weight": DEFAULT_AUDIO_WEIGHT,
+    "text_weight": DEFAULT_TEXT_WEIGHT,
+    "confidence_threshold": CONFIDENCE_THRESHOLD,
+}

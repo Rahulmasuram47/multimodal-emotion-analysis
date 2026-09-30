@@ -2,6 +2,8 @@
 Multimodal Voice & Conversation Emotion Analysis System
 Thin Streamlit Orchestrator (< 250 lines).
 """
+from dotenv import load_dotenv
+load_dotenv()
 
 import io
 from pathlib import Path

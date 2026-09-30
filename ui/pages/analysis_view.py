@@ -6,6 +6,7 @@ import html
 from typing import Any, Dict, List, Optional
 import streamlit as st
 
+from app.speaker_analytics import compute_speaker_analytics, find_possible_escalation_initiator
 from ui.components.incongruence_card import render_incongruence_card
 from ui.components.metric_cards import (
     render_dynamics_card,
@@ -15,6 +16,7 @@ from ui.components.metric_cards import (
 from ui.components.modality_cards import render_modality_cards
 from ui.components.recommendation_card import render_recommendation_card
 from ui.components.segment_timeline import render_segment_timeline
+from ui.components.speaker_analytics_card import render_speaker_analytics_card
 from ui.components.verdict_card import build_key_finding, render_verdict_card
 from ui.components.waveform_player import render_wavesurfer_player
 from ui.utils import safe_float
@@ -123,6 +125,14 @@ def render_analysis_page(
         speaker_labels=speaker_labels,
         diarization_error=diarization_error,
     )
+
+    # 6b. Phase 6: Speaker-Aware Analytics (only renders when 2+ real
+    # speakers were identified — a no-op otherwise).
+    speaker_analytics = [
+        sa.to_dict() for sa in compute_speaker_analytics(segments, duration)
+    ]
+    initiator = find_possible_escalation_initiator(segments) if speaker_analytics else None
+    render_speaker_analytics_card(speaker_analytics, initiator)
 
     # 7. Audio Playback (WaveSurfer) & Full Transcript
     st.markdown(

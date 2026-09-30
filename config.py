@@ -220,3 +220,18 @@ FUSION_SETTINGS_DEFAULTS: dict = {
     "text_weight": DEFAULT_TEXT_WEIGHT,
     "confidence_threshold": CONFIDENCE_THRESHOLD,
 }
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 6: Speaker-Aware Analytics
+# ─────────────────────────────────────────────────────────────────────────
+# Minimum per-segment intensity rise (compared to that speaker's own
+# previous segment) to be considered a candidate "escalation initiator"
+# moment. Heuristic only — descriptive, not a blame attribution.
+SPEAKER_ESCALATION_INITIATOR_MIN_RISE: float = 0.15
+
+# Minimum number of distinct speakers required before speaker-aware
+# analytics (per-speaker trends, talk-time share, initiator) are shown.
+# Below this, the existing single-speaker Speaker Analysis section is
+# sufficient and per-speaker breakdowns would be redundant.
+SPEAKER_ANALYTICS_MIN_SPEAKERS: int = 2

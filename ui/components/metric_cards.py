@@ -134,7 +134,12 @@ def render_speaker_metrics(
     speaker_labels: List[str],
     diarization_error: str,
 ) -> None:
-    """Render speaker identification statistics."""
+    """Render speaker identification statistics.
+
+    Phase 6: shows an explicit success confirmation when diarization ran
+    without error, not just a warning on failure — silence previously
+    left it ambiguous whether diarization ran at all.
+    """
     st.markdown(
         """
         <div class="section-header-bar">
@@ -147,9 +152,11 @@ def render_speaker_metrics(
 
     if diarization_error:
         st.warning(
-            "Speaker diarization failed, so speakers show as Unknown. "
+            "Speaker diarization failed on this analysis, so speakers show as Unknown. "
             f"Reason: {diarization_error}"
         )
+    else:
+        st.success("Speaker diarization ran successfully on this analysis.")
 
     sp1, sp2, sp3 = st.columns(3)
     with sp1:

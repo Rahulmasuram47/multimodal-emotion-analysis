@@ -23,7 +23,27 @@ from typing import Any, Dict, List, Optional
 
 DEFAULT_MODEL_NAME = "pyannote/speaker-diarization-community-1"
 
+def get_diarization_status() -> Dict[str, Any]:
+    """Check whether a Hugging Face token is currently configured for
+    diarization, without attempting to load the pipeline (cheap, safe to
+    call on every page render).
 
+    Returns:
+        {"token_present": bool, "token_preview": str}
+        token_preview shows only the first 6 and last 4 characters of the
+        token (never the full value), so the UI can confirm *a* token is
+        set without ever displaying the real secret.
+    """
+    token = os.environ.get("HF_TOKEN")
+    if not token:
+        return {"token_present": False, "token_preview": ""}
+
+    if len(token) > 12:
+        preview = f"{token[:6]}...{token[-4:]}"
+    else:
+        preview = "***"  # token too short to safely preview
+
+    return {"token_present": True, "token_preview": preview}
 class SpeakerDiarizer:
     """Speaker diarization using pyannote Community-1."""
 

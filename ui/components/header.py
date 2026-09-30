@@ -4,6 +4,7 @@ Header, brand banner, pipeline stages, and sidebar rendering components.
 
 import streamlit as st
 
+from app.diarization import get_diarization_status
 from ui.state import get_fusion_settings, reset_fusion_settings
 
 
@@ -81,7 +82,7 @@ def render_pipeline_steps() -> None:
 
 
 def render_sidebar() -> None:
-    """Render technical specifications and (Phase 5) fusion settings in the sidebar."""
+    """Render technical specifications, diarization status, and (Phase 5) fusion settings in the sidebar."""
     with st.sidebar:
         st.markdown(
             """
@@ -130,6 +131,43 @@ def render_sidebar() -> None:
             unsafe_allow_html=True,
         )
 
+        # -----------------------------------------------------
+        # Phase 6: live diarization status — reflects whether a real
+        # HF_TOKEN is actually configured right now, not a static claim.
+        # This is separate from per-run success/failure, which is shown
+        # in the Speaker Analysis section after an analysis completes
+        # (see ui/components/metric_cards.py::render_speaker_metrics).
+        # -----------------------------------------------------
+        diar_status = get_diarization_status()
+
+        st.markdown('<div class="sidebar-heading">Diarization Status</div>', unsafe_allow_html=True)
+        if diar_status["token_present"]:
+            st.markdown(
+                f"""
+                <div class="sidebar-spec-row">
+                    <span class="sidebar-spec-key">HF_TOKEN</span>
+                    <span class="sidebar-spec-val" style="color: var(--positive);">✓ Configured ({diar_status['token_preview']})</span>
+                </div>
+                <div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; margin-bottom: 1rem;">
+                    A token is set. Diarization will attempt to run on each analysis — check the Speaker Analysis section after a run to confirm it actually succeeded.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div class="sidebar-spec-row">
+                    <span class="sidebar-spec-key">HF_TOKEN</span>
+                    <span class="sidebar-spec-val" style="color: var(--muted);">✗ Not configured</span>
+                </div>
+                <div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; margin-bottom: 1rem;">
+                    No token found. Speakers will show as "Unknown". See docs/DIARIZATION_SETUP.md to enable real speaker separation.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
         st.markdown('<div class="sidebar-heading">Audio Input Specs</div>', unsafe_allow_html=True)
 
         st.markdown(
@@ -174,7 +212,7 @@ def render_sidebar() -> None:
         new_audio_weight = st.slider(
             "Audio weight",
             min_value=0.0,
-            max_value=1.0,            
+            max_value=1.0,
             step=0.05,
             key="fusion_audio_weight",
             help="Text weight is automatically 1 minus this value.",

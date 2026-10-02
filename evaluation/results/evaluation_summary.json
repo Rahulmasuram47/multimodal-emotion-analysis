@@ -1,0 +1,714 @@
+{
+  "metadata": {
+    "dataset_path": "data/evaluation_dataset.csv",
+    "total_dataset_records": 7,
+    "evaluated_samples_count": 7,
+    "failed_samples_count": 0,
+    "skipped_samples_count": 0,
+    "has_ground_truth": true
+  },
+  "metrics": {
+    "total_samples": 7,
+    "has_ground_truth": true,
+    "voice_emotion": {
+      "status": "OK",
+      "total_samples": 4,
+      "n": 4,
+      "accuracy": 0.25,
+      "precision_macro": 0.0625,
+      "recall_macro": 0.25,
+      "f1_macro": 0.1,
+      "accuracy_ci": {
+        "mean": 0.25,
+        "ci_lower": 0.0,
+        "ci_upper": 0.75,
+        "n": 4
+      },
+      "f1_macro_ci": {
+        "mean": 0.25,
+        "ci_lower": 0.0,
+        "ci_upper": 0.75,
+        "n": 4
+      },
+      "per_class": {
+        "neutral": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 1
+        },
+        "happy": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 1
+        },
+        "angry": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 1
+        },
+        "sad": {
+          "precision": 0.25,
+          "recall": 1.0,
+          "f1": 0.4,
+          "support": 1
+        }
+      },
+      "confusion_matrix": {
+        "neutral": {
+          "neutral": 0,
+          "happy": 0,
+          "angry": 0,
+          "sad": 1
+        },
+        "happy": {
+          "neutral": 0,
+          "happy": 0,
+          "angry": 0,
+          "sad": 1
+        },
+        "angry": {
+          "neutral": 0,
+          "happy": 0,
+          "angry": 0,
+          "sad": 1
+        },
+        "sad": {
+          "neutral": 0,
+          "happy": 0,
+          "angry": 0,
+          "sad": 1
+        }
+      },
+      "matrix_grid": [
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "labels": [
+        "neutral",
+        "happy",
+        "angry",
+        "sad"
+      ]
+    },
+    "text_sentiment": {
+      "status": "NO_DATA",
+      "total_samples": 0,
+      "n": 0,
+      "accuracy": null,
+      "precision_macro": null,
+      "recall_macro": null,
+      "f1_macro": null,
+      "accuracy_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_macro_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "per_class": {},
+      "confusion_matrix": {},
+      "labels": [
+        "negative",
+        "neutral",
+        "positive"
+      ]
+    },
+    "speech_to_text": {
+      "status": "NO_DATA",
+      "n": 0,
+      "total_evaluated": 0,
+      "average_wer": null,
+      "average_cer": null,
+      "overall_wer": null
+    },
+    "speaker_count": {
+      "status": "OK",
+      "count": 5,
+      "n": 5,
+      "exact_match_accuracy": 1.0,
+      "mae": 0.0,
+      "mae_ci": {
+        "mean": 0.0,
+        "ci_lower": 0.0,
+        "ci_upper": 0.0,
+        "n": 5
+      },
+      "per_sample": [
+        {
+          "true_speaker_count": 1,
+          "predicted_speaker_count": 1,
+          "diff": 0
+        },
+        {
+          "true_speaker_count": 1,
+          "predicted_speaker_count": 1,
+          "diff": 0
+        },
+        {
+          "true_speaker_count": 1,
+          "predicted_speaker_count": 1,
+          "diff": 0
+        },
+        {
+          "true_speaker_count": 1,
+          "predicted_speaker_count": 1,
+          "diff": 0
+        },
+        {
+          "true_speaker_count": 1,
+          "predicted_speaker_count": 1,
+          "diff": 0
+        }
+      ]
+    },
+    "escalation": {
+      "status": "NO_DATA",
+      "n": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "precision_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "recall_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      }
+    },
+    "incongruence": {
+      "status": "NO_DATA",
+      "n": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "precision_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "recall_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      },
+      "f1_ci": {
+        "mean": null,
+        "ci_lower": null,
+        "ci_upper": null,
+        "n": 0
+      }
+    },
+    "sample_records": [
+      {
+        "filename": "sample_audio/happy_sample.wav",
+        "true_voice_emotion": "happy",
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "positive",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+        "wer": null,
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled happy based on recording intent; text/transcript labels pending annotation"
+      },
+      {
+        "filename": "sample_audio/angry_sample.wav",
+        "true_voice_emotion": "angry",
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "negative",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
+        "wer": null,
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled angry based on recording intent; text/transcript labels pending annotation"
+      },
+      {
+        "filename": "sample_audio/sad_sample.wav",
+        "true_voice_emotion": "sad",
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "negative",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
+        "wer": null,
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled sad based on recording intent; text/transcript labels pending annotation"
+      },
+      {
+        "filename": "sample_audio/neutral_sample.wav",
+        "true_voice_emotion": "neutral",
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "neutral",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
+        "wer": null,
+        "cer": null,
+        "notes": "Ground-truth voice emotion labelled neutral based on recording intent; text/transcript labels pending annotation"
+      },
+      {
+        "filename": "sample_audio/real_voice.wav",
+        "true_voice_emotion": null,
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "neutral",
+        "true_speaker_count": 1,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
+        "wer": null,
+        "cer": null,
+        "notes": "Real voice recording; no independent emotion or sentiment ground truth annotated"
+      },
+      {
+        "filename": "sample_audio/rising_tone.wav",
+        "true_voice_emotion": null,
+        "pred_voice_emotion": "sad",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": "negative",
+        "true_speaker_count": null,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
+        "wer": null,
+        "cer": null,
+        "notes": "Designed to demonstrate rising emotional intensity; not assigned single ground-truth emotion"
+      },
+      {
+        "filename": "sample_audio/sample_16k.wav",
+        "true_voice_emotion": null,
+        "pred_voice_emotion": "neu",
+        "true_text_sentiment": null,
+        "pred_text_sentiment": null,
+        "true_speaker_count": null,
+        "pred_speaker_count": 1,
+        "true_transcript": null,
+        "pred_transcript": "",
+        "wer": null,
+        "cer": null,
+        "notes": "Audio resampling test sample; not an emotion ground-truth sample"
+      }
+    ]
+  },
+  "ablation": {
+    "total_samples": 7,
+    "has_ground_truth": false,
+    "voice_only": {
+      "audio_weight": 1.0,
+      "text_weight": 0.0,
+      "mean_confidence": 0.9247,
+      "accuracy": null,
+      "f1_score": null
+    },
+    "text_only": {
+      "audio_weight": 0.0,
+      "text_weight": 1.0,
+      "mean_confidence": 0.7721,
+      "accuracy": null,
+      "f1_score": null
+    },
+    "voice_text_fusion": {
+      "audio_weight": 0.5,
+      "text_weight": 0.5,
+      "mean_confidence": 0.8484,
+      "accuracy": null,
+      "f1_score": null
+    },
+    "per_sample": [
+      {
+        "filename": "sample_audio/happy_sample.wav",
+        "voice_only_confidence": 0.9063600897789001,
+        "text_only_confidence": 0.9869456887245178,
+        "fusion_confidence": 0.946652889251709,
+        "voice_direction": "negative",
+        "text_direction": "positive",
+        "fusion_direction": "positive",
+        "ground_truth_direction": null,
+        "agreement": false,
+        "mismatch": true
+      },
+      {
+        "filename": "sample_audio/angry_sample.wav",
+        "voice_only_confidence": 0.9723295569419861,
+        "text_only_confidence": 0.9213603138923645,
+        "fusion_confidence": 0.9468449354171753,
+        "voice_direction": "negative",
+        "text_direction": "negative",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": true,
+        "mismatch": false
+      },
+      {
+        "filename": "sample_audio/sad_sample.wav",
+        "voice_only_confidence": 0.9852897524833679,
+        "text_only_confidence": 0.9014931321144104,
+        "fusion_confidence": 0.9433914422988892,
+        "voice_direction": "negative",
+        "text_direction": "negative",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": true,
+        "mismatch": false
+      },
+      {
+        "filename": "sample_audio/neutral_sample.wav",
+        "voice_only_confidence": 0.898344099521637,
+        "text_only_confidence": 0.8310960531234741,
+        "fusion_confidence": 0.8647200763225555,
+        "voice_direction": "negative",
+        "text_direction": "neutral",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": false,
+        "mismatch": true
+      },
+      {
+        "filename": "sample_audio/real_voice.wav",
+        "voice_only_confidence": 0.9533993601799011,
+        "text_only_confidence": 0.8558564782142639,
+        "fusion_confidence": 0.9046279191970825,
+        "voice_direction": "negative",
+        "text_direction": "neutral",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": false,
+        "mismatch": true
+      },
+      {
+        "filename": "sample_audio/rising_tone.wav",
+        "voice_only_confidence": 0.8246321082115173,
+        "text_only_confidence": 0.907752275466919,
+        "fusion_confidence": 0.8661921918392181,
+        "voice_direction": "negative",
+        "text_direction": "negative",
+        "fusion_direction": "negative",
+        "ground_truth_direction": null,
+        "agreement": true,
+        "mismatch": false
+      },
+      {
+        "filename": "sample_audio/sample_16k.wav",
+        "voice_only_confidence": 0.9326021671295166,
+        "text_only_confidence": 0.0,
+        "fusion_confidence": 0.4663010835647583,
+        "voice_direction": "neutral",
+        "text_direction": "none",
+        "fusion_direction": "neutral",
+        "ground_truth_direction": null,
+        "agreement": false,
+        "mismatch": false
+      }
+    ],
+    "four_way_comparison": [
+      {
+        "configuration": "A. Voice-only",
+        "modality_scope": "Acoustic audio features only (Wav2Vec2 SUPERB ER)",
+        "available_samples": 7,
+        "applicable_metrics": [
+          "Emotion Accuracy",
+          "Macro F1",
+          "Mean Acoustic Confidence",
+          "Confusion Matrix"
+        ],
+        "predictions_summary": "Mean acoustic confidence: 0.9247. Captures vocal pitch, acoustic energy, and prosody.",
+        "capabilities": "Independent of speech-to-text; evaluates raw vocal tone directly from audio waveform.",
+        "limitations": "Completely blind to verbal content, vocabulary, and semantics; prone to acoustic biases (e.g. low-pitch speech misclassified as sad); static representation across entire sample."
+      },
+      {
+        "configuration": "B. Text-only",
+        "modality_scope": "Linguistic text features only (CardiffNLP RoBERTa Sentiment)",
+        "available_samples": 6,
+        "applicable_metrics": [
+          "Sentiment Accuracy",
+          "Macro F1",
+          "Mean Linguistic Confidence",
+          "Confusion Matrix"
+        ],
+        "predictions_summary": "Mean linguistic confidence: 0.7721. Captures explicit semantic meaning of transcribed words.",
+        "capabilities": "Evaluates semantic sentiment accurately when speech is clearly transcribed.",
+        "limitations": "Completely blind to vocal delivery, tone, prosody, volume, sarcasm, or acoustic emotion; strictly dependent on ASR accuracy; fails on non-speech audio; static representation."
+      },
+      {
+        "configuration": "C. Voice + Text fusion",
+        "modality_scope": "Bimodal acoustic + linguistic fusion (50% Audio + 50% Text)",
+        "available_samples": 6,
+        "applicable_metrics": [
+          "Combined Bimodal Confidence",
+          "Directional Agreement Rate",
+          "Mismatch / Divergence Rate"
+        ],
+        "predictions_summary": "Mean fusion confidence: 0.8484. Integrates acoustic emotion with linguistic sentiment.",
+        "capabilities": "Discovers cross-modal agreement and divergence; provides confidence arbitration when individual modalities are uncertain.",
+        "limitations": "Evaluates the audio recording as a single static utterance; loses temporal progression, per-segment evolution, turn-taking, and emotional escalation over time."
+      },
+      {
+        "configuration": "D. Full temporal conversation analysis",
+        "modality_scope": "Temporal segment-level bimodal fusion + conversation dynamics",
+        "available_samples": 6,
+        "applicable_metrics": [
+          "Segment-Level Intensity Tracking",
+          "Emotional Trend (increasing/decreasing/stable)",
+          "Monotonic Escalation Indicator",
+          "Modality Consistency Trajectory (mostly_consistent/mostly_divergent/mixed)",
+          "Computational Review-Priority Attention Score",
+          "Speaker Attribution (Diarization Support)"
+        ],
+        "predictions_summary": "Sequential segment-level fusion with temporal trend, escalation detection, trajectory classification, and review-priority scoring.",
+        "capabilities": "Captures emotional evolution over time, detects rising/falling intensity, identifies escalation across conversation turns, classifies conversation consistency trajectory, flags high-priority conversations for review with transparent heuristic, attributes turns to speakers.",
+        "limitations": "Computationally heavier; requires multiple speech segments (minimum 2 segments for trajectory, minimum 3 segments for escalation); dependent on ASR segment timestamp boundaries."
+      }
+    ],
+    "learned_fusion": {
+      "status": "INSUFFICIENT_DATA",
+      "total_samples": 7,
+      "train_samples": 0,
+      "test_samples": 0,
+      "accuracy": null,
+      "precision_macro": null,
+      "recall_macro": null,
+      "f1_macro": null,
+      "confusion_matrix": null,
+      "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
+      "feature_names": [
+        "prob_audio_neutral",
+        "prob_audio_happy",
+        "prob_audio_angry",
+        "prob_audio_sad",
+        "prob_text_positive",
+        "prob_text_negative",
+        "prob_text_neutral",
+        "audio_confidence",
+        "text_confidence",
+        "intensity",
+        "agreement",
+        "mismatch"
+      ]
+    }
+  },
+  "learned_fusion": {
+    "status": "INSUFFICIENT_DATA",
+    "total_samples": 7,
+    "train_samples": 0,
+    "test_samples": 0,
+    "accuracy": null,
+    "precision_macro": null,
+    "recall_macro": null,
+    "f1_macro": null,
+    "confusion_matrix": null,
+    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
+    "feature_names": [
+      "prob_audio_neutral",
+      "prob_audio_happy",
+      "prob_audio_angry",
+      "prob_audio_sad",
+      "prob_text_positive",
+      "prob_text_negative",
+      "prob_text_neutral",
+      "audio_confidence",
+      "text_confidence",
+      "intensity",
+      "agreement",
+      "mismatch"
+    ]
+  },
+  "diarization_validation": {
+    "total_cases": 3,
+    "matched_cases": 2,
+    "boundary_accuracy_validated": false,
+    "honest_assessment": "Speaker diarization is architecturally supported; multi-speaker boundary accuracy has not been fully validated.",
+    "observed_limitations": [
+      "Correct speaker count does NOT prove correct speaker boundaries.",
+      "Pyannote pipeline downloads external weights requiring Hugging Face credentials.",
+      "Short or overlapping speech segments may cause speaker leakage or misattribution.",
+      "Dense conversational datasets with millisecond turn annotations (e.g. AMI Corpus) are required for full boundary F1 and DER (Diarization Error Rate) validation."
+    ],
+    "cases": [
+      {
+        "case_id": "CASE_A",
+        "case_name": "Single Speaker (1 Speaker)",
+        "expected_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "count_matched": true,
+        "description": "Verified single speaker recording (sample_audio/real_voice.wav).",
+        "observed_limitations": "Correctly assigned to a single speaker (Speaker A). No speaker leakage observed on solitary vocal track.",
+        "status": "COMPLETED"
+      },
+      {
+        "case_id": "CASE_B",
+        "case_name": "Two Speakers (2 Speakers)",
+        "expected_speaker_count": 2,
+        "predicted_speaker_count": 2,
+        "count_matched": true,
+        "description": "Two-speaker conversation structure with alternating turns.",
+        "observed_limitations": "Architectural turn mapping clusters acoustic embeddings into distinct labels (Speaker A / Speaker B). Correct count match does NOT prove correct temporal boundary alignment.",
+        "status": "COMPLETED"
+      },
+      {
+        "case_id": "CASE_C",
+        "case_name": "Multi-Speaker Temporal Boundary Precision",
+        "expected_speaker_count": 2,
+        "predicted_speaker_count": null,
+        "count_matched": false,
+        "description": "Evaluation of segment boundary accuracy and cross-talk / overlap handling.",
+        "observed_limitations": "Unvalidated: Ground truth timestamp boundaries are not dense enough in test samples to calculate exact DER (Diarization Error Rate) or boundary collar tolerance. Reported as N/A rather than claiming unverified precision.",
+        "status": "UNVALIDATED_BOUNDARY_ACCURACY"
+      }
+    ]
+  },
+  "temporal_rising_tone_experiment": {
+    "status": "COMPLETED",
+    "filename": "sample_audio/rising_tone.wav",
+    "segment_count": 3,
+    "segment_intensities": [
+      0.7796,
+      0.6756,
+      1.0
+    ],
+    "segment_details": [
+      {
+        "segment_index": 1,
+        "start_seconds": 0.69,
+        "end_seconds": 8.73,
+        "voice_emotion": "sad",
+        "text_sentiment": "negative",
+        "intensity": 0.7796
+      },
+      {
+        "segment_index": 2,
+        "start_seconds": 8.73,
+        "end_seconds": 14.45,
+        "voice_emotion": "sad",
+        "text_sentiment": "negative",
+        "intensity": 0.6756
+      },
+      {
+        "segment_index": 3,
+        "start_seconds": 14.45,
+        "end_seconds": 17.89,
+        "voice_emotion": "ang",
+        "text_sentiment": "negative",
+        "intensity": 1.0
+      }
+    ],
+    "emotional_trend": {
+      "trend": "increasing",
+      "intensity_scores": [
+        0.7796,
+        0.6756,
+        1.0
+      ],
+      "change": 0.2204
+    },
+    "escalation": {
+      "escalation_detected": false,
+      "reason": "Emotional intensity did not show a sufficient continuous increase.",
+      "intensity_change": 0.2204
+    },
+    "consistency_trajectory": {
+      "trajectory": "mostly_consistent",
+      "total_segments": 3,
+      "agreement_count": 3,
+      "divergence_count": 0,
+      "low_confidence_count": 0,
+      "agreement_rate": 1.0,
+      "mismatch_rate": 0.0,
+      "per_segment_relationships": [
+        {
+          "segment_index": 1,
+          "start_seconds": 0.69,
+          "end_seconds": 8.73,
+          "voice_direction": "negative",
+          "text_direction": "negative",
+          "relationship": "agreement"
+        },
+        {
+          "segment_index": 2,
+          "start_seconds": 8.73,
+          "end_seconds": 14.45,
+          "voice_direction": "negative",
+          "text_direction": "negative",
+          "relationship": "agreement"
+        },
+        {
+          "segment_index": 3,
+          "start_seconds": 14.45,
+          "end_seconds": 17.89,
+          "voice_direction": "negative",
+          "text_direction": "negative",
+          "relationship": "agreement"
+        }
+      ]
+    },
+    "attention_score": {
+      "attention_score": 0.2864,
+      "mismatch_contribution": 0.0,
+      "intensity_contribution": 0.28644,
+      "escalation_contribution": 0.0,
+      "mismatch_rate": 0.0,
+      "average_intensity": 0.8184,
+      "escalation_detected": false,
+      "weights": {
+        "w_mismatch": 0.4,
+        "w_intensity": 0.35,
+        "w_escalation": 0.25
+      },
+      "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+      "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+    },
+    "empirical_finding": "Rising-tone recording yielded 3 segments. Intensities: [0.7796, 0.6756, 1.0]. Overall trend was 'increasing' (change=+0.2204). Escalation detected=False: Emotional intensity did not show a sufficient continuous increase."
+  },
+  "disclaimer": "This system performs computational emotion inference from acoustic and linguistic patterns. It does not diagnose, assess, or make claims about a person's actual psychological or emotional state. Model confidence reflects classification certainty, not ground-truth correctness."
+}

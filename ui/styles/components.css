@@ -1,0 +1,793 @@
+/* =====================================================
+   HEADER & BRAND
+   ===================================================== */
+
+.brand-container {
+    background: linear-gradient(180deg, rgba(24, 29, 36, 0.95), rgba(20, 24, 30, 0.85));
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.brand-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.brand-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.brand-beacon {
+    width: 10px;
+    height: 10px;
+    background: var(--voice);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--voice);
+    animation: pulse-beacon 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-beacon {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.main-title {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.system-badge {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--panel-2);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+.subtitle {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.82rem;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    margin: 0.4rem 0 0.65rem 1.4rem;
+}
+
+.header-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.header-chip {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.header-chip strong {
+    color: var(--text);
+}
+
+/* =====================================================
+   PIPELINE WORKFLOW INDICATOR
+   ===================================================== */
+
+.pipeline-container {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.pipeline-step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.65rem 0.5rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.pipeline-step:hover {
+    border-color: var(--border-strong);
+    background: var(--panel-2);
+}
+
+.step-number {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.2rem;
+}
+
+.step-name {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+}
+
+.step-modality {
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+}
+
+/* =====================================================
+   UPLOAD & CONTROLS
+   ===================================================== */
+
+.upload-wrapper {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+[data-testid="stFileUploader"] *,
+[data-testid="stFileUploader"] *::before,
+[data-testid="stFileUploader"] *::after {
+    background-color: transparent !important;
+    color: var(--text) !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background-color: var(--panel-2) !important;
+    border: 1px dashed var(--border-strong) !important;
+    border-radius: 6px;
+    padding: 1.5rem 1rem !important;
+}
+
+[data-testid="stFileUploader"] section:hover {
+    border-color: var(--voice) !important;
+    background-color: rgba(232, 163, 61, 0.03) !important;
+}
+
+[data-testid="stFileUploader"] small {
+    color: var(--muted) !important;
+}
+
+[data-testid="stFileUploader"] button {
+    background-color: var(--panel) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border-strong) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
+    border-radius: 4px !important;
+}
+
+[data-testid="stFileUploaderFile"] {
+    background-color: var(--panel) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
+    padding: 0.5rem 0.7rem !important;
+}
+
+[data-testid="stFileUploaderFile"] small {
+    color: var(--muted) !important;
+}
+
+[data-testid="stFileUploaderFileIcon"] {
+    background-color: var(--panel-2) !important;
+    border-radius: 4px;
+}
+
+[data-testid="stFileUploaderDeleteBtn"] svg,
+[data-testid="stFileUploaderFileIcon"] svg {
+    fill: var(--muted) !important;
+}
+
+/* =====================================================
+   MICROPHONE AUDIO INPUT & AUDIO PLAYBACK (DARK THEME)
+   ===================================================== */
+
+/* Container for st.audio_input ("Record from Microphone") */
+div[data-testid="stAudioInput"],
+.stAudioInput {
+    background-color: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+    padding: 0.85rem !important;
+}
+
+/* Blanket reset of child backgrounds so Streamlit default never shows through */
+div[data-testid="stAudioInput"] *,
+div[data-testid="stAudioInput"] *::before,
+div[data-testid="stAudioInput"] *::after,
+.stAudioInput *,
+.stAudioInput *::before,
+.stAudioInput *::after {
+    background-color: transparent !important;
+    color: var(--text) !important;
+}
+
+/* Inner card / waveform wrapper */
+div[data-testid="stAudioInput"] > div,
+.stAudioInput > div {
+    background-color: var(--panel-2) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
+    padding: 0.35rem 0.6rem !important;
+}
+
+/* WaveSurfer canvas container inside st.audio_input */
+[data-testid="stAudioInputWaveSurfer"] {
+    background-color: var(--bg) !important;
+    border-radius: 4px !important;
+}
+
+/* Waveform timecode readout */
+[data-testid="stAudioInputWaveformTimeCode"] {
+    color: var(--muted) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
+    background-color: transparent !important;
+}
+
+/* Microphone record / action buttons */
+[data-testid="stAudioInputActionButton"] {
+    background-color: var(--panel) !important;
+    color: var(--voice) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 4px !important;
+}
+
+[data-testid="stAudioInputActionButton"] svg {
+    fill: var(--voice) !important;
+    color: var(--voice) !important;
+}
+
+/* Native audio player container styling */
+div[data-testid="stAudio"],
+.stAudio {
+    background-color: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+    padding: 0.5rem !important;
+    color-scheme: dark !important;
+}
+
+audio {
+    border-radius: 6px !important;
+    background-color: var(--panel-2) !important;
+    color-scheme: dark !important;
+}
+
+/* Streamlit custom component iframe (WaveSurfer) container */
+div[data-testid="stCustomComponentV1"],
+div[data-testid="stCustomComponentV1"] iframe,
+iframe[title="streamlit_app.render_wavesurfer_player"],
+iframe {
+    background-color: var(--panel) !important;
+    border: none !important;
+    border-radius: var(--card-radius) !important;
+    color-scheme: dark !important;
+}
+
+.format-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+.format-pill {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.64rem;
+    padding: 0.18rem 0.45rem;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.format-pill.recommended {
+    border-color: rgba(232, 163, 61, 0.35);
+    color: var(--voice);
+    background: rgba(232, 163, 61, 0.08);
+}
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+
+.stButton > button {
+    width: 100%;
+    min-height: 44px;
+    background: var(--voice);
+    color: #101318;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    border: none;
+    border-radius: 6px;
+    transition: all 0.15s ease-in-out;
+    box-shadow: 0 2px 10px rgba(232, 163, 61, 0.2);
+}
+
+.stButton > button:hover {
+    background: #F3B658;
+    color: #101318;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(232, 163, 61, 0.35);
+}
+
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+.stButton > button:disabled {
+    background: rgba(232, 163, 61, 0.2);
+    color: rgba(241, 243, 245, 0.35);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* =====================================================
+   DOWNLOAD BUTTONS
+   ===================================================== */
+
+[data-testid="stDownloadButton"] {
+    width: 100% !important;
+}
+
+[data-testid="stDownloadButton"] button {
+    width: 100% !important;
+    min-height: 44px !important;
+    background: var(--panel) !important;
+    background-color: var(--panel) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+}
+
+[data-testid="stDownloadButton"] button:hover {
+    background: var(--panel-2) !important;
+    background-color: var(--panel-2) !important;
+    color: var(--text) !important;
+    border-color: var(--voice) !important;
+    box-shadow: 0 2px 10px rgba(232, 163, 61, 0.12) !important;
+}
+
+[data-testid="stDownloadButton"] button:focus,
+[data-testid="stDownloadButton"] button:active {
+    background: var(--panel-2) !important;
+    background-color: var(--panel-2) !important;
+    color: var(--text) !important;
+    border-color: var(--voice) !important;
+}
+
+[data-testid="stDownloadButton"] button *,
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--text) !important;
+}
+
+[data-testid="stDownloadButton"] button svg {
+    fill: var(--muted) !important;
+}
+
+/* =====================================================
+   METRICS & OVERVIEW CARDS
+   ===================================================== */
+
+[data-testid="stMetric"] {
+    background: linear-gradient(160deg, var(--panel), #14181F);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 0.9rem 1.1rem;
+    min-height: 100px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-testid="stMetricLabel"] {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.1em;
+    color: var(--muted) !important;
+    text-transform: uppercase;
+}
+
+[data-testid="stMetricValue"] {
+    font-family: 'IBM Plex Mono', monospace !important;
+    color: var(--text) !important;
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+}
+
+.st-key-metric_language [data-testid="stMetricDelta"],
+.st-key-metric_duration [data-testid="stMetricDelta"],
+.st-key-metric_segments [data-testid="stMetricDelta"] {
+    color: var(--muted) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+
+.st-key-metric_language [data-testid="stMetricDelta"] *,
+.st-key-metric_duration [data-testid="stMetricDelta"] *,
+.st-key-metric_segments [data-testid="stMetricDelta"] * {
+    color: inherit !important;
+}
+
+/* =====================================================
+   SNAPSHOT & INSIGHT CARDS
+   ===================================================== */
+
+.modality-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 1rem 1.15rem;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.modality-card.voice-accent {
+    border-top: 3px solid var(--voice);
+}
+
+.modality-card.text-accent {
+    border-top: 3px solid var(--text-accent);
+}
+
+.modality-card.fusion-accent {
+    border-top: 3px solid var(--fused);
+}
+
+.modality-card.escalation-alert {
+    border: 1px solid var(--negative);
+    background: linear-gradient(160deg, var(--panel), rgba(228, 107, 107, 0.08));
+}
+
+.card-meta-label {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+}
+
+.card-highlight-value {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.25rem;
+}
+
+.card-subtext {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+/* Status Chips / Badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+}
+
+.status-badge.ok {
+    color: var(--positive);
+    background: var(--positive-bg);
+    border: 1px solid rgba(88, 184, 137, 0.25);
+}
+
+.status-badge.warn {
+    color: var(--voice);
+    background: var(--voice-glow);
+    border: 1px solid rgba(232, 163, 61, 0.25);
+}
+
+.status-badge.danger {
+    color: var(--negative);
+    background: var(--negative-bg);
+    border: 1px solid rgba(228, 107, 107, 0.3);
+}
+
+.status-badge.info {
+    color: var(--neutral);
+    background: var(--neutral-bg);
+    border: 1px solid rgba(154, 163, 178, 0.2);
+}
+
+/* =====================================================
+   AUDIO PLAYER & TRANSCRIPT
+   ===================================================== */
+
+.audio-player-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.st-key-audio_player_box {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+    padding: 0.85rem 1rem !important;
+}
+
+audio {
+    width: 100%;
+    border-radius: 6px;
+    filter: invert(0.9) hue-rotate(180deg);
+    height: 38px;
+}
+
+.transcript-container {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-accent);
+    border-radius: var(--card-radius);
+    padding: 1.15rem 1.35rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: var(--text);
+}
+
+/* =====================================================
+   METERS & PROGRESS BARS
+   ===================================================== */
+
+.meter-container {
+    margin: 0.5rem 0;
+}
+
+.meter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.45rem;
+}
+
+.meter-label-tag {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    width: 4rem;
+    flex-shrink: 0;
+}
+
+.meter-bar-track {
+    flex: 1;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.meter-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.meter-value-tag {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.72rem;
+    color: var(--text);
+    width: 3.2rem;
+    text-align: right;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+/* =====================================================
+   CONVERSATION SEGMENTS / EXPANDERS
+   ===================================================== */
+
+[data-testid="stExpander"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+    margin-bottom: 0.85rem !important;
+    overflow: hidden;
+}
+
+[data-testid="stExpander"] summary {
+    background: var(--panel) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.84rem !important;
+    padding: 0.65rem 1rem !important;
+}
+
+[data-testid="stExpander"] summary:hover {
+    background: var(--panel-2) !important;
+}
+
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span:not([data-testid="stIconMaterial"]) {
+    color: var(--text) !important;
+    font-weight: 600;
+}
+
+/* =====================================================
+   NATIVE ALERTS, STATUS, TOAST, EXCEPTION
+   ===================================================== */
+
+[data-testid="stAlert"],
+[data-testid="stException"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+}
+
+[data-testid="stAlert"] *,
+[data-testid="stException"] * {
+    color: var(--text) !important;
+    background-color: transparent !important;
+}
+
+[data-testid="stException"] {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.8rem !important;
+}
+
+[data-testid="stStatusWidget"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--card-radius) !important;
+}
+
+[data-testid="stStatusWidget"] * {
+    color: var(--text) !important;
+    background-color: transparent !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+
+[data-testid="stToast"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: var(--card-radius) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-testid="stToast"] * {
+    color: var(--text) !important;
+    background-color: transparent !important;
+}
+
+.segment-transcript-box {
+    background: var(--panel-2);
+    border-left: 2px solid var(--muted);
+    padding: 0.75rem 1rem;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 0.85rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--text);
+}
+
+.segment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.segment-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 0.85rem;
+}
+
+.segment-card.voice {
+    border-top: 2px solid var(--voice);
+}
+
+.segment-card.text {
+    border-top: 2px solid var(--text-accent);
+}
+
+.segment-card.fusion {
+    border-top: 2px solid var(--fused);
+}
+
+/* =====================================================
+   EMPTY STATE
+   ===================================================== */
+
+.empty-state-card {
+    background: linear-gradient(180deg, var(--panel), #14181F);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    margin: 1.5rem 0;
+}
+
+.empty-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1.5rem;
+    text-align: left;
+}
+
+.empty-step-box {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+}
+
+.empty-step-num {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--voice);
+    margin-bottom: 0.35rem;
+}
+
+.empty-step-heading {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+}
+
+.empty-step-desc {
+    font-size: 0.76rem;
+    color: var(--muted);
+    line-height: 1.45;
+}

@@ -1,0 +1,140 @@
+{
+  "metadata": {
+    "dataset_path": "data/evaluation_dataset.csv",
+    "total_dataset_records": 7,
+    "evaluated_samples_count": 7,
+    "failed_samples_count": 0,
+    "skipped_samples_count": 0,
+    "has_ground_truth": true,
+    "missing_annotations": [
+      "Text Sentiment ground truth (true_text_sentiment)",
+      "Reference Transcripts (true_transcript for WER)"
+    ]
+  },
+  "voice_emotion": {
+    "status": "OK",
+    "evaluated_samples": 4,
+    "accuracy": 0.25,
+    "f1_macro": 0.1,
+    "precision_macro": 0.0625,
+    "recall_macro": 0.25,
+    "confusion_matrix": {
+      "neutral": {
+        "neutral": 0,
+        "happy": 0,
+        "angry": 0,
+        "sad": 1
+      },
+      "happy": {
+        "neutral": 0,
+        "happy": 0,
+        "angry": 0,
+        "sad": 1
+      },
+      "angry": {
+        "neutral": 0,
+        "happy": 0,
+        "angry": 0,
+        "sad": 1
+      },
+      "sad": {
+        "neutral": 0,
+        "happy": 0,
+        "angry": 0,
+        "sad": 1
+      }
+    }
+  },
+  "text_sentiment": {
+    "status": "NO_DATA",
+    "evaluated_samples": 0,
+    "accuracy": null,
+    "f1_macro": null,
+    "precision_macro": null,
+    "recall_macro": null,
+    "confusion_matrix": {}
+  },
+  "rule_based_fusion": {
+    "status": "PENDING_DATA",
+    "evaluated_samples": 7,
+    "accuracy": null,
+    "f1_macro": null,
+    "mean_confidence": 0.8484
+  },
+  "learned_fusion": {
+    "status": "INSUFFICIENT_DATA",
+    "total_samples": 7,
+    "train_samples": 0,
+    "test_samples": 0,
+    "accuracy": null,
+    "precision_macro": null,
+    "recall_macro": null,
+    "f1_macro": null,
+    "confusion_matrix": null,
+    "message": "Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).",
+    "feature_names": [
+      "prob_audio_neutral",
+      "prob_audio_happy",
+      "prob_audio_angry",
+      "prob_audio_sad",
+      "prob_text_positive",
+      "prob_text_negative",
+      "prob_text_neutral",
+      "audio_confidence",
+      "text_confidence",
+      "intensity",
+      "agreement",
+      "mismatch"
+    ]
+  },
+  "speech_to_text": {
+    "status": "NO_DATA",
+    "n": 0,
+    "total_evaluated": 0,
+    "average_wer": null,
+    "average_cer": null,
+    "overall_wer": null
+  },
+  "speaker_count": {
+    "status": "OK",
+    "count": 5,
+    "n": 5,
+    "exact_match_accuracy": 1.0,
+    "mae": 0.0,
+    "mae_ci": {
+      "mean": 0.0,
+      "ci_lower": 0.0,
+      "ci_upper": 0.0,
+      "n": 5
+    },
+    "per_sample": [
+      {
+        "true_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "diff": 0
+      },
+      {
+        "true_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "diff": 0
+      },
+      {
+        "true_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "diff": 0
+      },
+      {
+        "true_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "diff": 0
+      },
+      {
+        "true_speaker_count": 1,
+        "predicted_speaker_count": 1,
+        "diff": 0
+      }
+    ]
+  },
+  "ablation_comparison_table": "Model                    Accuracy     Macro F1    \n------------------------------------------------\nVoice Only               Pending Data Pending Data\nText Only                Pending Data Pending Data\nRule-Based Fusion        Pending Data Pending Data\nLearned Fusion           Pending Data Pending Data",
+  "disclaimer": "This system performs computational emotion inference from acoustic and linguistic patterns. It does not diagnose, assess, or make claims about a person's actual psychological or emotional state. Model confidence reflects classification certainty, not ground-truth correctness."
+}

@@ -1,0 +1,15 @@
+[client]
+toolbarMode = "minimal"
+showErrorDetails = true
+
+[theme]
+base = "dark"
+primaryColor = "#E8A33D"
+backgroundColor = "#101318"
+secondaryBackgroundColor = "#181D24"
+textColor = "#F1F3F5"
+font = "sans serif"
+
+[server]
+headless = true
+fileWatcherType = "none"

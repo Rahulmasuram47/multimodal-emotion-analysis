@@ -1,0 +1,52 @@
+================================================================
+MULTIMODAL EMOTION ANALYSIS — EMPIRICAL EVALUATION REPORT
+================================================================
+Dataset:                 data/evaluation_dataset_template.csv
+Total Dataset Records:   7
+Total Samples Evaluated: 7
+Failed Samples:          0
+Ground Truth Present:    YES
+
+ANNOTATION & GROUND TRUTH STATUS:
+  Pending / Missing Annotations:
+    - Text Sentiment ground truth (true_text_sentiment)
+    - Reference Transcripts (true_transcript for WER)
+
+1. VOICE EMOTION (ACOUSTIC) METRICS:
+   Evaluated: 4
+   Accuracy:  0.2500
+   Macro F1:  0.1000
+   Precision: 0.0625
+   Recall:    0.2500
+   Confusion Matrix (True v Pred):
+     neutral : neutral:0 | happy:0 | angry:0 | sad:1
+     happy   : neutral:0 | happy:0 | angry:0 | sad:1
+     angry   : neutral:0 | happy:0 | angry:0 | sad:1
+     sad     : neutral:0 | happy:0 | angry:0 | sad:1
+
+2. TEXT SENTIMENT (LINGUISTIC) METRICS:
+   Status: Pending Data (no ground-truth text sentiment labels present)
+
+3. SPEECH-TO-TEXT (WER) METRICS:
+   Status: Pending Data (no reference transcripts provided)
+
+4. SPEAKER COUNT METRICS:
+   Evaluated:            5
+   Exact Match Accuracy: 1.0000
+   Mean Absolute Error:  0.0000
+
+5. MODEL COMPARISON (ABLATION & LEARNED FUSION BASELINE):
+Model                    Accuracy     Macro F1    
+------------------------------------------------
+Voice Only               Pending Data Pending Data
+Text Only                Pending Data Pending Data
+Rule-Based Fusion        Pending Data Pending Data
+Learned Fusion           Pending Data Pending Data
+
+LEARNED FUSION BASELINE DETAILS:
+  Learned Fusion Baseline: Insufficient labelled data for learned fusion model (0 labelled sample(s) available; minimum required is 10).
+
+================================================================
+MANDATORY SCIENTIFIC DISCLAIMER:
+This system performs computational emotion inference from acoustic and linguistic patterns. It does not diagnose, assess, or make claims about a person's actual psychological or emotional state. Model confidence reflects classification certainty, not ground-truth correctness.
+================================================================

@@ -1,0 +1,33 @@
+
+======================================================================
+BENCHMARK SUMMARY
+======================================================================
+Model                                                      N     Acc  MacroF1   Latency/clip
+--------------------------------------------------------------------------------------------
+superb/wav2vec2-base-superb-er                             4   25.0%    0.100          1.92s
+superb/wav2vec2-large-superb-er                            4   25.0%    0.100          5.36s
+ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition    4   25.0%    0.125          3.95s
+
+======================================================================
+PER-CLASS BREAKDOWN
+======================================================================
+
+superb/wav2vec2-base-superb-er:
+  neutral    0/1 correct (0.0%)
+  happy      0/1 correct (0.0%)
+  angry      0/1 correct (0.0%)
+  sad        1/1 correct (100.0%)
+
+superb/wav2vec2-large-superb-er:
+  neutral    1/1 correct (100.0%)
+  happy      0/1 correct (0.0%)
+  angry      0/1 correct (0.0%)
+  sad        0/1 correct (0.0%)
+
+ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition:
+  neutral    0/1 correct (0.0%)
+  happy      0/1 correct (0.0%)
+  angry      0/1 correct (0.0%)
+  sad        1/1 correct (100.0%)
+
+⚠️  WARNING: smallest evaluated N = 4, below EVAL_MIN_N = 5. These numbers are indicative only — do not treat them as a reliable comparison until more clips are annotated. Do NOT report these as final accuracy in your project report.

@@ -26,8 +26,9 @@ MANDATORY_HEURISTIC_NOTICE: str = (
     "This system identifies disagreement between computational speech and text signals. "
     "It does not reliably determine sarcasm, deception, or a person's internal emotional state. "
     "Modality incongruence indicates that acoustic tone and linguistic sentiment point in different "
-    "directions under computational models, which may be caused by sarcasm, passive-aggressive tone, "
-    "humor, contextual nuances, acoustic noise, or model misclassification."
+    "directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, "
+    "acoustic noise, or classification ambiguity). Voice and text point in different directions. "
+    "Review the audio and context."
 )
 
 
@@ -167,8 +168,8 @@ def detect_modality_incongruence(
         explanation = (
             f"Strong disagreement between acoustic and textual signals. "
             f"The speaker's verbal sentiment is strongly {tx_norm} ({tx_conf:.1%}), but vocal delivery "
-            f"is strongly {ac_norm} ({ac_conf:.1%}). This may indicate potential sarcasm, "
-            f"passive-aggressive communication, contextual mismatch, or model uncertainty."
+            f"is strongly {ac_norm} ({ac_conf:.1%}). Voice and text point in different directions. "
+            f"Review the audio and context."
         )
     else:
         conflict_detected = True
@@ -176,7 +177,7 @@ def detect_modality_incongruence(
         explanation = (
             f"Moderate disagreement between acoustic and textual signals. "
             f"The verbal sentiment is {tx_norm} ({tx_conf:.1%}) while acoustic tone is {ac_norm} ({ac_conf:.1%}). "
-            f"Possible sarcasm, mixed emotional expression, or classification ambiguity."
+            f"Voice and text point in different directions. Review the audio and context."
         )
 
     return IncongruenceResult(

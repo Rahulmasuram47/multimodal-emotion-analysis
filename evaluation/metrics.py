@@ -457,3 +457,145 @@ def compute_binary_detection_metrics(
         "recall_ci": r_ci,
         "f1_ci": f_ci,
     }
+
+
+# ── Inter-annotator Agreement (Cohen's Kappa) ────────────────────────────────
+
+def compute_cohens_kappa(
+    rater1: Sequence[Any],
+    rater2: Sequence[Any],
+) -> Dict[str, Any]:
+    """Calculate Cohen's kappa for inter-rater agreement on overlapping items.
+
+    Items where either rater's label is None or empty are ignored.
+
+    Returns:
+        Dict with:
+        - kappa: float in [-1.0, 1.0] (or None if insufficient overlap)
+        - observed_agreement (p_o)
+        - expected_agreement (p_e)
+        - n: number of overlapping non-empty annotations
+        - categories: sorted list of observed categories
+    """
+    valid = [
+        (str(r1).strip(), str(r2).strip())
+        for r1, r2 in zip(rater1, rater2)
+        if r1 is not None and r2 is not None and str(r1).strip() and str(r2).strip()
+    ]
+    n = len(valid)
+    if n == 0:
+        return {
+            "kappa": None,
+            "observed_agreement": None,
+            "expected_agreement": None,
+            "n": 0,
+            "categories": [],
+        }
+
+    cats = sorted(list(set(r1 for r1, _ in valid) | set(r2 for _, r2 in valid)))
+    if len(cats) <= 1:
+        # Trivial agreement on single category
+        return {
+            "kappa": 1.0,
+            "observed_agreement": 1.0,
+            "expected_agreement": 1.0,
+            "n": n,
+            "categories": cats,
+        }
+
+    po = sum(1 for r1, r2 in valid if r1 == r2) / n
+
+    pe = 0.0
+    for c in cats:
+        p1 = sum(1 for r1, _ in valid if r1 == c) / n
+        p2 = sum(1 for _, r2 in valid if r2 == c) / n
+        pe += p1 * p2
+
+    if pe >= 1.0:
+        kappa = 1.0
+    else:
+        kappa = round((po - pe) / (1.0 - pe), 4)
+
+    return {
+        "kappa": kappa,
+        "observed_agreement": round(po, 4),
+        "expected_agreement": round(pe, 4),
+        "n": n,
+        "categories": cats,
+    }
+
+
+# ── Expected Calibration Error (ECE) & Reliability Diagram ────────────────────
+
+def compute_expected_calibration_error(
+    confidences: Sequence[float],
+    accuracies: Sequence[int | bool | float],
+    n_bins: int = 10,
+) -> Dict[str, Any]:
+    """Compute Expected Calibration Error (ECE) and bin statistics.
+
+    Args:
+        confidences: Sequence of predicted confidence values in [0, 1].
+        accuracies: Sequence of binary correctness values (1/True = correct, 0/False = incorrect).
+        n_bins: Number of equal-width confidence bins (default 10).
+
+    Returns:
+        Dict with ece, mce (maximum calibration error), n, and list of per-bin stats.
+    """
+    valid = [
+        (float(c), float(a))
+        for c, a in zip(confidences, accuracies)
+        if c is not None and a is not None
+    ]
+    n = len(valid)
+    if n == 0:
+        return {
+            "ece": None,
+            "mce": None,
+            "n": 0,
+            "bins": [],
+        }
+
+    bins = []
+    bin_size = 1.0 / n_bins
+    total_ece = 0.0
+    max_ce = 0.0
+
+    for b in range(n_bins):
+        bin_lower = b * bin_size
+        bin_upper = (b + 1) * bin_size
+        if b == n_bins - 1:
+            in_bin = [(c, a) for c, a in valid if bin_lower <= c <= bin_upper]
+        else:
+            in_bin = [(c, a) for c, a in valid if bin_lower <= c < bin_upper]
+
+        bin_count = len(in_bin)
+        if bin_count > 0:
+            avg_conf = sum(c for c, _ in in_bin) / bin_count
+            avg_acc = sum(a for _, a in in_bin) / bin_count
+            diff = abs(avg_acc - avg_conf)
+            weighted_diff = (bin_count / n) * diff
+            total_ece += weighted_diff
+            if diff > max_ce:
+                max_ce = diff
+        else:
+            avg_conf = (bin_lower + bin_upper) / 2.0
+            avg_acc = 0.0
+            diff = 0.0
+
+        bins.append({
+            "bin_index": b,
+            "range": [round(bin_lower, 2), round(bin_upper, 2)],
+            "count": bin_count,
+            "avg_confidence": round(avg_conf, 4),
+            "avg_accuracy": round(avg_acc, 4),
+            "calibration_gap": round(diff, 4),
+        })
+
+    return {
+        "ece": round(total_ece, 4),
+        "mce": round(max_ce, 4),
+        "n": n,
+        "bins": bins,
+    }
+

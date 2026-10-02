@@ -19,6 +19,7 @@ This module:
 
 import os
 from typing import Any, Dict, List, Optional
+import config
 
 
 DEFAULT_MODEL_NAME = "pyannote/speaker-diarization-community-1"
@@ -374,15 +375,21 @@ class SpeakerDiarizer:
                     best_turn = nearest_turn
 
             # ---------------------------------------------------------
-            # 3. Store speaker label
+            # 3. Store speaker label with overlap ratio gating
             # ---------------------------------------------------------
-            if best_turn is not None:
-                raw_label = str(best_turn["speaker"])
+            seg_duration = max(0.001, seg_end - seg_start)
+            overlap_ratio = best_overlap / seg_duration
+            min_overlap = getattr(config, "DIARIZATION_MIN_OVERLAP_RATIO", 0.35)
 
-                seg["speaker"] = label_map.get(
-                    raw_label,
-                    raw_label,
-                )
+            if best_turn is not None:
+                if overlap_ratio >= min_overlap:
+                    raw_label = str(best_turn["speaker"])
+                    seg["speaker"] = label_map.get(
+                        raw_label,
+                        raw_label,
+                    )
+                else:
+                    seg["speaker"] = "Uncertain Speaker"
             else:
                 seg["speaker"] = "Unknown"
 

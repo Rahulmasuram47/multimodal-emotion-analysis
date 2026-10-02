@@ -413,25 +413,32 @@ iframe {
     background: linear-gradient(160deg, var(--panel), #14181F);
     border: 1px solid var(--border);
     border-radius: var(--card-radius);
-    padding: 0.9rem 1.1rem;
-    min-height: 100px;
+    padding: 0.65rem 0.8rem;
+    min-height: 85px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
 }
 
 [data-testid="stMetricLabel"] {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.65rem !important;
+    font-size: 0.62rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     color: var(--muted) !important;
     text-transform: uppercase;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.25 !important;
 }
 
 [data-testid="stMetricValue"] {
     font-family: 'IBM Plex Mono', monospace !important;
     color: var(--text) !important;
-    font-size: 1.3rem !important;
+    font-size: clamp(0.95rem, 1.25vw, 1.2rem) !important;
     font-weight: 700 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
 }
 
 .st-key-metric_language [data-testid="stMetricDelta"],
@@ -445,6 +452,34 @@ iframe {
 .st-key-metric_duration [data-testid="stMetricDelta"] *,
 .st-key-metric_segments [data-testid="stMetricDelta"] * {
     color: inherit !important;
+}
+
+/* Button & Download Button High Contrast */
+.stDownloadButton button,
+.stButton button {
+    background: var(--panel-2) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-weight: 600 !important;
+    font-size: 0.82rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+}
+
+.stDownloadButton button:hover,
+.stButton button:hover {
+    border-color: var(--voice) !important;
+    background: var(--panel) !important;
+    color: var(--voice) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.stDownloadButton button:focus-visible,
+.stButton button:focus-visible {
+    outline: 2px solid var(--voice) !important;
+    outline-offset: 2px !important;
 }
 
 /* =====================================================

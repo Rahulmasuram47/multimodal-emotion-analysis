@@ -1,5 +1,10 @@
 """
 Conversation & Multimodal Analysis page orchestrator (Tab 1).
+Follows exact Prompt H results page hierarchy:
+  (a) Verdict Hero: verdict, reason, attention gauge, recommendation
+  (b) Three Modality Cards with reliability chips
+  (c) Timeline: agreement ribbon, valence-arousal map, intensity slope/tolerance, speaker comparison
+  (d) Tabs: segments, acoustic inspection, why-this-result, validation
 """
 
 import html
@@ -7,18 +12,20 @@ from typing import Any, Dict, List, Optional
 import streamlit as st
 
 from app.speaker_analytics import compute_speaker_analytics, find_possible_escalation_initiator
-from ui.components.incongruence_card import render_incongruence_card
-from ui.components.metric_cards import (
-    render_dynamics_card,
-    render_overview_metrics,
-    render_speaker_metrics,
+from ui.charts.dynamics import (
+    render_agreement_strip,
+    render_intensity_trajectory_chart,
+    render_speaker_comparison_chart,
+    render_valence_arousal_map,
 )
 from ui.components.modality_cards import render_modality_cards
-from ui.components.recommendation_card import render_recommendation_card
 from ui.components.segment_timeline import render_segment_timeline
 from ui.components.speaker_analytics_card import render_speaker_analytics_card
-from ui.components.verdict_card import build_key_finding, render_verdict_card
+from ui.components.transparency_panels import render_multimodal_validation_section
+from ui.components.verdict_card import build_key_finding, render_verdict_hero
 from ui.components.waveform_player import render_wavesurfer_player
+from ui.pages.acoustic_view import render_acoustic_page
+from ui.pages.why_result_view import render_why_result_page
 from ui.utils import safe_float
 
 
@@ -43,16 +50,10 @@ def render_analysis_page(
     escalation_reason: str,
     verdict: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Orchestrate Tab 1 Conversation & Multimodal Analysis widgets.
-
-    verdict (Phase 4, optional): result["verdict"] — the single unified
-    conversation-level signal (escalating/de-escalating/stable/
-    fluctuating/insufficient_data). Defaults to None so this function
-    still works if a caller doesn't pass it. When provided, it's shown
-    as a 7th overview metric and as a dedicated panel above the
-    trend/escalation chart.
-    """
-    # 1. Key Finding banner
+    """Orchestrate Conversation & Multimodal Analysis results page in Prompt H hierarchy."""
+    # -------------------------------------------------------------
+    # (a) Verdict Hero: verdict, reason, attention gauge, recommendation
+    # -------------------------------------------------------------
     finding = build_key_finding(
         dominant_voice=dominant_voice,
         dominant_text=dominant_text,
@@ -60,84 +61,55 @@ def render_analysis_page(
         trend_label=trend_label,
         escalation_detected=escalation_detected,
     )
-    render_verdict_card(finding)
-
-    # 2. Overall Modality Incongruence Card
-    v_top_conf = safe_float(result.get("voice_emotion", {}).get("confidence", 0.0))
-    t_top_conf = safe_float(result.get("text_sentiment", {}).get("confidence", 0.0))
-    if not v_top_conf and segments:
-        v_top_conf = safe_float(segments[0].get("voice_emotion", {}).get("confidence", 0.0))
-    if not t_top_conf and segments:
-        t_top_conf = safe_float(segments[0].get("text_sentiment", {}).get("confidence", 0.0))
-
-    render_incongruence_card(
-        acoustic_label=dominant_voice,
-        acoustic_confidence=v_top_conf or 0.85,
-        text_label=dominant_text,
-        text_confidence=t_top_conf or 0.88,
-        title="OVERALL CONVERSATION MODALITY INCONGRUENCE",
+    render_verdict_hero(
+        verdict=verdict,
+        finding=finding,
+        attention_score=result.get("attention_score", {}),
+        recommendation=result.get("recommendation", {}),
     )
 
-    # 3. Actionable Recommendation Card
-    rec_data = result.get("recommendation", {}) or {}
-    render_recommendation_card(rec_data)
+    # -------------------------------------------------------------
+    # (b) Three Modality Cards with reliability chips
+    # -------------------------------------------------------------
+    v_rels = [safe_float((s.get("fusion") or {}).get("audio_reliability", 1.0)) for s in segments]
+    t_rels = [safe_float((s.get("fusion") or {}).get("text_reliability", 1.0)) for s in segments]
+    c_rels = [safe_float((s.get("fusion") or {}).get("combined_reliability", 1.0)) for s in segments]
+    v_rel_avg = sum(v_rels) / len(v_rels) if v_rels else 1.0
+    t_rel_avg = sum(t_rels) / len(t_rels) if t_rels else 1.0
+    c_rel_avg = sum(c_rels) / len(c_rels) if c_rels else 1.0
+    is_abstain = any((s.get("fusion") or {}).get("abstention", False) for s in segments)
 
-    # 4. Overview Metrics (6 cards, or 7 when a verdict is available)
-    proc_time = result.get("processing_time", {}) or {}
-    tot_time = proc_time.get("total_processing_seconds")
-    latency_val = f"{tot_time:.2f}s" if tot_time is not None else "Near-RT"
-
-    verdict_label = str(verdict.get("verdict", "")).lower() if verdict else None
-
-    render_overview_metrics(
-        language=language,
-        language_prob=language_prob,
-        duration=duration,
-        segments=segments,
-        skipped_segments=skipped_segments,
-        trend_label=trend_label,
-        trend_delta=trend_delta,
-        escalation_detected=escalation_detected,
-        latency_val=latency_val,
-        verdict_label=verdict_label,
-    )
-
-    # 5. Modality Cards & Alignment
     render_modality_cards(
         dominant_voice=dominant_voice,
         dominant_text=dominant_text,
         segments=segments,
         agree_count=agree_count,
         mismatch_count=mismatch_count,
+        voice_reliability=v_rel_avg,
+        text_reliability=t_rel_avg,
+        combined_reliability=c_rel_avg,
+        abstention=is_abstain,
     )
 
-    # 6. Speaker Analysis
-    speaker_labels = [
-        str(s.get("speaker", "")).strip()
-        for s in segments
-        if str(s.get("speaker", "")).strip() and str(s.get("speaker", "")).strip() != "Unknown"
-    ]
-    unique_speakers = list(dict.fromkeys(speaker_labels))
-    diarization_error = str(result.get("diarization_error", "") or "").strip()
+    # -------------------------------------------------------------
+    # (c) Timeline & Conversation Dynamics
+    # -------------------------------------------------------------
+    render_agreement_strip(segments)
+    render_valence_arousal_map(segments)
+    render_intensity_trajectory_chart(segments, verdict=verdict, escalation=escalation)
 
-    render_speaker_metrics(
-        unique_speakers=unique_speakers,
-        speaker_labels=speaker_labels,
-        diarization_error=diarization_error,
-    )
-
-    # 6b. Phase 6: Speaker-Aware Analytics (only renders when 2+ real
-    # speakers were identified — a no-op otherwise).
     speaker_analytics = [
         sa.to_dict() for sa in compute_speaker_analytics(segments, duration)
     ]
-    initiator = find_possible_escalation_initiator(segments) if speaker_analytics else None
-    render_speaker_analytics_card(speaker_analytics, initiator)
+    if speaker_analytics and len(speaker_analytics) >= 2:
+        render_speaker_comparison_chart(speaker_analytics)
+        initiator = find_possible_escalation_initiator(segments)
+        render_speaker_analytics_card(speaker_analytics, initiator)
 
-    # 7. Audio Playback (WaveSurfer) & Full Transcript
+    # Audio Playback (WaveSurfer) & Complete Transcript
     st.markdown(
         """
-        <div class="section-header-bar">
+        <div class="section-header-bar" style="margin-top: 1.2rem;">
             <div class="section-title">🎙️ Audio Recording & Transcript</div>
             <div class="section-badge">WHISPER RECOGNITION & WAVESURFER.JS</div>
         </div>
@@ -163,10 +135,12 @@ def render_analysis_page(
             st.markdown(
                 f"""
                 <div class="transcript-container">
-                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.64rem; font-weight: 700; color: var(--text-accent); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.08em;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 700; color: var(--text-accent); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.08em;">
                         COMPLETE SPEECH TRANSCRIPT
                     </div>
-                    {escaped_transcript}
+                    <div style="font-size: 0.82rem; color: var(--text); line-height: 1.55;">
+                        {escaped_transcript}
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -174,15 +148,39 @@ def render_analysis_page(
         else:
             st.warning("No speech transcript detected in audio stream.")
 
-    # 8. Emotional Dynamics, Unified Verdict & Escalation Chart
-    render_dynamics_card(
-        trend=trend,
-        escalation=escalation,
-        trend_label=trend_label,
-        escalation_detected=escalation_detected,
-        escalation_reason=escalation_reason,
-        verdict=verdict,
+    # -------------------------------------------------------------
+    # (d) Tabs: segments, acoustic inspection, why-this-result, validation
+    # -------------------------------------------------------------
+    st.markdown(
+        """
+        <div class="section-header-bar" style="margin-top: 1.5rem;">
+            <div class="section-title">📑 Detailed Analysis & Evidence Tabs</div>
+            <div class="section-badge">SEGMENTS · ACOUSTIC · WHY THIS RESULT · VALIDATION</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # 9. Conversation Segments Breakdown
-    render_segment_timeline(segments)
+    tab_segs, tab_acoust, tab_why, tab_valid, tab_annot = st.tabs([
+        "💬 Segments",
+        "🎛️ Acoustic Inspection",
+        "🔎 Why This Result?",
+        "📊 Multimodal Validation",
+        "🏷️ Annotation Helper",
+    ])
+
+    with tab_segs:
+        render_segment_timeline(segments)
+
+    with tab_acoust:
+        render_acoustic_page(audio_bytes=audio_bytes, segments=segments, duration=duration)
+
+    with tab_why:
+        render_why_result_page(result=result, segments=segments)
+
+    with tab_valid:
+        render_multimodal_validation_section()
+
+    with tab_annot:
+        from ui.pages.annotation_view import render_annotation_page
+        render_annotation_page()

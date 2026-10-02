@@ -78,12 +78,19 @@ VOICE_CALIBRATION_ENABLED: bool = True
 VOICE_CALIBRATION_PROSODY_RULE_ENABLED: bool = True
 VOICE_CALIBRATION_RMS_THRESHOLD: float = 0.05          # tune once labeled data exists
 VOICE_CALIBRATION_ZCR_STD_THRESHOLD: float = 0.02      # tune once labeled data exists
+VOICE_CALIBRATION_RELATIVE_LOUDNESS_THRESHOLD: float = 0.40  # Normalized relative loudness [0, 1]
+VOICE_CALIBRATION_F0_RANGE_SEMITONES_THRESHOLD: float = 6.0   # Semitones range over voiced frames
 VOICE_CALIBRATION_SAD_DAMPENING_FACTOR: float = 0.5    # 0.5 = halve 'sad' mass when rule fires
 
-# Temperature scaling (data-fitted; refuses to fit below this many labeled
+# Temperature scaling & prior correction (data-fitted; refuses to fit below this many labeled
 # voice-emotion samples, to avoid overfitting a correction to a handful
 # of clips). Re-run fitting once more team recordings are annotated.
 VOICE_CALIBRATION_MIN_FIT_SAMPLES: int = 15
+
+# Voice-model collapse detector: if one class gets above this share of predictions
+# across a recording/batch, flag collapse and down-weight voice reliability in fusion.
+VOICE_COLLAPSE_THRESHOLD: float = 0.70
+VOICE_COLLAPSE_RELIABILITY_PENALTY: float = 0.50
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3: Short-Segment Handling
@@ -156,18 +163,30 @@ VOICE_EMOTION_AROUSAL_MAP: dict = {
     'sad': 0.15,
 }
 
-# Reference maximums used to normalize raw prosodic features into [0, 1]
-# before combining. These are heuristic starting points, not derived from
-# a labeled dataset — re-tune once enough annotated clips exist.
-PROSODY_RMS_REFERENCE_MAX: float = 0.15          # RMS amplitude considered "loud"
-PROSODY_ZCR_STD_REFERENCE_MAX: float = 0.05      # ZCR variability considered "highly varied pitch"
+# Reference maximums and percentiles used to normalize raw prosodic features into [0, 1]
+# before combining.
+PROSODY_RMS_REFERENCE_MAX: float = 0.15          # Fallback RMS amplitude considered "loud"
+PROSODY_ZCR_STD_REFERENCE_MAX: float = 0.05      # Fallback ZCR variability
 PROSODY_SPEECH_RATE_REFERENCE_MAX: float = 4.0   # words/sec considered a "fast/agitated" rate
 
-# Weights for combining the three normalized prosodic sub-features into
-# one prosodic_arousal score (should sum to ~1.0).
-PROSODY_WEIGHT_RMS: float = 0.5
-PROSODY_WEIGHT_PITCH_VARIATION: float = 0.3
-PROSODY_WEIGHT_SPEECH_RATE: float = 0.2
+# Percentile normalization against recording's own energy distribution
+PROSODY_LOUDNESS_PERCENTILE_LOW: float = 10.0    # 10th percentile in dB
+PROSODY_LOUDNESS_PERCENTILE_HIGH: float = 90.0   # 90th percentile in dB
+
+# Semitone F0 pitch range normalization
+PROSODY_F0_SEMITONE_RANGE_MAX: float = 24.0      # 24 semitones (2 octaves) = 1.0
+PROSODY_F0_MIN_HZ: float = 65.0                  # ~C2
+PROSODY_F0_MAX_HZ: float = 500.0                 # ~B4
+
+# Weights for combining the normalized prosodic sub-features into
+# one prosodic_arousal score (sums to 1.0).
+PROSODY_WEIGHT_LOUDNESS: float = 0.35
+PROSODY_WEIGHT_PITCH_VARIATION: float = 0.30
+PROSODY_WEIGHT_VOICED_RATIO: float = 0.15
+PROSODY_WEIGHT_SPEECH_RATE: float = 0.20
+
+# Backward compatibility aliases
+PROSODY_WEIGHT_RMS: float = PROSODY_WEIGHT_LOUDNESS
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4: Escalation Detection
@@ -210,6 +229,10 @@ FUSION_TEXT_LOW_ASR_RELIABILITY: float = 0.6
 # speaker.
 FUSION_HIGH_AROUSAL_THRESHOLD: float = 0.6
 
+# Threshold below which combined modality reliability triggers abstention
+# ("Insufficient reliability. Review audio") rather than forcing a label.
+FUSION_ABSTENTION_THRESHOLD: float = 0.35
+
 # Default fusion weights exposed to the Phase 5 sidebar settings panel
 # (session-state overrides only — config.py itself is never mutated at
 # runtime). These mirror DEFAULT_AUDIO_WEIGHT/DEFAULT_TEXT_WEIGHT/
@@ -219,6 +242,7 @@ FUSION_SETTINGS_DEFAULTS: dict = {
     "audio_weight": DEFAULT_AUDIO_WEIGHT,
     "text_weight": DEFAULT_TEXT_WEIGHT,
     "confidence_threshold": CONFIDENCE_THRESHOLD,
+    "abstention_threshold": FUSION_ABSTENTION_THRESHOLD,
 }
 
 
@@ -235,3 +259,8 @@ SPEAKER_ESCALATION_INITIATOR_MIN_RISE: float = 0.15
 # Below this, the existing single-speaker Speaker Analysis section is
 # sufficient and per-speaker breakdowns would be redundant.
 SPEAKER_ANALYTICS_MIN_SPEAKERS: int = 2
+
+# Minimum ratio of overlap between a speech segment and a diarization turn
+# required to assign a speaker label. Below this ratio, the segment is labeled
+# "Uncertain Speaker" to avoid forcing uncertain or noisy speaker assignments.
+DIARIZATION_MIN_OVERLAP_RATIO: float = 0.35

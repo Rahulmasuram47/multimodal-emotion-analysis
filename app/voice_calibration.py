@@ -106,13 +106,15 @@ def apply_prosody_sanity_rule(
     raw_scores: Dict[str, float],
     audio_segment: np.ndarray,
     sr: int,
+    recording_percentiles: Optional[Tuple[float, float]] = None,
+    f0_segment: Optional[np.ndarray] = None,
+    voiced_flag_segment: Optional[np.ndarray] = None,
 ) -> CalibrationResult:
     """Dampen 'sad' when the segment's own acoustics look high-arousal.
 
-    Uses ONLY this segment's own audio (no external fitting), comparing
-    its RMS and pitch range against config thresholds. These thresholds
-    are heuristic starting points — tune them in config.py once enough
-    labeled data exists to check whether they help or hurt accuracy.
+    Uses relative RMS (vs recording percentiles) and F0 semitone range
+    over voiced frames. Both conditions must indicate active vocal energy
+    to override a 'sad' classification. Logs every rule firing for transparency.
     """
     applied: List[str] = []
     scores = dict(raw_scores)
@@ -126,33 +128,62 @@ def apply_prosody_sanity_rule(
     if top_label == "sad" and len(audio_segment) > 0:
         try:
             rms = float(np.sqrt(np.mean(np.square(audio_segment))))
+            rms_db = float(20.0 * np.log10(rms + 1e-9))
 
-            # Cheap pitch-range proxy: a full autocorrelation-based F0
-            # estimate is expensive per-segment, so zero-crossing-rate
-            # variability stands in as a fast proxy (higher ZCR variance
-            # ~ more pitch movement, correlates loosely with arousal).
-            frame_len = max(1, sr // 50)  # ~20ms frames
-            n_frames = len(audio_segment) // frame_len
-            zcr_values = []
-            for i in range(n_frames):
-                frame = audio_segment[i * frame_len:(i + 1) * frame_len]
-                signs = np.sign(frame)
-                signs[signs == 0] = 1
-                zcr = np.mean(signs[:-1] != signs[1:]) if len(signs) > 1 else 0.0
-                zcr_values.append(zcr)
-            zcr_std = float(np.std(zcr_values)) if zcr_values else 0.0
+            # 1. Check relative loudness
+            if recording_percentiles is not None and recording_percentiles[1] > recording_percentiles[0]:
+                p_low, p_high = recording_percentiles
+                rel_loudness = float(np.clip((rms_db - p_low) / (p_high - p_low), 0.0, 1.0))
+                thresh_loudness = getattr(config, "VOICE_CALIBRATION_RELATIVE_LOUDNESS_THRESHOLD", 0.40)
+                loud_enough = rel_loudness >= thresh_loudness
+            else:
+                rel_loudness = rms / getattr(config, "PROSODY_RMS_REFERENCE_MAX", 0.15)
+                loud_enough = rms >= getattr(config, "VOICE_CALIBRATION_RMS_THRESHOLD", 0.05)
 
-            loud_enough = rms >= config.VOICE_CALIBRATION_RMS_THRESHOLD
-            varied_enough = zcr_std >= config.VOICE_CALIBRATION_ZCR_STD_THRESHOLD
+            # 2. Check F0 variability (semitone range over voiced frames)
+            if f0_segment is None:
+                # Local F0 computation
+                from app.prosody import _compute_segment_f0
+                f0_segment, voiced_flag_segment = _compute_segment_f0(audio_segment, sr)
+
+            if f0_segment is not None and len(f0_segment) > 0:
+                if voiced_flag_segment is not None and len(voiced_flag_segment) == len(f0_segment):
+                    voiced_mask = voiced_flag_segment & (~np.isnan(f0_segment)) & (f0_segment > 0)
+                else:
+                    voiced_mask = (~np.isnan(f0_segment)) & (f0_segment > 0)
+
+                voiced_f0 = f0_segment[voiced_mask]
+                if len(voiced_f0) >= 2:
+                    semitones = 12.0 * np.log2(voiced_f0 / 440.0) + 69.0
+                    f0_range = float(np.max(semitones) - np.min(semitones))
+                else:
+                    f0_range = 0.0
+            else:
+                f0_range = 0.0
+
+            thresh_f0 = getattr(config, "VOICE_CALIBRATION_F0_RANGE_SEMITONES_THRESHOLD", 6.0)
+            varied_enough = f0_range >= thresh_f0
+
+            # Fallback to ZCR if F0 unvoiced or pyin failed
+            if not varied_enough and f0_range == 0.0:
+                frame_len = max(1, sr // 50)
+                n_frames = len(audio_segment) // frame_len
+                zcr_values = []
+                for i in range(n_frames):
+                    frame = audio_segment[i * frame_len:(i + 1) * frame_len]
+                    signs = np.sign(frame)
+                    signs[signs == 0] = 1
+                    zcr = np.mean(signs[:-1] != signs[1:]) if len(signs) > 1 else 0.0
+                    zcr_values.append(zcr)
+                zcr_std = float(np.std(zcr_values)) if zcr_values else 0.0
+                varied_enough = zcr_std >= getattr(config, "VOICE_CALIBRATION_ZCR_STD_THRESHOLD", 0.02)
 
             if loud_enough and varied_enough:
-                dampening = config.VOICE_CALIBRATION_SAD_DAMPENING_FACTOR
+                dampening = getattr(config, "VOICE_CALIBRATION_SAD_DAMPENING_FACTOR", 0.5)
                 removed_mass = scores.get("sad", 0.0) * (1.0 - dampening)
                 scores["sad"] = scores.get("sad", 0.0) * dampening
 
                 # Redistribute removed mass toward angry/happy proportionally
-                # to their existing scores (never invent probability for a
-                # class that had none).
                 redistribute_targets = {
                     k: v for k, v in scores.items() if k in ("angry", "happy") and v > 0
                 }
@@ -161,13 +192,17 @@ def apply_prosody_sanity_rule(
                     for k in redistribute_targets:
                         scores[k] += removed_mass * (redistribute_targets[k] / target_total)
                 else:
-                    scores["sad"] += removed_mass  # nothing sensible to redistribute to; revert
+                    # If neither had mass, split evenly between angry and happy
+                    scores["angry"] = scores.get("angry", 0.0) + removed_mass * 0.5
+                    scores["happy"] = scores.get("happy", 0.0) + removed_mass * 0.5
 
                 scores = _renormalize(scores)
-                applied.append(
-                    f"prosody_sanity_rule: rms={rms:.4f}>=thresh, zcr_std={zcr_std:.4f}>=thresh, "
-                    f"dampened 'sad' by factor {dampening}"
+                rule_desc = (
+                    f"prosody_sanity_rule: relative_loudness={rel_loudness:.2f}, "
+                    f"f0_range={f0_range:.1f}st, dampened 'sad' by factor {dampening}"
                 )
+                applied.append(rule_desc)
+                logger.info("Voice calibration sanity rule fired: %s", rule_desc)
         except Exception:
             logger.exception("Prosody sanity rule failed for this segment; leaving scores unchanged.")
 
@@ -242,6 +277,9 @@ class VoiceCalibrator:
         raw_scores: Dict[str, float],
         audio_segment: np.ndarray,
         sr: int,
+        recording_percentiles: Optional[Tuple[float, float]] = None,
+        f0_segment: Optional[np.ndarray] = None,
+        voiced_flag_segment: Optional[np.ndarray] = None,
     ) -> CalibrationResult:
         """Full calibration pipeline for one segment: temperature (if fitted)
         then prosody sanity rule, both logged in applied_rules.
@@ -253,7 +291,14 @@ class VoiceCalibrator:
             scores = self.apply_temperature(scores)
             applied.append(f"temperature_scaling: T={self.temperature:.2f}")
 
-        prosody_result = apply_prosody_sanity_rule(scores, audio_segment, sr)
+        prosody_result = apply_prosody_sanity_rule(
+            raw_scores=scores,
+            audio_segment=audio_segment,
+            sr=sr,
+            recording_percentiles=recording_percentiles,
+            f0_segment=f0_segment,
+            voiced_flag_segment=voiced_flag_segment,
+        )
         applied.extend(prosody_result.applied_rules)
 
         return CalibrationResult(

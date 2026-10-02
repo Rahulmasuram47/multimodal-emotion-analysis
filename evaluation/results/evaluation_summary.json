@@ -254,7 +254,444 @@
         "pred_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
         "wer": null,
         "cer": null,
-        "notes": "Ground-truth voice emotion labelled happy based on recording intent; text/transcript labels pending annotation"
+        "notes": "Ground-truth voice emotion labelled happy based on recording intent; text/transcript labels pending annotation",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/happy_sample.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.9063600897789001,
+          "pred_text_sentiment": "positive",
+          "text_confidence": 0.9869456887245178,
+          "pred_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.9063600897789001,
+            "scores": {
+              "neu": 0.011137345805764198,
+              "hap": 0.069766104221344,
+              "ang": 0.012736472301185131,
+              "sad": 0.9063600897789001
+            },
+            "duration_seconds": 15.4666875,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "positive",
+            "confidence": 0.9869456887245178,
+            "scores": {
+              "negative": 0.003966105170547962,
+              "neutral": 0.009088237769901752,
+              "positive": 0.9869456887245178
+            },
+            "text": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!"
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.9063600897789001,
+            "text_sentiment": "positive",
+            "text_confidence": 0.9869456887245178,
+            "audio_direction": "negative",
+            "text_direction": "positive",
+            "agreement": false,
+            "mismatch": true,
+            "combined_confidence": 0.946652889251709,
+            "interpretation": "Voice and text indicate different emotional directions.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "incongruence: positive text, negative-toned voice",
+            "pattern_explanation": "Text sentiment is positive but the acoustic tone is negative. Voice and text point in different directions. Review the audio and context. This is an analytical review signal, not a psychological determination.",
+            "rule_ids_fired": [
+              "mismatch_positive_text_negative_voice"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/happy_sample.wav",
+            "duration_seconds": 15.4666875,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.9577723741531372,
+            "full_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 0.18,
+                "end_seconds": 7.84,
+                "transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result",
+                "voice_emotion": {
+                  "emotion": "hap",
+                  "confidence": 0.3200671970844269,
+                  "scores": {
+                    "neu": 0.14001868665218353,
+                    "hap": 0.3200671970844269,
+                    "ang": 0.05546967685222626,
+                    "sad": 0.24222221970558167,
+                    "angry": 0.12111110985279083,
+                    "happy": 0.12111110985279083
+                  },
+                  "start_seconds": 0.18,
+                  "end_seconds": 7.84,
+                  "duration_seconds": 7.66,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.48444443941116333,
+                  "raw_scores": {
+                    "neu": 0.14001868665218353,
+                    "hap": 0.3200671970844269,
+                    "ang": 0.05546967685222626,
+                    "sad": 0.48444443941116333
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.92, f0_range=11.7st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "positive",
+                  "confidence": 0.9865554571151733,
+                  "scores": {
+                    "negative": 0.002880681538954377,
+                    "neutral": 0.01056389044970274,
+                    "positive": 0.9865554571151733
+                  },
+                  "text": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result",
+                  "text_reliability": 0.741
+                },
+                "fusion": {
+                  "audio_emotion": "happy",
+                  "audio_confidence": 0.3200671970844269,
+                  "text_sentiment": "positive",
+                  "text_confidence": 0.9865554571151733,
+                  "audio_direction": "positive",
+                  "text_direction": "positive",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.6037362382577658,
+                  "interpretation": "Multimodal positive emotional signal.",
+                  "audio_arousal": 0.75,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.741,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5744,
+                    "text_weight": 0.4256
+                  },
+                  "pattern_label": "positive pattern",
+                  "pattern_explanation": "Voice and text both point positive.",
+                  "rule_ids_fired": [
+                    "agreement_positive"
+                  ]
+                },
+                "text_reliability": 0.741,
+                "is_low_confidence": false,
+                "intensity": 0.4213,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6951,
+                  "prosody_components": {
+                    "rms": 0.148,
+                    "rms_db": -16.59,
+                    "loudness_normalized": 0.9244,
+                    "semitone_range": 11.7,
+                    "semitone_std": 2.27,
+                    "pitch_variation_normalized": 0.4875,
+                    "voiced_ratio": 0.7625,
+                    "speech_rate_words_per_sec": 2.22,
+                    "speech_rate_normalized": 0.5548,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5061,
+                  "text_negativity": 0.0029,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 7.84,
+                "end_seconds": 14.52,
+                "transcript": "and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.42414112637025264,
+                  "scores": {
+                    "neu": 0.06635587934372825,
+                    "hap": 0.06801361869331377,
+                    "ang": 0.01734824922245272,
+                    "sad": 0.42414112637025264,
+                    "angry": 0.21207056318512632,
+                    "happy": 0.21207056318512632
+                  },
+                  "start_seconds": 7.84,
+                  "end_seconds": 14.52,
+                  "duration_seconds": 6.68,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.8482822179794312,
+                  "raw_scores": {
+                    "neu": 0.0663558766245842,
+                    "hap": 0.06801361590623856,
+                    "ang": 0.01734824851155281,
+                    "sad": 0.8482822179794312
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.87, f0_range=19.1st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "positive",
+                  "confidence": 0.987343430519104,
+                  "scores": {
+                    "negative": 0.0036750962026417255,
+                    "neutral": 0.008981422521173954,
+                    "positive": 0.987343430519104
+                  },
+                  "text": "and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+                  "text_reliability": 0.741
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.42414112637025264,
+                  "text_sentiment": "positive",
+                  "text_confidence": 0.987343430519104,
+                  "audio_direction": "negative",
+                  "text_direction": "positive",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.6638498612205104,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.741,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5744,
+                    "text_weight": 0.4256
+                  },
+                  "pattern_label": "incongruence: positive text, negative-toned voice",
+                  "pattern_explanation": "Text sentiment is positive but the acoustic tone is negative. Voice and text point in different directions. Review the audio and context. This is an analytical review signal, not a psychological determination.",
+                  "rule_ids_fired": [
+                    "mismatch_positive_text_negative_voice"
+                  ]
+                },
+                "text_reliability": 0.741,
+                "is_low_confidence": false,
+                "intensity": 0.4605,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.802,
+                  "prosody_components": {
+                    "rms": 0.1134,
+                    "rms_db": -18.9,
+                    "loudness_normalized": 0.867,
+                    "semitone_range": 19.1,
+                    "semitone_std": 3.68,
+                    "pitch_variation_normalized": 0.7958,
+                    "voiced_ratio": 0.7837,
+                    "speech_rate_words_per_sec": 2.84,
+                    "speech_rate_normalized": 0.7111,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5106,
+                  "text_negativity": 0.0037,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.4213,
+                0.4605
+              ],
+              "change": 0.0392
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "At least 3 segments are required.",
+              "intensity_change": 0.0,
+              "mode": "tolerant",
+              "slope": 0.0,
+              "dip_violations": []
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "At least 3 segments are required.",
+              "intensity_change": 0.0
+            },
+            "verdict": {
+              "verdict": "stable",
+              "reason": "Intensity stayed roughly constant across the conversation (net change=+0.04, slope=+0.039/turn).",
+              "slope": 0.0392,
+              "net_change": 0.0392
+            },
+            "consistency_trajectory": {
+              "trajectory": "mixed",
+              "total_segments": 2,
+              "agreement_count": 1,
+              "divergence_count": 1,
+              "low_confidence_count": 0,
+              "agreement_rate": 0.5,
+              "mismatch_rate": 0.5,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 0.18,
+                  "end_seconds": 7.84,
+                  "voice_direction": "positive",
+                  "text_direction": "positive",
+                  "relationship": "agreement"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 7.84,
+                  "end_seconds": 14.52,
+                  "voice_direction": "negative",
+                  "text_direction": "positive",
+                  "relationship": "divergence"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.3543,
+              "mismatch_contribution": 0.2,
+              "intensity_contribution": 0.154315,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 0.5,
+              "average_intensity": 0.4409,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 2,
+              "conflict_segments_count": 1,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 1,
+              "has_incongruence": true,
+              "overall_assessment": "Moderate modality incongruence identified in 1 of 2 segment(s).",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "positive",
+                  "text_confidence": 0.9866,
+                  "acoustic_label": "happy",
+                  "acoustic_confidence": 0.3201,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'positive' and acoustic emotion is 'happy', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 0.18,
+                  "end_seconds": 7.84,
+                  "transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result"
+                },
+                {
+                  "text_label": "positive",
+                  "text_confidence": 0.9873,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.4241,
+                  "conflict_detected": true,
+                  "conflict_strength": "medium",
+                  "conflict_type": "positive_text_sad_voice",
+                  "explanation": "Moderate disagreement between acoustic and textual signals. The verbal sentiment is positive (98.7%) while acoustic tone is sad (42.4%). Voice and text point in different directions. Review the audio and context.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 7.84,
+                  "end_seconds": 14.52,
+                  "transcript": "and I appreciate all the help I received. This has made my day much better. Thank you so much!"
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.009,
+              "transcription_whisper_seconds": 2.307,
+              "segment_emotion_sentiment_fusion_seconds": 1.981,
+              "speaker_diarization_seconds": 0.003,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 5.695
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "LOW / STABLE",
+              "status_level": "success",
+              "recommended_action": "No immediate intervention required; standard operational monitoring.",
+              "reason": "Conversation exhibits balanced emotional dynamics, negligible modality conflict, and stable intensity throughout.",
+              "contributing_factors": [
+                "Stable emotional intensity trend (stable)",
+                "Low review-priority attention score (0.00)",
+                "Solid multimodal confidence (0.63)"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 2,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.011137345805764198,
+              "hap": 0.069766104221344,
+              "ang": 0.012736472301185131,
+              "sad": 0.9063600897789001
+            },
+            "text_scores": {
+              "negative": 0.003966105170547962,
+              "neutral": 0.009088237769901752,
+              "positive": 0.9869456887245178
+            },
+            "full_transcript": "Hello! I just wanted to say that everything worked perfectly. I am really happy with the result and I appreciate all the help I received. This has made my day much better. Thank you so much!",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/angry_sample.wav",
@@ -268,7 +705,573 @@
         "pred_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
         "wer": null,
         "cer": null,
-        "notes": "Ground-truth voice emotion labelled angry based on recording intent; text/transcript labels pending annotation"
+        "notes": "Ground-truth voice emotion labelled angry based on recording intent; text/transcript labels pending annotation",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/angry_sample.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.9723295569419861,
+          "pred_text_sentiment": "negative",
+          "text_confidence": 0.9213603138923645,
+          "pred_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.9723295569419861,
+            "scores": {
+              "neu": 0.0022322696167975664,
+              "hap": 0.014764396473765373,
+              "ang": 0.010673763230443,
+              "sad": 0.9723295569419861
+            },
+            "duration_seconds": 18.56,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "negative",
+            "confidence": 0.9213603138923645,
+            "scores": {
+              "negative": 0.9213603138923645,
+              "neutral": 0.07092482596635818,
+              "positive": 0.007714877370744944
+            },
+            "text": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this."
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.9723295569419861,
+            "text_sentiment": "negative",
+            "text_confidence": 0.9213603138923645,
+            "audio_direction": "negative",
+            "text_direction": "negative",
+            "agreement": true,
+            "mismatch": false,
+            "combined_confidence": 0.9468449354171753,
+            "interpretation": "Multimodal negative emotional signal.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "low-arousal negative pattern",
+            "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+            "rule_ids_fired": [
+              "agreement_negative_low_arousal"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/angry_sample.wav",
+            "duration_seconds": 18.56,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.976630687713623,
+            "full_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 0.53,
+                "end_seconds": 6.51,
+                "transcript": "I have already explained this several times and I am still having the same problem.",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.45905802154413866,
+                  "scores": {
+                    "neu": 0.024879184138967954,
+                    "hap": 0.019297006428962225,
+                    "ang": 0.037707766343792484,
+                    "sad": 0.45905802154413866,
+                    "angry": 0.22952901077206933,
+                    "happy": 0.22952901077206933
+                  },
+                  "start_seconds": 0.53,
+                  "end_seconds": 6.51,
+                  "duration_seconds": 5.9799999999999995,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.9181160926818848,
+                  "raw_scores": {
+                    "neu": 0.02487918548285961,
+                    "hap": 0.019297007471323013,
+                    "ang": 0.03770776838064194,
+                    "sad": 0.9181160926818848
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.92, f0_range=18.5st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.783607542514801,
+                  "scores": {
+                    "negative": 0.783607542514801,
+                    "neutral": 0.1996440440416336,
+                    "positive": 0.01674841158092022
+                  },
+                  "text": "I have already explained this several times and I am still having the same problem.",
+                  "text_reliability": 0.734
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.45905802154413866,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.783607542514801,
+                  "audio_direction": "negative",
+                  "text_direction": "negative",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.5964394220011549,
+                  "interpretation": "Multimodal negative emotional signal.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.734,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5767,
+                    "text_weight": 0.4233
+                  },
+                  "pattern_label": "low-arousal negative pattern",
+                  "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+                  "rule_ids_fired": [
+                    "agreement_negative_low_arousal"
+                  ]
+                },
+                "text_reliability": 0.734,
+                "is_low_confidence": false,
+                "intensity": 0.6954,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.8037,
+                  "prosody_components": {
+                    "rms": 0.1394,
+                    "rms_db": -17.11,
+                    "loudness_normalized": 0.9198,
+                    "semitone_range": 18.5,
+                    "semitone_std": 3.55,
+                    "pitch_variation_normalized": 0.7708,
+                    "voiced_ratio": 0.8342,
+                    "speech_rate_words_per_sec": 2.51,
+                    "speech_rate_normalized": 0.6271,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5115,
+                  "text_negativity": 0.7836,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 6.99,
+                "end_seconds": 11.49,
+                "transcript": "I have a stalled this would be fixed but nothing has changed.",
+                "voice_emotion": {
+                  "emotion": "ang",
+                  "confidence": 0.3658672402515743,
+                  "scores": {
+                    "neu": 0.007559069549502858,
+                    "hap": 0.051426862789662825,
+                    "ang": 0.3658672402515743,
+                    "sad": 0.28757341370463,
+                    "angry": 0.143786706852315,
+                    "happy": 0.143786706852315
+                  },
+                  "start_seconds": 6.99,
+                  "end_seconds": 11.49,
+                  "duration_seconds": 4.5,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.5751468539237976,
+                  "raw_scores": {
+                    "neu": 0.007559069897979498,
+                    "hap": 0.05142686516046524,
+                    "ang": 0.3658672571182251,
+                    "sad": 0.5751468539237976
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.88, f0_range=9.5st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.7654671669006348,
+                  "scores": {
+                    "negative": 0.7654671669006348,
+                    "neutral": 0.21737244725227356,
+                    "positive": 0.017160315066576004
+                  },
+                  "text": "I have a stalled this would be fixed but nothing has changed.",
+                  "text_reliability": 0.734
+                },
+                "fusion": {
+                  "audio_emotion": "angry",
+                  "audio_confidence": 0.3658672402515743,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.7654671669006348,
+                  "audio_direction": "negative",
+                  "text_direction": "negative",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.5350173822125953,
+                  "interpretation": "Multimodal negative emotional signal.",
+                  "audio_arousal": 1.0,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.734,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5767,
+                    "text_weight": 0.4233
+                  },
+                  "pattern_label": "high-arousal negative pattern",
+                  "pattern_explanation": "Voice and text both point negative, and the voice's acoustic arousal is high (anger-like pattern rather than sadness-like).",
+                  "rule_ids_fired": [
+                    "agreement_negative_high_arousal"
+                  ]
+                },
+                "text_reliability": 0.734,
+                "is_low_confidence": false,
+                "intensity": 0.6399,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6649,
+                  "prosody_components": {
+                    "rms": 0.1152,
+                    "rms_db": -18.77,
+                    "loudness_normalized": 0.8816,
+                    "semitone_range": 9.5,
+                    "semitone_std": 1.94,
+                    "pitch_variation_normalized": 0.3958,
+                    "voiced_ratio": 0.695,
+                    "speech_rate_words_per_sec": 2.67,
+                    "speech_rate_normalized": 0.6667,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5072,
+                  "text_negativity": 0.7655,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 3,
+                "start_seconds": 11.97,
+                "end_seconds": 18.07,
+                "transcript": "This is extremely frustrating and I need someone to actually resolve this.",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.29339744149722213,
+                  "scores": {
+                    "neu": 0.21458422736715563,
+                    "hap": 0.19318893042280963,
+                    "ang": 0.005431959215590523,
+                    "sad": 0.29339744149722213,
+                    "angry": 0.14669872074861107,
+                    "happy": 0.14669872074861107
+                  },
+                  "start_seconds": 11.97,
+                  "end_seconds": 18.07,
+                  "duration_seconds": 6.1,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.5867948532104492,
+                  "raw_scores": {
+                    "neu": 0.21458421647548676,
+                    "hap": 0.19318892061710358,
+                    "ang": 0.005431958939880133,
+                    "sad": 0.5867948532104492
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.87, f0_range=9.2st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.9390506744384766,
+                  "scores": {
+                    "negative": 0.9390506744384766,
+                    "neutral": 0.05425577238202095,
+                    "positive": 0.006693524308502674
+                  },
+                  "text": "This is extremely frustrating and I need someone to actually resolve this.",
+                  "text_reliability": 0.734
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.29339744149722213,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.9390506744384766,
+                  "audio_direction": "negative",
+                  "text_direction": "negative",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.5667016358333702,
+                  "interpretation": "Multimodal negative emotional signal.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.734,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5767,
+                    "text_weight": 0.4233
+                  },
+                  "pattern_label": "low-arousal negative pattern",
+                  "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+                  "rule_ids_fired": [
+                    "agreement_negative_low_arousal"
+                  ]
+                },
+                "text_reliability": 0.734,
+                "is_low_confidence": false,
+                "intensity": 0.6828,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6386,
+                  "prosody_components": {
+                    "rms": 0.1111,
+                    "rms_db": -19.09,
+                    "loudness_normalized": 0.8743,
+                    "semitone_range": 9.2,
+                    "semitone_std": 1.97,
+                    "pitch_variation_normalized": 0.3833,
+                    "voiced_ratio": 0.7947,
+                    "speech_rate_words_per_sec": 1.97,
+                    "speech_rate_normalized": 0.4918,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5073,
+                  "text_negativity": 0.9391,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.6954,
+                0.6399,
+                0.6828
+              ],
+              "change": -0.0126
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "Slope (-0.006/turn) did not reach the minimum required rate of 0.03/turn.",
+              "intensity_change": -0.0126,
+              "mode": "tolerant",
+              "slope": -0.0063,
+              "dip_violations": []
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "Emotional intensity did not show a sufficient continuous increase.",
+              "intensity_change": -0.0126
+            },
+            "verdict": {
+              "verdict": "stable",
+              "reason": "Intensity stayed roughly constant across the conversation (net change=-0.01, slope=-0.006/turn).",
+              "slope": -0.0063,
+              "net_change": -0.0126
+            },
+            "consistency_trajectory": {
+              "trajectory": "mostly_consistent",
+              "total_segments": 3,
+              "agreement_count": 3,
+              "divergence_count": 0,
+              "low_confidence_count": 0,
+              "agreement_rate": 1.0,
+              "mismatch_rate": 0.0,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 0.53,
+                  "end_seconds": 6.51,
+                  "voice_direction": "negative",
+                  "text_direction": "negative",
+                  "relationship": "agreement"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 6.99,
+                  "end_seconds": 11.49,
+                  "voice_direction": "negative",
+                  "text_direction": "negative",
+                  "relationship": "agreement"
+                },
+                {
+                  "segment_index": 3,
+                  "start_seconds": 11.97,
+                  "end_seconds": 18.07,
+                  "voice_direction": "negative",
+                  "text_direction": "negative",
+                  "relationship": "agreement"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.2354,
+              "mismatch_contribution": 0.0,
+              "intensity_contribution": 0.235445,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 0.0,
+              "average_intensity": 0.6727,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 3,
+              "conflict_segments_count": 0,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 0,
+              "has_incongruence": false,
+              "overall_assessment": "No substantial modality conflict detected across conversation segments.",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.7836,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.4591,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'sad', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 0.53,
+                  "end_seconds": 6.51,
+                  "transcript": "I have already explained this several times and I am still having the same problem."
+                },
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.7655,
+                  "acoustic_label": "angry",
+                  "acoustic_confidence": 0.3659,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'angry', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 6.99,
+                  "end_seconds": 11.49,
+                  "transcript": "I have a stalled this would be fixed but nothing has changed."
+                },
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.9391,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.2934,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'sad', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 3,
+                  "start_seconds": 11.97,
+                  "end_seconds": 18.07,
+                  "transcript": "This is extremely frustrating and I need someone to actually resolve this."
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.012,
+              "transcription_whisper_seconds": 2.358,
+              "segment_emotion_sentiment_fusion_seconds": 2.767,
+              "speaker_diarization_seconds": 0.001,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 6.543
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "MODERATE",
+              "status_level": "warning",
+              "recommended_action": "Flag for standard quality assurance or follow-up review.",
+              "reason": "Conversation exhibits notable negative valence or elevated attention heuristic, but without continuous escalation dynamics.",
+              "contributing_factors": [
+                "Prevalence of negative voice emotions (angry/sad)",
+                "Prevalence of negative linguistic sentiment"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 3,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.0022322696167975664,
+              "hap": 0.014764396473765373,
+              "ang": 0.010673763230443,
+              "sad": 0.9723295569419861
+            },
+            "text_scores": {
+              "negative": 0.9213603138923645,
+              "neutral": 0.07092482596635818,
+              "positive": 0.007714877370744944
+            },
+            "full_transcript": "I have already explained this several times and I am still having the same problem. I have a stalled this would be fixed but nothing has changed. This is extremely frustrating and I need someone to actually resolve this.",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/sad_sample.wav",
@@ -282,7 +1285,571 @@
         "pred_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
         "wer": null,
         "cer": null,
-        "notes": "Ground-truth voice emotion labelled sad based on recording intent; text/transcript labels pending annotation"
+        "notes": "Ground-truth voice emotion labelled sad based on recording intent; text/transcript labels pending annotation",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/sad_sample.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.9852897524833679,
+          "pred_text_sentiment": "negative",
+          "text_confidence": 0.9014931321144104,
+          "pred_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.9852897524833679,
+            "scores": {
+              "neu": 0.0057525369338691235,
+              "hap": 0.006081794388592243,
+              "ang": 0.002875881502404809,
+              "sad": 0.9852897524833679
+            },
+            "duration_seconds": 20.437375,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "negative",
+            "confidence": 0.9014931321144104,
+            "scores": {
+              "negative": 0.9014931321144104,
+              "neutral": 0.09003186225891113,
+              "positive": 0.008474980480968952
+            },
+            "text": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next."
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.9852897524833679,
+            "text_sentiment": "negative",
+            "text_confidence": 0.9014931321144104,
+            "audio_direction": "negative",
+            "text_direction": "negative",
+            "agreement": true,
+            "mismatch": false,
+            "combined_confidence": 0.9433914422988892,
+            "interpretation": "Multimodal negative emotional signal.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "low-arousal negative pattern",
+            "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+            "rule_ids_fired": [
+              "agreement_negative_low_arousal"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/sad_sample.wav",
+            "duration_seconds": 20.437375,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.8727439641952515,
+            "full_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 1.14,
+                "end_seconds": 9.74,
+                "transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out,",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.4803186372130221,
+                  "scores": {
+                    "neu": 0.018008207213668623,
+                    "hap": 0.01735419706887919,
+                    "ang": 0.004000321291408027,
+                    "sad": 0.4803186372130221,
+                    "angry": 0.24015931860651105,
+                    "happy": 0.24015931860651105
+                  },
+                  "start_seconds": 1.14,
+                  "end_seconds": 9.74,
+                  "duration_seconds": 8.6,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.9606372117996216,
+                  "raw_scores": {
+                    "neu": 0.01800820603966713,
+                    "hap": 0.017354195937514305,
+                    "ang": 0.00400032103061676,
+                    "sad": 0.9606372117996216
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.91, f0_range=18.9st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "positive",
+                  "confidence": 0.7949701547622681,
+                  "scores": {
+                    "negative": 0.028114566579461098,
+                    "neutral": 0.1769152283668518,
+                    "positive": 0.7949701547622681
+                  },
+                  "text": "Hello, I wanted to ask about my request, I was really hoping everything would work out,",
+                  "text_reliability": 0.67
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.4803186372130221,
+                  "text_sentiment": "positive",
+                  "text_confidence": 0.7949701547622681,
+                  "audio_direction": "negative",
+                  "text_direction": "positive",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.6065560723974501,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.67,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5988,
+                    "text_weight": 0.4012
+                  },
+                  "pattern_label": "incongruence: positive text, negative-toned voice",
+                  "pattern_explanation": "Text sentiment is positive but the acoustic tone is negative. Voice and text point in different directions. Review the audio and context. This is an analytical review signal, not a psychological determination.",
+                  "rule_ids_fired": [
+                    "mismatch_positive_text_negative_voice"
+                  ]
+                },
+                "text_reliability": 0.67,
+                "is_low_confidence": false,
+                "intensity": 0.4593,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.7763,
+                  "prosody_components": {
+                    "rms": 0.134,
+                    "rms_db": -17.46,
+                    "loudness_normalized": 0.9109,
+                    "semitone_range": 18.9,
+                    "semitone_std": 3.74,
+                    "pitch_variation_normalized": 0.7875,
+                    "voiced_ratio": 0.855,
+                    "speech_rate_words_per_sec": 1.86,
+                    "speech_rate_normalized": 0.4651,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.512,
+                  "text_negativity": 0.0281,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 10.08,
+                "end_seconds": 18.42,
+                "transcript": "but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't",
+                "voice_emotion": {
+                  "emotion": "neu",
+                  "confidence": 0.6682605147361755,
+                  "scores": {
+                    "neu": 0.6682605147361755,
+                    "hap": 0.1551472693681717,
+                    "ang": 0.0029840462375432253,
+                    "sad": 0.17360824346542358
+                  },
+                  "start_seconds": 10.08,
+                  "end_seconds": 18.42,
+                  "duration_seconds": 8.340000000000002,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "neu",
+                  "raw_confidence": 0.6682605147361755,
+                  "raw_scores": {
+                    "neu": 0.6682605147361755,
+                    "hap": 0.1551472693681717,
+                    "ang": 0.0029840462375432253,
+                    "sad": 0.17360824346542358
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.9211217761039734,
+                  "scores": {
+                    "negative": 0.9211217761039734,
+                    "neutral": 0.07152217626571655,
+                    "positive": 0.007356054149568081
+                  },
+                  "text": "but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't",
+                  "text_reliability": 0.67
+                },
+                "fusion": {
+                  "audio_emotion": "neutral",
+                  "audio_confidence": 0.6682605147361755,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.9211217761039734,
+                  "audio_direction": "neutral",
+                  "text_direction": "negative",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.7697078471412202,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 0.25,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.67,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5988,
+                    "text_weight": 0.4012
+                  },
+                  "pattern_label": "incongruence: directional mismatch",
+                  "pattern_explanation": "Voice (neutral) and text (negative) point in different directions with sufficient confidence in both.",
+                  "rule_ids_fired": [
+                    "mismatch_generic"
+                  ]
+                },
+                "text_reliability": 0.67,
+                "is_low_confidence": false,
+                "intensity": 0.6893,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.7406,
+                  "prosody_components": {
+                    "rms": 0.1165,
+                    "rms_db": -18.67,
+                    "loudness_normalized": 0.8817,
+                    "semitone_range": 17.0,
+                    "semitone_std": 3.93,
+                    "pitch_variation_normalized": 0.7083,
+                    "voiced_ratio": 0.9038,
+                    "speech_rate_words_per_sec": 1.68,
+                    "speech_rate_normalized": 0.4197,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.4392,
+                  "text_negativity": 0.9211,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 3,
+                "start_seconds": 18.42,
+                "end_seconds": 19.78,
+                "transcript": "know what to do next.",
+                "voice_emotion": {
+                  "emotion": "ang",
+                  "confidence": 0.5398193597793579,
+                  "scores": {
+                    "neu": 0.008462700992822647,
+                    "hap": 0.0024020082782953978,
+                    "ang": 0.5398193597793579,
+                    "sad": 0.4493158757686615
+                  },
+                  "start_seconds": 18.42,
+                  "end_seconds": 19.78,
+                  "duration_seconds": 1.3599999999999994,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "ang",
+                  "raw_confidence": 0.5398193597793579,
+                  "raw_scores": {
+                    "neu": 0.008462700992822647,
+                    "hap": 0.0024020082782953978,
+                    "ang": 0.5398193597793579,
+                    "sad": 0.4493158757686615
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.8288099765777588,
+                  "scores": {
+                    "negative": 0.05761763080954552,
+                    "neutral": 0.8288099765777588,
+                    "positive": 0.11357235163450241
+                  },
+                  "text": "know what to do next.",
+                  "text_reliability": 0.67
+                },
+                "fusion": {
+                  "audio_emotion": "angry",
+                  "audio_confidence": 0.5398193597793579,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.8288099765777588,
+                  "audio_direction": "negative",
+                  "text_direction": "neutral",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.6557617030457823,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 1.0,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.67,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5988,
+                    "text_weight": 0.4012
+                  },
+                  "pattern_label": "incongruence: directional mismatch",
+                  "pattern_explanation": "Voice (negative) and text (neutral) point in different directions with sufficient confidence in both.",
+                  "rule_ids_fired": [
+                    "mismatch_generic"
+                  ]
+                },
+                "text_reliability": 0.67,
+                "is_low_confidence": false,
+                "intensity": 0.4074,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.772,
+                  "prosody_components": {
+                    "rms": 0.1347,
+                    "rms_db": -17.42,
+                    "loudness_normalized": 0.912,
+                    "semitone_range": 9.8,
+                    "semitone_std": 1.53,
+                    "pitch_variation_normalized": 0.4083,
+                    "voiced_ratio": 0.9767,
+                    "speech_rate_words_per_sec": 3.68,
+                    "speech_rate_normalized": 0.9191,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.3427,
+                  "text_negativity": 0.0576,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.4593,
+                0.6893,
+                0.4074
+              ],
+              "change": -0.0519
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "Intensity trend was upward overall (slope=-0.026/turn, net rise=-0.05) but a dip of 0.28 at turn 3 exceeded the 0.08 dip tolerance.",
+              "intensity_change": -0.0519,
+              "mode": "tolerant",
+              "slope": -0.0259,
+              "dip_violations": [
+                {
+                  "index": 2,
+                  "drop": 0.2819
+                }
+              ]
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "Emotional intensity did not show a sufficient continuous increase.",
+              "intensity_change": -0.0519
+            },
+            "verdict": {
+              "verdict": "fluctuating",
+              "reason": "Intensity moved back and forth without a clear net direction (largest rise=0.23, largest drop=0.28, net change=-0.05).",
+              "slope": -0.0259,
+              "net_change": -0.0519
+            },
+            "consistency_trajectory": {
+              "trajectory": "mostly_divergent",
+              "total_segments": 3,
+              "agreement_count": 0,
+              "divergence_count": 3,
+              "low_confidence_count": 0,
+              "agreement_rate": 0.0,
+              "mismatch_rate": 1.0,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 1.14,
+                  "end_seconds": 9.74,
+                  "voice_direction": "negative",
+                  "text_direction": "positive",
+                  "relationship": "divergence"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 10.08,
+                  "end_seconds": 18.42,
+                  "voice_direction": "neutral",
+                  "text_direction": "negative",
+                  "relationship": "divergence"
+                },
+                {
+                  "segment_index": 3,
+                  "start_seconds": 18.42,
+                  "end_seconds": 19.78,
+                  "voice_direction": "negative",
+                  "text_direction": "neutral",
+                  "relationship": "divergence"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.5815,
+              "mismatch_contribution": 0.4,
+              "intensity_contribution": 0.181545,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 1.0,
+              "average_intensity": 0.5187,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 3,
+              "conflict_segments_count": 1,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 1,
+              "has_incongruence": true,
+              "overall_assessment": "Moderate modality incongruence identified in 1 of 3 segment(s).",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "positive",
+                  "text_confidence": 0.795,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.4803,
+                  "conflict_detected": true,
+                  "conflict_strength": "medium",
+                  "conflict_type": "positive_text_sad_voice",
+                  "explanation": "Moderate disagreement between acoustic and textual signals. The verbal sentiment is positive (79.5%) while acoustic tone is sad (48.0%). Voice and text point in different directions. Review the audio and context.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 1.14,
+                  "end_seconds": 9.74,
+                  "transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out,"
+                },
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.9211,
+                  "acoustic_label": "neutral",
+                  "acoustic_confidence": 0.6683,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "negative_text_neutral_voice",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'neutral', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 10.08,
+                  "end_seconds": 18.42,
+                  "transcript": "but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't"
+                },
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.8288,
+                  "acoustic_label": "angry",
+                  "acoustic_confidence": 0.5398,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "neutral_text_angry_voice",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'angry', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 3,
+                  "start_seconds": 18.42,
+                  "end_seconds": 19.78,
+                  "transcript": "know what to do next."
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.014,
+              "transcription_whisper_seconds": 2.481,
+              "segment_emotion_sentiment_fusion_seconds": 2.62,
+              "speaker_diarization_seconds": 0.001,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 6.651
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "LOW / STABLE",
+              "status_level": "success",
+              "recommended_action": "No immediate intervention required; standard operational monitoring.",
+              "reason": "Conversation exhibits balanced emotional dynamics, negligible modality conflict, and stable intensity throughout.",
+              "contributing_factors": [
+                "Stable emotional intensity trend (stable)",
+                "Low review-priority attention score (0.00)",
+                "Solid multimodal confidence (0.68)"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 3,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.0057525369338691235,
+              "hap": 0.006081794388592243,
+              "ang": 0.002875881502404809,
+              "sad": 0.9852897524833679
+            },
+            "text_scores": {
+              "negative": 0.9014931321144104,
+              "neutral": 0.09003186225891113,
+              "positive": 0.008474980480968952
+            },
+            "full_transcript": "Hello, I wanted to ask about my request, I was really hoping everything would work out, but unfortunately it didn't, I'm quite disappointed about what happened and I honestly don't know what to do next.",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/neutral_sample.wav",
@@ -296,7 +1863,562 @@
         "pred_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
         "wer": null,
         "cer": null,
-        "notes": "Ground-truth voice emotion labelled neutral based on recording intent; text/transcript labels pending annotation"
+        "notes": "Ground-truth voice emotion labelled neutral based on recording intent; text/transcript labels pending annotation",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/neutral_sample.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.898344099521637,
+          "pred_text_sentiment": "neutral",
+          "text_confidence": 0.8310960531234741,
+          "pred_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.898344099521637,
+            "scores": {
+              "neu": 0.025199558585882187,
+              "hap": 0.020539486780762672,
+              "ang": 0.05591689422726631,
+              "sad": 0.898344099521637
+            },
+            "duration_seconds": 15.317375,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "neutral",
+            "confidence": 0.8310960531234741,
+            "scores": {
+              "negative": 0.020034706220030785,
+              "neutral": 0.8310960531234741,
+              "positive": 0.14886929094791412
+            },
+            "text": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment."
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.898344099521637,
+            "text_sentiment": "neutral",
+            "text_confidence": 0.8310960531234741,
+            "audio_direction": "negative",
+            "text_direction": "neutral",
+            "agreement": false,
+            "mismatch": true,
+            "combined_confidence": 0.8647200763225555,
+            "interpretation": "Voice and text indicate different emotional directions.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "incongruence: directional mismatch",
+            "pattern_explanation": "Voice (negative) and text (neutral) point in different directions with sufficient confidence in both.",
+            "rule_ids_fired": [
+              "mismatch_generic"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/neutral_sample.wav",
+            "duration_seconds": 15.317375,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.9317842721939087,
+            "full_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 0.78,
+                "end_seconds": 4.76,
+                "transcript": "Hello, I wanted to check the status of my request.",
+                "voice_emotion": {
+                  "emotion": "ang",
+                  "confidence": 0.762353241443634,
+                  "scores": {
+                    "neu": 0.1169348880648613,
+                    "hap": 0.0530242919921875,
+                    "ang": 0.762353241443634,
+                    "sad": 0.06768757849931717
+                  },
+                  "start_seconds": 0.78,
+                  "end_seconds": 4.76,
+                  "duration_seconds": 3.9799999999999995,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "ang",
+                  "raw_confidence": 0.762353241443634,
+                  "raw_scores": {
+                    "neu": 0.1169348880648613,
+                    "hap": 0.0530242919921875,
+                    "ang": 0.762353241443634,
+                    "sad": 0.06768757849931717
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.7936556935310364,
+                  "scores": {
+                    "negative": 0.02518409676849842,
+                    "neutral": 0.7936556935310364,
+                    "positive": 0.18116030097007751
+                  },
+                  "text": "Hello, I wanted to check the status of my request.",
+                  "text_reliability": 0.727
+                },
+                "fusion": {
+                  "audio_emotion": "angry",
+                  "audio_confidence": 0.762353241443634,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.7936556935310364,
+                  "audio_direction": "negative",
+                  "text_direction": "neutral",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.775530359375042,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 1.0,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.727,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.579,
+                    "text_weight": 0.421
+                  },
+                  "pattern_label": "incongruence: directional mismatch",
+                  "pattern_explanation": "Voice (negative) and text (neutral) point in different directions with sufficient confidence in both.",
+                  "rule_ids_fired": [
+                    "mismatch_generic"
+                  ]
+                },
+                "text_reliability": 0.727,
+                "is_low_confidence": false,
+                "intensity": 0.4052,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6597,
+                  "prosody_components": {
+                    "rms": 0.1489,
+                    "rms_db": -16.54,
+                    "loudness_normalized": 0.8984,
+                    "semitone_range": 7.7,
+                    "semitone_std": 1.78,
+                    "pitch_variation_normalized": 0.3208,
+                    "voiced_ratio": 0.8226,
+                    "speech_rate_words_per_sec": 2.51,
+                    "speech_rate_normalized": 0.6281,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.4763,
+                  "text_negativity": 0.0252,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 5.32,
+                "end_seconds": 11.58,
+                "transcript": "I submitted the information study and I just wanted to know if there are any updates.",
+                "voice_emotion": {
+                  "emotion": "neu",
+                  "confidence": 0.5755115747451782,
+                  "scores": {
+                    "neu": 0.5755115747451782,
+                    "hap": 0.059001561254262924,
+                    "ang": 0.008852101862430573,
+                    "sad": 0.3566347658634186
+                  },
+                  "start_seconds": 5.32,
+                  "end_seconds": 11.58,
+                  "duration_seconds": 6.26,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "neu",
+                  "raw_confidence": 0.5755115747451782,
+                  "raw_scores": {
+                    "neu": 0.5755115747451782,
+                    "hap": 0.059001561254262924,
+                    "ang": 0.008852101862430573,
+                    "sad": 0.3566347658634186
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.8774016499519348,
+                  "scores": {
+                    "negative": 0.054987139999866486,
+                    "neutral": 0.8774016499519348,
+                    "positive": 0.0676112025976181
+                  },
+                  "text": "I submitted the information study and I just wanted to know if there are any updates.",
+                  "text_reliability": 0.727
+                },
+                "fusion": {
+                  "audio_emotion": "neutral",
+                  "audio_confidence": 0.5755115747451782,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.8774016499519348,
+                  "audio_direction": "neutral",
+                  "text_direction": "neutral",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.7025955844008308,
+                  "interpretation": "Multimodal neutral emotional signal.",
+                  "audio_arousal": 0.25,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.727,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.579,
+                    "text_weight": 0.421
+                  },
+                  "pattern_label": "neutral pattern",
+                  "pattern_explanation": "Voice and text both point neutral.",
+                  "rule_ids_fired": [
+                    "agreement_neutral"
+                  ]
+                },
+                "text_reliability": 0.727,
+                "is_low_confidence": false,
+                "intensity": 0.413,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.7576,
+                  "prosody_components": {
+                    "rms": 0.1512,
+                    "rms_db": -16.41,
+                    "loudness_normalized": 0.9019,
+                    "semitone_range": 14.3,
+                    "semitone_std": 2.12,
+                    "pitch_variation_normalized": 0.5958,
+                    "voiced_ratio": 0.9026,
+                    "speech_rate_words_per_sec": 2.56,
+                    "speech_rate_normalized": 0.639,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.3752,
+                  "text_negativity": 0.055,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 3,
+                "start_seconds": 12.18,
+                "end_seconds": 14.32,
+                "transcript": "Please let me know when you have a moment.",
+                "voice_emotion": {
+                  "emotion": "neu",
+                  "confidence": 0.8461484313011169,
+                  "scores": {
+                    "neu": 0.8461484313011169,
+                    "hap": 0.14016219973564148,
+                    "ang": 0.010508125647902489,
+                    "sad": 0.0031813313253223896
+                  },
+                  "start_seconds": 12.18,
+                  "end_seconds": 14.32,
+                  "duration_seconds": 2.1400000000000006,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "neu",
+                  "raw_confidence": 0.8461484313011169,
+                  "raw_scores": {
+                    "neu": 0.8461484313011169,
+                    "hap": 0.14016219973564148,
+                    "ang": 0.010508125647902489,
+                    "sad": 0.0031813313253223896
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.7310929894447327,
+                  "scores": {
+                    "negative": 0.02433726191520691,
+                    "neutral": 0.7310929894447327,
+                    "positive": 0.24456974864006042
+                  },
+                  "text": "Please let me know when you have a moment.",
+                  "text_reliability": 0.727
+                },
+                "fusion": {
+                  "audio_emotion": "neutral",
+                  "audio_confidence": 0.8461484313011169,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.7310929894447327,
+                  "audio_direction": "neutral",
+                  "text_direction": "neutral",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.7977145539243993,
+                  "interpretation": "Multimodal neutral emotional signal.",
+                  "audio_arousal": 0.25,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.727,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.579,
+                    "text_weight": 0.421
+                  },
+                  "pattern_label": "neutral pattern",
+                  "pattern_explanation": "Voice and text both point neutral.",
+                  "rule_ids_fired": [
+                    "agreement_neutral"
+                  ]
+                },
+                "text_reliability": 0.727,
+                "is_low_confidence": false,
+                "intensity": 0.4532,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.7751,
+                  "prosody_components": {
+                    "rms": 0.1734,
+                    "rms_db": -15.22,
+                    "loudness_normalized": 0.9329,
+                    "semitone_range": 8.6,
+                    "semitone_std": 2.52,
+                    "pitch_variation_normalized": 0.3583,
+                    "voiced_ratio": 0.9403,
+                    "speech_rate_words_per_sec": 4.21,
+                    "speech_rate_normalized": 1.0,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.4989,
+                  "text_negativity": 0.0243,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.4052,
+                0.413,
+                0.4532
+              ],
+              "change": 0.048
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "Slope (0.024/turn) did not reach the minimum required rate of 0.03/turn.",
+              "intensity_change": 0.048,
+              "mode": "tolerant",
+              "slope": 0.024,
+              "dip_violations": []
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "Emotional intensity did not show a sufficient continuous increase.",
+              "intensity_change": 0.048
+            },
+            "verdict": {
+              "verdict": "stable",
+              "reason": "Intensity stayed roughly constant across the conversation (net change=+0.05, slope=+0.024/turn).",
+              "slope": 0.024,
+              "net_change": 0.048
+            },
+            "consistency_trajectory": {
+              "trajectory": "mixed",
+              "total_segments": 3,
+              "agreement_count": 2,
+              "divergence_count": 1,
+              "low_confidence_count": 0,
+              "agreement_rate": 0.6667,
+              "mismatch_rate": 0.3333,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 0.78,
+                  "end_seconds": 4.76,
+                  "voice_direction": "negative",
+                  "text_direction": "neutral",
+                  "relationship": "divergence"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 5.32,
+                  "end_seconds": 11.58,
+                  "voice_direction": "neutral",
+                  "text_direction": "neutral",
+                  "relationship": "agreement"
+                },
+                {
+                  "segment_index": 3,
+                  "start_seconds": 12.18,
+                  "end_seconds": 14.32,
+                  "voice_direction": "neutral",
+                  "text_direction": "neutral",
+                  "relationship": "agreement"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.2816,
+              "mismatch_contribution": 0.13332,
+              "intensity_contribution": 0.14833,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 0.3333,
+              "average_intensity": 0.4238,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 3,
+              "conflict_segments_count": 0,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 0,
+              "has_incongruence": false,
+              "overall_assessment": "No substantial modality conflict detected across conversation segments.",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.7937,
+                  "acoustic_label": "angry",
+                  "acoustic_confidence": 0.7624,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "neutral_text_angry_voice",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'angry', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 0.78,
+                  "end_seconds": 4.76,
+                  "transcript": "Hello, I wanted to check the status of my request."
+                },
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.8774,
+                  "acoustic_label": "neutral",
+                  "acoustic_confidence": 0.5755,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'neutral', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 5.32,
+                  "end_seconds": 11.58,
+                  "transcript": "I submitted the information study and I just wanted to know if there are any updates."
+                },
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.7311,
+                  "acoustic_label": "neutral",
+                  "acoustic_confidence": 0.8461,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'neutral', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 3,
+                  "start_seconds": 12.18,
+                  "end_seconds": 14.32,
+                  "transcript": "Please let me know when you have a moment."
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.012,
+              "transcription_whisper_seconds": 2.327,
+              "segment_emotion_sentiment_fusion_seconds": 1.831,
+              "speaker_diarization_seconds": 0.001,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 5.362
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "LOW / STABLE",
+              "status_level": "success",
+              "recommended_action": "No immediate intervention required; standard operational monitoring.",
+              "reason": "Conversation exhibits balanced emotional dynamics, negligible modality conflict, and stable intensity throughout.",
+              "contributing_factors": [
+                "Stable emotional intensity trend (stable)",
+                "Low review-priority attention score (0.00)",
+                "Solid multimodal confidence (0.76)"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 3,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.025199558585882187,
+              "hap": 0.020539486780762672,
+              "ang": 0.05591689422726631,
+              "sad": 0.898344099521637
+            },
+            "text_scores": {
+              "negative": 0.020034706220030785,
+              "neutral": 0.8310960531234741,
+              "positive": 0.14886929094791412
+            },
+            "full_transcript": "Hello, I wanted to check the status of my request. I submitted the information study and I just wanted to know if there are any updates. Please let me know when you have a moment.",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/real_voice.wav",
@@ -310,7 +2432,440 @@
         "pred_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
         "wer": null,
         "cer": null,
-        "notes": "Real voice recording; no independent emotion or sentiment ground truth annotated"
+        "notes": "Real voice recording; no independent emotion or sentiment ground truth annotated",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/real_voice.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.9533993601799011,
+          "pred_text_sentiment": "neutral",
+          "text_confidence": 0.8558564782142639,
+          "pred_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.9533993601799011,
+            "scores": {
+              "neu": 0.01196238398551941,
+              "hap": 0.03458365052938461,
+              "ang": 5.461519322125241e-05,
+              "sad": 0.9533993601799011
+            },
+            "duration_seconds": 13.312,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "neutral",
+            "confidence": 0.8558564782142639,
+            "scores": {
+              "negative": 0.01791740022599697,
+              "neutral": 0.8558564782142639,
+              "positive": 0.12622614204883575
+            },
+            "text": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system."
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.9533993601799011,
+            "text_sentiment": "neutral",
+            "text_confidence": 0.8558564782142639,
+            "audio_direction": "negative",
+            "text_direction": "neutral",
+            "agreement": false,
+            "mismatch": true,
+            "combined_confidence": 0.9046279191970825,
+            "interpretation": "Voice and text indicate different emotional directions.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "incongruence: directional mismatch",
+            "pattern_explanation": "Voice (negative) and text (neutral) point in different directions with sufficient confidence in both.",
+            "rule_ids_fired": [
+              "mismatch_generic"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/real_voice.wav",
+            "duration_seconds": 13.312,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.8370142579078674,
+            "full_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 0.98,
+                "end_seconds": 7.88,
+                "transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.38219077596664863,
+                  "scores": {
+                    "neu": 0.08694547010161312,
+                    "hap": 0.14821683670747088,
+                    "ang": 0.0004561412576187323,
+                    "sad": 0.38219077596664863,
+                    "angry": 0.19109538798332432,
+                    "happy": 0.19109538798332432
+                  },
+                  "start_seconds": 0.98,
+                  "end_seconds": 7.88,
+                  "duration_seconds": 6.9,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.7643815875053406,
+                  "raw_scores": {
+                    "neu": 0.08694547414779663,
+                    "hap": 0.1482168436050415,
+                    "ang": 0.0004561412788461894,
+                    "sad": 0.7643815875053406
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.85, f0_range=15.0st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.7969468832015991,
+                  "scores": {
+                    "negative": 0.017320934683084488,
+                    "neutral": 0.7969468832015991,
+                    "positive": 0.1857321858406067
+                  },
+                  "text": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking",
+                  "text_reliability": 0.56
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.38219077596664863,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.7969468832015991,
+                  "audio_direction": "negative",
+                  "text_direction": "neutral",
+                  "agreement": false,
+                  "mismatch": false,
+                  "combined_confidence": 0.5310775836920154,
+                  "interpretation": "Weak or low-confidence modality disagreement.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.56,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.641,
+                    "text_weight": 0.359
+                  },
+                  "pattern_label": "weak or low-confidence signal",
+                  "pattern_explanation": "Voice and text directions differ, but at least one modality's confidence is below the threshold for a reliable comparison.",
+                  "rule_ids_fired": [
+                    "weak_disagreement"
+                  ]
+                },
+                "text_reliability": 0.56,
+                "is_low_confidence": true,
+                "intensity": 0.4359,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.721,
+                  "prosody_components": {
+                    "rms": 0.1129,
+                    "rms_db": -18.94,
+                    "loudness_normalized": 0.8517,
+                    "semitone_range": 15.0,
+                    "semitone_std": 3.23,
+                    "pitch_variation_normalized": 0.625,
+                    "voiced_ratio": 0.7963,
+                    "speech_rate_words_per_sec": 2.32,
+                    "speech_rate_normalized": 0.5797,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.5096,
+                  "text_negativity": 0.0173,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 7.88,
+                "end_seconds": 11.6,
+                "transcript": "normally and testing the audio emotion system.",
+                "voice_emotion": {
+                  "emotion": "neu",
+                  "confidence": 0.5246384143829346,
+                  "scores": {
+                    "neu": 0.5246384143829346,
+                    "hap": 0.05280090868473053,
+                    "ang": 0.0013556070625782013,
+                    "sad": 0.4212051033973694
+                  },
+                  "start_seconds": 7.88,
+                  "end_seconds": 11.6,
+                  "duration_seconds": 3.7199999999999998,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "neu",
+                  "raw_confidence": 0.5246384143829346,
+                  "raw_scores": {
+                    "neu": 0.5246384143829346,
+                    "hap": 0.05280090868473053,
+                    "ang": 0.0013556070625782013,
+                    "sad": 0.4212051033973694
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "neutral",
+                  "confidence": 0.9264296889305115,
+                  "scores": {
+                    "negative": 0.03775804489850998,
+                    "neutral": 0.9264296889305115,
+                    "positive": 0.035812318325042725
+                  },
+                  "text": "normally and testing the audio emotion system.",
+                  "text_reliability": 0.56
+                },
+                "fusion": {
+                  "audio_emotion": "neutral",
+                  "audio_confidence": 0.5246384143829346,
+                  "text_sentiment": "neutral",
+                  "text_confidence": 0.9264296889305115,
+                  "audio_direction": "neutral",
+                  "text_direction": "neutral",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.6688711796051416,
+                  "interpretation": "Multimodal neutral emotional signal.",
+                  "audio_arousal": 0.25,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.56,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.641,
+                    "text_weight": 0.359
+                  },
+                  "pattern_label": "neutral pattern",
+                  "pattern_explanation": "Voice and text both point neutral.",
+                  "rule_ids_fired": [
+                    "agreement_neutral"
+                  ]
+                },
+                "text_reliability": 0.56,
+                "is_low_confidence": true,
+                "intensity": 0.3551,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6296,
+                  "prosody_components": {
+                    "rms": 0.1244,
+                    "rms_db": -18.1,
+                    "loudness_normalized": 0.8862,
+                    "semitone_range": 8.3,
+                    "semitone_std": 1.72,
+                    "pitch_variation_normalized": 0.3458,
+                    "voiced_ratio": 0.8103,
+                    "speech_rate_words_per_sec": 1.88,
+                    "speech_rate_normalized": 0.4704,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.3526,
+                  "text_negativity": 0.0378,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.4359,
+                0.3551
+              ],
+              "change": -0.0808
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "At least 3 segments are required.",
+              "intensity_change": 0.0,
+              "mode": "tolerant",
+              "slope": 0.0,
+              "dip_violations": []
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "At least 3 segments are required.",
+              "intensity_change": 0.0
+            },
+            "verdict": {
+              "verdict": "stable",
+              "reason": "Intensity stayed roughly constant across the conversation (net change=-0.08, slope=-0.081/turn).",
+              "slope": -0.0808,
+              "net_change": -0.0808
+            },
+            "consistency_trajectory": {
+              "trajectory": "mixed",
+              "total_segments": 2,
+              "agreement_count": 1,
+              "divergence_count": 0,
+              "low_confidence_count": 1,
+              "agreement_rate": 0.5,
+              "mismatch_rate": 0.0,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 0.98,
+                  "end_seconds": 7.88,
+                  "voice_direction": "negative",
+                  "text_direction": "neutral",
+                  "relationship": "low_confidence"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 7.88,
+                  "end_seconds": 11.6,
+                  "voice_direction": "neutral",
+                  "text_direction": "neutral",
+                  "relationship": "agreement"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.1384,
+              "mismatch_contribution": 0.0,
+              "intensity_contribution": 0.138425,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 0.0,
+              "average_intensity": 0.3955,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 2,
+              "conflict_segments_count": 0,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 0,
+              "has_incongruence": false,
+              "overall_assessment": "No substantial modality conflict detected across conversation segments.",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.7969,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.3822,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "neutral_text_sad_voice",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'sad', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 0.98,
+                  "end_seconds": 7.88,
+                  "transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking"
+                },
+                {
+                  "text_label": "neutral",
+                  "text_confidence": 0.9264,
+                  "acoustic_label": "neutral",
+                  "acoustic_confidence": 0.5246,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'neutral' and acoustic emotion is 'neutral', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 7.88,
+                  "end_seconds": 11.6,
+                  "transcript": "normally and testing the audio emotion system."
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.008,
+              "transcription_whisper_seconds": 2.399,
+              "segment_emotion_sentiment_fusion_seconds": 1.594,
+              "speaker_diarization_seconds": 0.001,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 5.093
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "LOW / STABLE",
+              "status_level": "success",
+              "recommended_action": "No immediate intervention required; standard operational monitoring.",
+              "reason": "Conversation exhibits balanced emotional dynamics, negligible modality conflict, and stable intensity throughout.",
+              "contributing_factors": [
+                "Stable emotional intensity trend (stable)",
+                "Low review-priority attention score (0.00)",
+                "Solid multimodal confidence (0.60)"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 2,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.01196238398551941,
+              "hap": 0.03458365052938461,
+              "ang": 5.461519322125241e-05,
+              "sad": 0.9533993601799011
+            },
+            "text_scores": {
+              "negative": 0.01791740022599697,
+              "neutral": 0.8558564782142639,
+              "positive": 0.12622614204883575
+            },
+            "full_transcript": "Hello, this is a test recording for my multi-modal emotion analysis project, I am speaking normally and testing the audio emotion system.",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/rising_tone.wav",
@@ -324,7 +2879,564 @@
         "pred_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
         "wer": null,
         "cer": null,
-        "notes": "Designed to demonstrate rising emotional intensity; not assigned single ground-truth emotion"
+        "notes": "Designed to demonstrate rising emotional intensity; not assigned single ground-truth emotion",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/rising_tone.wav",
+          "pred_voice_emotion": "sad",
+          "voice_confidence": 0.8246321082115173,
+          "pred_text_sentiment": "negative",
+          "text_confidence": 0.907752275466919,
+          "pred_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "sad",
+            "confidence": 0.8246321082115173,
+            "scores": {
+              "neu": 0.0012804408324882388,
+              "hap": 0.0764828696846962,
+              "ang": 0.09760460257530212,
+              "sad": 0.8246321082115173
+            },
+            "duration_seconds": 18.4746875,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": "negative",
+            "confidence": 0.907752275466919,
+            "scores": {
+              "negative": 0.907752275466919,
+              "neutral": 0.08443288505077362,
+              "positive": 0.007814805023372173
+            },
+            "text": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now."
+          },
+          "fusion_result": {
+            "audio_emotion": "sad",
+            "audio_confidence": 0.8246321082115173,
+            "text_sentiment": "negative",
+            "text_confidence": 0.907752275466919,
+            "audio_direction": "negative",
+            "text_direction": "negative",
+            "agreement": true,
+            "mismatch": false,
+            "combined_confidence": 0.8661921918392181,
+            "interpretation": "Multimodal negative emotional signal.",
+            "audio_arousal": 0.15,
+            "text_arousal": "unknown",
+            "audio_reliability": 1.0,
+            "text_reliability": 1.0,
+            "base_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "effective_weights": {
+              "audio_weight": 0.5,
+              "text_weight": 0.5
+            },
+            "pattern_label": "low-arousal negative pattern",
+            "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+            "rule_ids_fired": [
+              "agreement_negative_low_arousal"
+            ]
+          },
+          "conversation_result": {
+            "audio_path": "sample_audio/rising_tone.wav",
+            "duration_seconds": 18.4746875,
+            "sample_rate": 16000,
+            "language": "en",
+            "language_probability": 0.5881860852241516,
+            "full_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
+            "segments": [
+              {
+                "segment_index": 1,
+                "start_seconds": 0.69,
+                "end_seconds": 7.89,
+                "transcript": "I already explained the issue yesterday, but you are still making the same mistake.",
+                "voice_emotion": {
+                  "emotion": "hap",
+                  "confidence": 0.5125986337661743,
+                  "scores": {
+                    "neu": 0.026020599529147148,
+                    "hap": 0.5125986337661743,
+                    "ang": 0.03203772008419037,
+                    "sad": 0.42934298515319824
+                  },
+                  "start_seconds": 0.69,
+                  "end_seconds": 7.89,
+                  "duration_seconds": 7.199999999999999,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "hap",
+                  "raw_confidence": 0.5125986337661743,
+                  "raw_scores": {
+                    "neu": 0.026020599529147148,
+                    "hap": 0.5125986337661743,
+                    "ang": 0.03203772008419037,
+                    "sad": 0.42934298515319824
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.8035722970962524,
+                  "scores": {
+                    "negative": 0.8035722970962524,
+                    "neutral": 0.18638770282268524,
+                    "positive": 0.010039979591965675
+                  },
+                  "text": "I already explained the issue yesterday, but you are still making the same mistake.",
+                  "text_reliability": 0.712
+                },
+                "fusion": {
+                  "audio_emotion": "happy",
+                  "audio_confidence": 0.5125986337661743,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.8035722970962524,
+                  "audio_direction": "positive",
+                  "text_direction": "negative",
+                  "agreement": false,
+                  "mismatch": true,
+                  "combined_confidence": 0.6336110451511134,
+                  "interpretation": "Voice and text indicate different emotional directions.",
+                  "audio_arousal": 0.75,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.712,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5841,
+                    "text_weight": 0.4159
+                  },
+                  "pattern_label": "incongruence: negative text, positive-toned voice",
+                  "pattern_explanation": "Text sentiment is negative but the acoustic tone is positive. Voice and text point in different directions. Review the audio and context. This is an analytical review signal, not a psychological determination.",
+                  "rule_ids_fired": [
+                    "mismatch_negative_text_positive_voice"
+                  ]
+                },
+                "text_reliability": 0.712,
+                "is_low_confidence": false,
+                "intensity": 0.6289,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.7583,
+                  "prosody_components": {
+                    "rms": 0.1035,
+                    "rms_db": -19.7,
+                    "loudness_normalized": 0.8808,
+                    "semitone_range": 19.8,
+                    "semitone_std": 3.49,
+                    "pitch_variation_normalized": 0.825,
+                    "voiced_ratio": 0.7022,
+                    "speech_rate_words_per_sec": 1.94,
+                    "speech_rate_normalized": 0.4861,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.3497,
+                  "text_negativity": 0.8036,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 2,
+                "start_seconds": 8.37,
+                "end_seconds": 13.63,
+                "transcript": "Have told you three times why is in this getting fixed?",
+                "voice_emotion": {
+                  "emotion": "sad",
+                  "confidence": 0.39854373117474673,
+                  "scores": {
+                    "neu": 0.028816298493166134,
+                    "hap": 0.0490773340082367,
+                    "ang": 0.12501890514910372,
+                    "sad": 0.39854373117474673,
+                    "angry": 0.19927186558737336,
+                    "happy": 0.19927186558737336
+                  },
+                  "start_seconds": 8.37,
+                  "end_seconds": 13.63,
+                  "duration_seconds": 5.260000000000002,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "sad",
+                  "raw_confidence": 0.7970874905586243,
+                  "raw_scores": {
+                    "neu": 0.02881629951298237,
+                    "hap": 0.04907733574509621,
+                    "ang": 0.125018909573555,
+                    "sad": 0.7970874905586243
+                  },
+                  "calibration_applied_rules": [
+                    "prosody_sanity_rule: relative_loudness=0.91, f0_range=10.2st, dampened 'sad' by factor 0.5"
+                  ]
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.5383058190345764,
+                  "scores": {
+                    "negative": 0.5383058190345764,
+                    "neutral": 0.42100948095321655,
+                    "positive": 0.04068473353981972
+                  },
+                  "text": "Have told you three times why is in this getting fixed?",
+                  "text_reliability": 0.712
+                },
+                "fusion": {
+                  "audio_emotion": "sad",
+                  "audio_confidence": 0.39854373117474673,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.5383058190345764,
+                  "audio_direction": "negative",
+                  "text_direction": "negative",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.4566690854715918,
+                  "interpretation": "Multimodal negative emotional signal.",
+                  "audio_arousal": 0.15,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.712,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5841,
+                    "text_weight": 0.4159
+                  },
+                  "pattern_label": "low-arousal negative pattern",
+                  "pattern_explanation": "Voice and text both point negative, with low acoustic arousal (sadness-like pattern rather than anger-like).",
+                  "rule_ids_fired": [
+                    "agreement_negative_low_arousal"
+                  ]
+                },
+                "text_reliability": 0.712,
+                "is_low_confidence": false,
+                "intensity": 0.5716,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6618,
+                  "prosody_components": {
+                    "rms": 0.123,
+                    "rms_db": -18.2,
+                    "loudness_normalized": 0.9116,
+                    "semitone_range": 10.2,
+                    "semitone_std": 1.74,
+                    "pitch_variation_normalized": 0.425,
+                    "voiced_ratio": 0.7378,
+                    "speech_rate_words_per_sec": 2.09,
+                    "speech_rate_normalized": 0.5228,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.51,
+                  "text_negativity": 0.5383,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              },
+              {
+                "segment_index": 3,
+                "start_seconds": 14.31,
+                "end_seconds": 17.75,
+                "transcript": "This needs to be fixed immediately, right now.",
+                "voice_emotion": {
+                  "emotion": "ang",
+                  "confidence": 0.9925282001495361,
+                  "scores": {
+                    "neu": 0.0015199646586552262,
+                    "hap": 0.003423126647248864,
+                    "ang": 0.9925282001495361,
+                    "sad": 0.0025287403259426355
+                  },
+                  "start_seconds": 14.31,
+                  "end_seconds": 17.75,
+                  "duration_seconds": 3.4399999999999995,
+                  "voice_reliability": 1.0,
+                  "acoustic_window_widened": false,
+                  "raw_emotion": "ang",
+                  "raw_confidence": 0.9925282001495361,
+                  "raw_scores": {
+                    "neu": 0.0015199646586552262,
+                    "hap": 0.003423126647248864,
+                    "ang": 0.9925282001495361,
+                    "sad": 0.0025287403259426355
+                  },
+                  "calibration_applied_rules": []
+                },
+                "text_sentiment": {
+                  "sentiment": "negative",
+                  "confidence": 0.8474797606468201,
+                  "scores": {
+                    "negative": 0.8474797606468201,
+                    "neutral": 0.13074138760566711,
+                    "positive": 0.021778924390673637
+                  },
+                  "text": "This needs to be fixed immediately, right now.",
+                  "text_reliability": 0.712
+                },
+                "fusion": {
+                  "audio_emotion": "angry",
+                  "audio_confidence": 0.9925282001495361,
+                  "text_sentiment": "negative",
+                  "text_confidence": 0.8474797606468201,
+                  "audio_direction": "negative",
+                  "text_direction": "negative",
+                  "agreement": true,
+                  "mismatch": false,
+                  "combined_confidence": 0.9322043164311169,
+                  "interpretation": "Multimodal negative emotional signal.",
+                  "audio_arousal": 1.0,
+                  "text_arousal": "unknown",
+                  "audio_reliability": 1.0,
+                  "text_reliability": 0.712,
+                  "base_weights": {
+                    "audio_weight": 0.5,
+                    "text_weight": 0.5
+                  },
+                  "effective_weights": {
+                    "audio_weight": 0.5841,
+                    "text_weight": 0.4159
+                  },
+                  "pattern_label": "high-arousal negative pattern",
+                  "pattern_explanation": "Voice and text both point negative, and the voice's acoustic arousal is high (anger-like pattern rather than sadness-like).",
+                  "rule_ids_fired": [
+                    "agreement_negative_high_arousal"
+                  ]
+                },
+                "text_reliability": 0.712,
+                "is_low_confidence": false,
+                "intensity": 0.6691,
+                "intensity_components": {
+                  "formula_version": "v2",
+                  "prosodic_arousal": 0.6863,
+                  "prosody_components": {
+                    "rms": 0.158,
+                    "rms_db": -16.03,
+                    "loudness_normalized": 0.9566,
+                    "semitone_range": 8.5,
+                    "semitone_std": 1.7,
+                    "pitch_variation_normalized": 0.3542,
+                    "voiced_ratio": 0.8598,
+                    "speech_rate_words_per_sec": 2.33,
+                    "speech_rate_normalized": 0.5814,
+                    "weights": {
+                      "loudness": 0.35,
+                      "pitch_variation": 0.3,
+                      "voiced_ratio": 0.15,
+                      "speech_rate": 0.2
+                    }
+                  },
+                  "voice_arousal": 0.4991,
+                  "text_negativity": 0.8475,
+                  "weights": {
+                    "prosody": 0.35,
+                    "voice_arousal": 0.35,
+                    "text_negativity": 0.3
+                  }
+                },
+                "speaker": "Unknown"
+              }
+            ],
+            "emotional_trend": {
+              "trend": "stable",
+              "intensity_scores": [
+                0.6289,
+                0.5716,
+                0.6691
+              ],
+              "change": 0.0402
+            },
+            "escalation": {
+              "escalation_detected": false,
+              "reason": "Slope (0.020/turn) did not reach the minimum required rate of 0.03/turn.",
+              "intensity_change": 0.0402,
+              "mode": "tolerant",
+              "slope": 0.0201,
+              "dip_violations": []
+            },
+            "escalation_legacy_strict": {
+              "escalation_detected": false,
+              "reason": "Emotional intensity did not show a sufficient continuous increase.",
+              "intensity_change": 0.0402
+            },
+            "verdict": {
+              "verdict": "stable",
+              "reason": "Intensity stayed roughly constant across the conversation (net change=+0.04, slope=+0.020/turn).",
+              "slope": 0.0201,
+              "net_change": 0.0402
+            },
+            "consistency_trajectory": {
+              "trajectory": "mixed",
+              "total_segments": 3,
+              "agreement_count": 2,
+              "divergence_count": 1,
+              "low_confidence_count": 0,
+              "agreement_rate": 0.6667,
+              "mismatch_rate": 0.3333,
+              "per_segment_relationships": [
+                {
+                  "segment_index": 1,
+                  "start_seconds": 0.69,
+                  "end_seconds": 7.89,
+                  "voice_direction": "positive",
+                  "text_direction": "negative",
+                  "relationship": "divergence"
+                },
+                {
+                  "segment_index": 2,
+                  "start_seconds": 8.37,
+                  "end_seconds": 13.63,
+                  "voice_direction": "negative",
+                  "text_direction": "negative",
+                  "relationship": "agreement"
+                },
+                {
+                  "segment_index": 3,
+                  "start_seconds": 14.31,
+                  "end_seconds": 17.75,
+                  "voice_direction": "negative",
+                  "text_direction": "negative",
+                  "relationship": "agreement"
+                }
+              ]
+            },
+            "attention_score": {
+              "attention_score": 0.3514,
+              "mismatch_contribution": 0.13332,
+              "intensity_contribution": 0.21812,
+              "escalation_contribution": 0.0,
+              "mismatch_rate": 0.3333,
+              "average_intensity": 0.6232,
+              "escalation_detected": false,
+              "weights": {
+                "w_mismatch": 0.4,
+                "w_intensity": 0.35,
+                "w_escalation": 0.25
+              },
+              "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
+              "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
+            },
+            "modality_incongruence": {
+              "status": "OK",
+              "total_segments": 3,
+              "conflict_segments_count": 1,
+              "high_conflict_count": 0,
+              "medium_conflict_count": 1,
+              "has_incongruence": true,
+              "overall_assessment": "Moderate modality incongruence identified in 1 of 3 segment(s).",
+              "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+              "segment_results": [
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.8036,
+                  "acoustic_label": "happy",
+                  "acoustic_confidence": 0.5126,
+                  "conflict_detected": true,
+                  "conflict_strength": "medium",
+                  "conflict_type": "negative_text_happy_voice",
+                  "explanation": "Moderate disagreement between acoustic and textual signals. The verbal sentiment is negative (80.4%) while acoustic tone is happy (51.3%). Voice and text point in different directions. Review the audio and context.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 1,
+                  "start_seconds": 0.69,
+                  "end_seconds": 7.89,
+                  "transcript": "I already explained the issue yesterday, but you are still making the same mistake."
+                },
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.5383,
+                  "acoustic_label": "sad",
+                  "acoustic_confidence": 0.3985,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'sad', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 2,
+                  "start_seconds": 8.37,
+                  "end_seconds": 13.63,
+                  "transcript": "Have told you three times why is in this getting fixed?"
+                },
+                {
+                  "text_label": "negative",
+                  "text_confidence": 0.8475,
+                  "acoustic_label": "angry",
+                  "acoustic_confidence": 0.9925,
+                  "conflict_detected": false,
+                  "conflict_strength": "none",
+                  "conflict_type": "none",
+                  "explanation": "No strong modality conflict detected. Linguistic sentiment is 'negative' and acoustic emotion is 'angry', showing emotional congruence or neutral alignment.",
+                  "heuristic_notice": "This system identifies disagreement between computational speech and text signals. It does not reliably determine sarcasm, deception, or a person's internal emotional state. Modality incongruence indicates that acoustic tone and linguistic sentiment point in different directions under computational models (e.g., contrasting vocal inflection, contextual mismatch, acoustic noise, or classification ambiguity). Voice and text point in different directions. Review the audio and context.",
+                  "segment_index": 3,
+                  "start_seconds": 14.31,
+                  "end_seconds": 17.75,
+                  "transcript": "This needs to be fixed immediately, right now."
+                }
+              ]
+            },
+            "processing_time": {
+              "audio_preprocessing_seconds": 0.011,
+              "transcription_whisper_seconds": 2.359,
+              "segment_emotion_sentiment_fusion_seconds": 2.174,
+              "speaker_diarization_seconds": 0.001,
+              "analytics_and_trajectory_seconds": 0.001,
+              "total_processing_seconds": 5.937
+            },
+            "skipped_segments": 0,
+            "diarization_error": "No Hugging Face token found. Set the HF_TOKEN environment variable before running speaker diarization.",
+            "voice_collapse": {
+              "detected": false
+            },
+            "recommendation": {
+              "status": "MODERATE",
+              "status_level": "warning",
+              "recommended_action": "Flag for standard quality assurance or follow-up review.",
+              "reason": "Conversation exhibits notable negative valence or elevated attention heuristic, but without continuous escalation dynamics.",
+              "contributing_factors": [
+                "Prevalence of negative linguistic sentiment"
+              ],
+              "disclaimer": "Decision-support heuristic only. This recommendation is generated computationally from acoustic tone, text sentiment, conflict metrics, and intensity patterns. It does not constitute a psychological assessment, risk evaluation, or clinical diagnosis, and should never replace human review or professional judgment."
+            }
+          },
+          "extra": {
+            "segment_count": 3,
+            "conversation_analyzed": true,
+            "audio_scores": {
+              "neu": 0.0012804408324882388,
+              "hap": 0.0764828696846962,
+              "ang": 0.09760460257530212,
+              "sad": 0.8246321082115173
+            },
+            "text_scores": {
+              "negative": 0.907752275466919,
+              "neutral": 0.08443288505077362,
+              "positive": 0.007814805023372173
+            },
+            "full_transcript": "I already explained the issue yesterday, but you are still making the same mistake. Have told you three times why is in this getting fixed? This needs to be fixed immediately, right now.",
+            "escalation_detected": false
+          }
+        }
       },
       {
         "filename": "sample_audio/sample_16k.wav",
@@ -338,7 +3450,55 @@
         "pred_transcript": "",
         "wer": null,
         "cer": null,
-        "notes": "Audio resampling test sample; not an emotion ground-truth sample"
+        "notes": "Audio resampling test sample; not an emotion ground-truth sample",
+        "extra": {
+          "status": "EVALUATED",
+          "filename": "sample_audio/sample_16k.wav",
+          "pred_voice_emotion": "neu",
+          "voice_confidence": 0.9326021671295166,
+          "pred_text_sentiment": null,
+          "text_confidence": 0.0,
+          "pred_transcript": "",
+          "pred_speaker_count": 1,
+          "audio_result": {
+            "emotion": "neu",
+            "confidence": 0.9326021671295166,
+            "scores": {
+              "neu": 0.9326021671295166,
+              "hap": 0.06203890219330788,
+              "ang": 0.0037390401121228933,
+              "sad": 0.0016199048841372132
+            },
+            "duration_seconds": 3.0,
+            "sample_rate": 16000
+          },
+          "text_result": {
+            "sentiment": null,
+            "confidence": 0.0,
+            "probabilities": {}
+          },
+          "fusion_result": {
+            "combined_confidence": 0.9326021671295166,
+            "agreement": false,
+            "mismatch": false,
+            "audio_direction": "neutral",
+            "text_direction": "neutral"
+          },
+          "conversation_result": null,
+          "extra": {
+            "segment_count": 0,
+            "conversation_analyzed": false,
+            "audio_scores": {
+              "neu": 0.9326021671295166,
+              "hap": 0.06203890219330788,
+              "ang": 0.0037390401121228933,
+              "sad": 0.0016199048841372132
+            },
+            "text_scores": {},
+            "full_transcript": "",
+            "escalation_detected": false
+          }
+        }
       }
     ]
   },
@@ -536,7 +3696,33 @@
         "agreement",
         "mismatch"
       ]
-    }
+    },
+    "four_way_models": [
+      {
+        "model": "Voice-Only",
+        "accuracy": null,
+        "f1_macro": null,
+        "mean_confidence": 0.9247
+      },
+      {
+        "model": "Text-Only",
+        "accuracy": null,
+        "f1_macro": null,
+        "mean_confidence": 0.7721
+      },
+      {
+        "model": "Current Fusion (Rule-Based)",
+        "accuracy": null,
+        "f1_macro": null,
+        "mean_confidence": 0.8484
+      },
+      {
+        "model": "Learned Fusion (Logistic Regression)",
+        "accuracy": null,
+        "f1_macro": null,
+        "mean_confidence": null
+      }
+    ]
   },
   "learned_fusion": {
     "status": "INSUFFICIENT_DATA",
@@ -613,79 +3799,82 @@
     "filename": "sample_audio/rising_tone.wav",
     "segment_count": 3,
     "segment_intensities": [
-      0.7796,
-      0.6756,
-      1.0
+      0.6289,
+      0.5716,
+      0.6691
     ],
     "segment_details": [
       {
         "segment_index": 1,
         "start_seconds": 0.69,
-        "end_seconds": 8.73,
-        "voice_emotion": "sad",
+        "end_seconds": 7.89,
+        "voice_emotion": "hap",
         "text_sentiment": "negative",
-        "intensity": 0.7796
+        "intensity": 0.6289
       },
       {
         "segment_index": 2,
-        "start_seconds": 8.73,
-        "end_seconds": 14.45,
+        "start_seconds": 8.37,
+        "end_seconds": 13.63,
         "voice_emotion": "sad",
         "text_sentiment": "negative",
-        "intensity": 0.6756
+        "intensity": 0.5716
       },
       {
         "segment_index": 3,
-        "start_seconds": 14.45,
-        "end_seconds": 17.89,
+        "start_seconds": 14.31,
+        "end_seconds": 17.75,
         "voice_emotion": "ang",
         "text_sentiment": "negative",
-        "intensity": 1.0
+        "intensity": 0.6691
       }
     ],
     "emotional_trend": {
-      "trend": "increasing",
+      "trend": "stable",
       "intensity_scores": [
-        0.7796,
-        0.6756,
-        1.0
+        0.6289,
+        0.5716,
+        0.6691
       ],
-      "change": 0.2204
+      "change": 0.0402
     },
     "escalation": {
       "escalation_detected": false,
-      "reason": "Emotional intensity did not show a sufficient continuous increase.",
-      "intensity_change": 0.2204
+      "reason": "Slope (0.020/turn) did not reach the minimum required rate of 0.03/turn.",
+      "intensity_change": 0.0402,
+      "mode": "tolerant",
+      "slope": 0.0201,
+      "dip_violations": []
     },
     "consistency_trajectory": {
-      "trajectory": "mostly_consistent",
+      "trajectory": "mixed",
       "total_segments": 3,
-      "agreement_count": 3,
-      "divergence_count": 0,
+      "agreement_count": 2,
+      "divergence_count": 1,
       "low_confidence_count": 0,
-      "agreement_rate": 1.0,
-      "mismatch_rate": 0.0,
+      "agreement_rate": 0.6667,
+      "mismatch_rate": 0.3333,
       "per_segment_relationships": [
         {
           "segment_index": 1,
           "start_seconds": 0.69,
-          "end_seconds": 8.73,
-          "voice_direction": "negative",
+          "end_seconds": 7.89,
+          "voice_direction": "positive",
           "text_direction": "negative",
-          "relationship": "agreement"
+          "relationship": "divergence"
         },
         {
           "segment_index": 2,
-          "start_seconds": 8.73,
-          "end_seconds": 14.45,
+          "start_seconds": 8.37,
+          "end_seconds": 13.63,
           "voice_direction": "negative",
           "text_direction": "negative",
           "relationship": "agreement"
         },
         {
           "segment_index": 3,
-          "start_seconds": 14.45,
-          "end_seconds": 17.89,
+          "start_seconds": 14.31,
+          "end_seconds": 17.75,
           "voice_direction": "negative",
           "text_direction": "negative",
           "relationship": "agreement"
@@ -693,12 +3882,12 @@
       ]
     },
     "attention_score": {
-      "attention_score": 0.2864,
-      "mismatch_contribution": 0.0,
-      "intensity_contribution": 0.28644,
+      "attention_score": 0.3514,
+      "mismatch_contribution": 0.13332,
+      "intensity_contribution": 0.21812,
       "escalation_contribution": 0.0,
-      "mismatch_rate": 0.0,
-      "average_intensity": 0.8184,
+      "mismatch_rate": 0.3333,
+      "average_intensity": 0.6232,
       "escalation_detected": false,
       "weights": {
         "w_mismatch": 0.4,
@@ -708,7 +3897,7 @@
       "formula": "attention_score = W_MISMATCH \u00d7 mismatch_rate + W_INTENSITY \u00d7 average_intensity + W_ESCALATION \u00d7 escalation_indicator",
       "notice": "This is a computational review-priority heuristic only. It is NOT a risk score, danger score, distress indicator, psychological assessment, or clinical measure. Weights are heuristic defaults and are not scientifically validated."
     },
-    "empirical_finding": "Rising-tone recording yielded 3 segments. Intensities: [0.7796, 0.6756, 1.0]. Overall trend was 'increasing' (change=+0.2204). Escalation detected=False: Emotional intensity did not show a sufficient continuous increase."
+    "empirical_finding": "Rising-tone recording yielded 3 segments. Intensities: [0.6289, 0.5716, 0.6691]. Overall trend was 'stable' (change=+0.0402). Escalation detected=False: Slope (0.020/turn) did not reach the minimum required rate of 0.03/turn."
   },
   "disclaimer": "This system performs computational emotion inference from acoustic and linguistic patterns. It does not diagnose, assess, or make claims about a person's actual psychological or emotional state. Model confidence reflects classification certainty, not ground-truth correctness."
 }

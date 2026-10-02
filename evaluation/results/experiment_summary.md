@@ -82,7 +82,7 @@ Ground Truth Present: True
 ## 3. Temporal / Rising-Tone Experiment
 
 - **Target File**: `sample_audio/rising_tone.wav`
-- **Finding**: Rising-tone recording yielded 3 segments. Intensities: [0.7796, 0.6756, 1.0]. Overall trend was 'increasing' (change=+0.2204). Escalation detected=False: Emotional intensity did not show a sufficient continuous increase.
+- **Finding**: Rising-tone recording yielded 3 segments. Intensities: [0.6289, 0.5716, 0.6691]. Overall trend was 'stable' (change=+0.0402). Escalation detected=False: Slope (0.020/turn) did not reach the minimum required rate of 0.03/turn.
 
 ## 4. Speaker Diarization Validation
 

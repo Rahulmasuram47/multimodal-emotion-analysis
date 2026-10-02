@@ -60,6 +60,8 @@ class ConversationAnalyzer:
         fusion: MultimodalFusion | None = None,
         diarizer: SpeakerDiarizer | None = None,
         voice_calibrator: VoiceCalibrator | None = None,
+        whisper_model_size: Optional[str] = None,
+        whisper_language: Optional[str] = None,
     ):
         logger.info(
             "Initializing conversation analysis pipeline..."
@@ -72,7 +74,7 @@ class ConversationAnalyzer:
 
         self.speech_to_text = (
             speech_to_text
-            or SpeechToText()
+            or SpeechToText(model_size=whisper_model_size, language=whisper_language)
         )
 
         self.sentiment_analyzer = (
@@ -205,6 +207,10 @@ class ConversationAnalyzer:
         sr: int,
         word_count: int,
         duration_seconds: float,
+        recording_percentiles: Optional[Tuple[float, float]] = None,
+        f0_segment: Optional[np.ndarray] = None,
+        voiced_flag_segment: Optional[np.ndarray] = None,
+        word_timestamps: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[float, Dict[str, Any]]:
         """
         Phase 4 intensity formula: weighted combination of
@@ -224,11 +230,18 @@ class ConversationAnalyzer:
         linguistic negativity now drive the score.
 
         Returns (intensity, components) where components is a dict
-        breaking down every sub-score, for the "why is this 0.82?"
+        breaking down every sub-score, for the "why is this 0.62?"
         transparency requirement.
         """
         prosody_result = compute_prosodic_arousal(
-            audio_segment, sr, word_count, duration_seconds
+            audio_segment=audio_segment,
+            sr=sr,
+            word_count=word_count,
+            duration_seconds=duration_seconds,
+            recording_percentiles=recording_percentiles,
+            f0_segment=f0_segment,
+            voiced_flag_segment=voiced_flag_segment,
+            word_timestamps=word_timestamps,
         )
         voice_arousal = compute_voice_arousal(voice_scores)
         text_negativity = compute_text_negativity(text_scores)
@@ -628,11 +641,41 @@ class ConversationAnalyzer:
                 f"(net change={net_change:+.2f}, slope={slope:+.3f}/turn)."
             )
 
+        # -----------------------------------------------------
+        # Counterfactual sensitivity for unified verdict (Prompt G)
+        # -----------------------------------------------------
+        verdict_cfs: List[str] = []
+        if is_escalating:
+            if max_drop > 0:
+                verdict_cfs.append(
+                    f"Verdict flips from escalating if dip tolerance falls below {max_drop:.2f} (current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
+                )
+            if (net_change - config.ESCALATION_MIN_NET_RISE) < 0.10:
+                verdict_cfs.append(
+                    f"If net intensity rise fell below {config.ESCALATION_MIN_NET_RISE:.2f} (currently {net_change:+.2f}), verdict would become stable."
+                )
+        elif is_deescalating:
+            if max_rise > 0:
+                verdict_cfs.append(
+                    f"Verdict flips from de-escalating if upward spike tolerance falls below {max_rise:.2f} (current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
+                )
+        elif verdict == "fluctuating":
+            verdict_cfs.append(
+                f"Verdict would become stable if largest swing ({max(max_rise, max_drop):.2f}) fell within tolerance ({config.ESCALATION_DIP_TOLERANCE * 1.5:.2f})."
+            )
+        else:
+            diff_slope = config.ESCALATION_MIN_SLOPE - slope
+            if diff_slope > 0:
+                verdict_cfs.append(
+                    f"Verdict would become escalating if per-turn slope increased by +{diff_slope:.3f} and net rise reached +{config.ESCALATION_MIN_NET_RISE:.2f}."
+                )
+
         return {
             "verdict": verdict,
             "reason": reason,
             "slope": round(slope, 4),
             "net_change": net_change,
+            "counterfactuals": verdict_cfs,
         }
 
     # ---------------------------------------------------------
@@ -700,6 +743,9 @@ class ConversationAnalyzer:
         index: int,
         all_segment_bounds: List[Tuple[float, float]],
         audio_duration_seconds: float,
+        recording_percentiles: Optional[Tuple[float, float]] = None,
+        rec_f0: Optional[np.ndarray] = None,
+        rec_voiced_flags: Optional[np.ndarray] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single transcript segment.
@@ -736,6 +782,16 @@ class ConversationAnalyzer:
             start,
             end,
         )
+
+        hop_len = getattr(config, "HOP_LENGTH", 512)
+        f0_seg = None
+        voiced_seg = None
+        if rec_f0 is not None and len(rec_f0) > 0:
+            idx_start = max(0, int((start * sr) // hop_len))
+            idx_end = min(len(rec_f0), max(idx_start + 1, int((end * sr) // hop_len)))
+            f0_seg = rec_f0[idx_start:idx_end]
+            if rec_voiced_flags is not None and len(rec_voiced_flags) == len(rec_f0):
+                voiced_seg = rec_voiced_flags[idx_start:idx_end]
 
         # Raw (unwidened) audio slice for this segment's transcript
         # window — used by both voice calibration and Phase 4's v2
@@ -810,6 +866,9 @@ class ConversationAnalyzer:
                     raw_scores=voice_result["scores"],
                     audio_segment=segment_audio,
                     sr=sr,
+                    recording_percentiles=recording_percentiles,
+                    f0_segment=f0_seg,
+                    voiced_flag_segment=voiced_seg,
                 )
 
                 voice_result["raw_emotion"] = voice_result["emotion"]
@@ -841,10 +900,13 @@ class ConversationAnalyzer:
         # was uncertain. Defaults to 1.0 (fully reliable) when the
         # flag is absent — identical to pre-Phase-5 behavior.
         # -----------------------------------------------------
-        is_low_confidence_asr = bool(raw_segment.get("is_low_confidence", False))
-        sentiment_result["text_reliability"] = (
-            config.FUSION_TEXT_LOW_ASR_RELIABILITY if is_low_confidence_asr else 1.0
-        )
+        if "text_reliability" in raw_segment:
+            sentiment_result["text_reliability"] = float(raw_segment["text_reliability"])
+        else:
+            is_low_confidence_asr = bool(raw_segment.get("is_low_confidence", False))
+            sentiment_result["text_reliability"] = (
+                config.FUSION_TEXT_LOW_ASR_RELIABILITY if is_low_confidence_asr else 1.0
+            )
 
         try:
             fusion_result = self.fusion.fuse(
@@ -866,6 +928,8 @@ class ConversationAnalyzer:
             "voice_emotion": voice_result,
             "text_sentiment": sentiment_result,
             "fusion": fusion_result,
+            "text_reliability": float(sentiment_result.get("text_reliability", 1.0)),
+            "is_low_confidence": bool(raw_segment.get("is_low_confidence", False)),
         }
 
         # -----------------------------------------------------
@@ -885,6 +949,10 @@ class ConversationAnalyzer:
                     sr=sr,
                     word_count=word_count,
                     duration_seconds=seg_duration,
+                    recording_percentiles=recording_percentiles,
+                    f0_segment=f0_seg,
+                    voiced_flag_segment=voiced_seg,
+                    word_timestamps=raw_segment.get("words"),
                 )
                 segment_result["intensity"] = intensity_v2
                 segment_result["intensity_components"] = intensity_components
@@ -985,9 +1053,41 @@ class ConversationAnalyzer:
         )
 
         if not raw_segments:
-            raise ValueError(
-                "Speech-to-text returned no usable segments."
-            )
+            logger.info("No speech detected by STT (VAD removed all frames). Returning friendly non-speech result.")
+            t_total_elapsed = time.perf_counter() - t_total_start
+            return {
+                "audio_path": audio_path,
+                "duration_seconds": duration,
+                "sample_rate": sr,
+                "language": transcription.get("language", "unknown"),
+                "language_probability": float(transcription.get("language_probability", 0.0)),
+                "full_transcript": "",
+                "segments": [],
+                "no_speech_detected": True,
+                "no_speech_message": "No speech detected in this audio file. The recording appears to be silence or non-speech audio.",
+                "emotional_trend": {"trend": "stable", "delta": 0.0},
+                "escalation": {"escalation_detected": False, "reason": "No speech detected in recording."},
+                "escalation_legacy_strict": {"escalation_detected": False, "reason": "No speech detected."},
+                "verdict": {"verdict": "insufficient_data", "reason": "No speech detected."},
+                "consistency_trajectory": {"trajectory": [], "mean_consistency": 0.0},
+                "attention_score": {"attention_score": 0.0, "priority_band": "LOW"},
+                "modality_incongruence": {"conflict_detected": False, "conflict_strength": "none", "explanation": "No speech detected."},
+                "processing_time": {
+                    "audio_preprocessing_seconds": round(t_load_elapsed, 3),
+                    "transcription_whisper_seconds": round(t_transcribe_elapsed, 3),
+                    "total_processing_seconds": round(t_total_elapsed, 3),
+                },
+                "skipped_segments": 0,
+                "diarization_error": "No speech detected",
+                "voice_collapse": {"detected": False},
+                "recommendation": {
+                    "status": "NORMAL",
+                    "status_level": "info",
+                    "recommended_action": "No speech detected in this audio file. The recording appears to be silence or non-speech audio.",
+                    "reason": "Voice activity detection removed all audio frames as silence or non-speech.",
+                    "contributing_factors": ["Silence or non-speech audio"],
+                },
+            }
 
         analyzed_segments: List[Dict[str, Any]] = []
         total = len(raw_segments)
@@ -1003,6 +1103,15 @@ class ConversationAnalyzer:
             for s in raw_segments
         ]
 
+        from app.prosody import compute_recording_loudness_percentiles, compute_recording_f0
+        try:
+            recording_percentiles = compute_recording_loudness_percentiles(audio, sr)
+            rec_f0, rec_voiced_flags = compute_recording_f0(audio, sr)
+        except Exception:
+            logger.exception("Failed to compute recording prosody baseline; falling back to segment defaults.")
+            recording_percentiles = None
+            rec_f0, rec_voiced_flags = None, None
+
         t_segments_start = time.perf_counter()
         for index, raw_segment in enumerate(raw_segments):
 
@@ -1014,7 +1123,15 @@ class ConversationAnalyzer:
             )
 
             segment_result = self._analyze_segment(
-                audio, sr, raw_segment, index, all_segment_bounds, duration
+                audio,
+                sr,
+                raw_segment,
+                index,
+                all_segment_bounds,
+                duration,
+                recording_percentiles,
+                rec_f0,
+                rec_voiced_flags,
             )
 
             if segment_result is not None:
@@ -1025,6 +1142,53 @@ class ConversationAnalyzer:
             raise ValueError(
                 "No valid conversation segments were produced."
             )
+
+        # -----------------------------------------------------
+        # Collapse Detector: flags low voice-model discrimination
+        # and down-weights voice reliability in multimodal fusion
+        # -----------------------------------------------------
+        voice_collapse = {"detected": False}
+        voice_emotions = [
+            s.get("voice_emotion", {}).get("emotion")
+            for s in analyzed_segments
+            if s.get("voice_emotion", {}).get("emotion")
+        ]
+        if len(voice_emotions) >= 3:
+            counts: Dict[str, int] = {}
+            for e in voice_emotions:
+                counts[e] = counts.get(e, 0) + 1
+            dom_emotion, max_cnt = max(counts.items(), key=lambda x: x[1])
+            dom_share = max_cnt / len(voice_emotions)
+            collapse_thresh = getattr(config, "VOICE_COLLAPSE_THRESHOLD", 0.70)
+            if dom_share >= collapse_thresh:
+                penalty = getattr(config, "VOICE_COLLAPSE_RELIABILITY_PENALTY", 0.50)
+                voice_collapse = {
+                    "detected": True,
+                    "dominant_emotion": dom_emotion,
+                    "share": round(dom_share, 4),
+                    "threshold": collapse_thresh,
+                    "penalty": penalty,
+                    "warning": "Voice model shows low discrimination on this input; treat voice labels as low reliability.",
+                }
+                logger.warning(
+                    "Voice collapse detected: dominant '%s' occupies %.1f%% of segments (>= %.0f%%). "
+                    "Down-weighting voice reliability by factor %.2f.",
+                    dom_emotion, dom_share * 100, collapse_thresh * 100, penalty
+                )
+                for seg in analyzed_segments:
+                    if "voice_emotion" in seg:
+                        seg["voice_emotion"]["voice_reliability"] = round(
+                            seg["voice_emotion"].get("voice_reliability", 1.0) * penalty, 4
+                        )
+                        seg["voice_emotion"]["collapse_warning"] = voice_collapse["warning"]
+                        if "fusion" in seg and "text_sentiment" in seg:
+                            try:
+                                seg["fusion"] = self.fusion.fuse(
+                                    seg["voice_emotion"],
+                                    seg["text_sentiment"],
+                                )
+                            except Exception:
+                                pass
 
         # -----------------------------------------------------
         # Speaker diarization
@@ -1169,6 +1333,7 @@ class ConversationAnalyzer:
 
             "skipped_segments": total - len(analyzed_segments),
             "diarization_error": diarization_error,
+            "voice_collapse": voice_collapse,
         }
 
         # Synthesize actionable recommendation

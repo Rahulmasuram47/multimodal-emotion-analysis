@@ -40,6 +40,10 @@ def init_session_state() -> None:
         st.session_state["fusion_audio_weight"] = config.FUSION_SETTINGS_DEFAULTS["audio_weight"]
     if "fusion_confidence_threshold" not in st.session_state:
         st.session_state["fusion_confidence_threshold"] = config.FUSION_SETTINGS_DEFAULTS["confidence_threshold"]
+    if "whisper_model_size" not in st.session_state:
+        st.session_state["whisper_model_size"] = config.STT_MODEL_SIZE
+    if "whisper_language" not in st.session_state:
+        st.session_state["whisper_language"] = config.STT_LANGUAGE
 
 
 def get_active_uploader_keys() -> tuple[str, str]:

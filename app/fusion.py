@@ -45,6 +45,7 @@ class MultimodalFusion:
         audio_weight: float = DEFAULT_AUDIO_WEIGHT,
         text_weight: float = DEFAULT_TEXT_WEIGHT,
         confidence_threshold: float = CONFIDENCE_THRESHOLD,
+        abstention_threshold: float = getattr(config, "FUSION_ABSTENTION_THRESHOLD", 0.35),
     ):
         if audio_weight < 0 or text_weight < 0:
             raise ValueError(
@@ -61,12 +62,14 @@ class MultimodalFusion:
         self.audio_weight = audio_weight / total_weight
         self.text_weight = text_weight / total_weight
         self.confidence_threshold = confidence_threshold
+        self.abstention_threshold = abstention_threshold
 
         logger.info(
             "Fusion configured: audio_weight=%.2f, "
-            "text_weight=%.2f",
+            "text_weight=%.2f, abstention_threshold=%.2f",
             self.audio_weight,
             self.text_weight,
+            self.abstention_threshold,
         )
 
     # ---------------------------------------------------------
@@ -183,9 +186,15 @@ class MultimodalFusion:
 
     def _effective_weights(
         self,
-        audio_reliability: float,
-        text_reliability: float,
+        audio_reliability: float = 1.0,
+        text_reliability: float = 1.0,
+        **kwargs: Any,
     ) -> Tuple[float, float]:
+        if "audio_rel" in kwargs:
+            audio_reliability = kwargs["audio_rel"]
+        if "text_rel" in kwargs:
+            text_reliability = kwargs["text_rel"]
+
         """Compute effective (renormalized) fusion weights given each
         modality's reliability in [0, 1].
 
@@ -259,17 +268,17 @@ class MultimodalFusion:
             if text_direction == "positive" and audio_direction == "negative":
                 return (
                     "incongruence: positive text, negative-toned voice",
-                    "Text sentiment is positive but the acoustic tone is negative "
-                    "— may indicate sarcasm, passive tension, or model uncertainty. "
-                    "This is a review signal, not a determination.",
+                    "Text sentiment is positive but the acoustic tone is negative. "
+                    "Voice and text point in different directions. Review the audio and context. "
+                    "This is an analytical review signal, not a psychological determination.",
                     ["mismatch_positive_text_negative_voice"],
                 )
             if text_direction == "negative" and audio_direction == "positive":
                 return (
                     "incongruence: negative text, positive-toned voice",
-                    "Text sentiment is negative but the acoustic tone is positive "
-                    "— may indicate humor, understatement, or model uncertainty. "
-                    "This is a review signal, not a determination.",
+                    "Text sentiment is negative but the acoustic tone is positive. "
+                    "Voice and text point in different directions. Review the audio and context. "
+                    "This is an analytical review signal, not a psychological determination.",
                     ["mismatch_negative_text_positive_voice"],
                 )
             return (
@@ -285,6 +294,109 @@ class MultimodalFusion:
             "confidence is below the threshold for a reliable comparison.",
             ["weak_disagreement"],
         )
+
+    # ---------------------------------------------------------
+    # Counterfactual sensitivity
+    # ---------------------------------------------------------
+
+    def compute_counterfactuals(
+        self,
+        audio_emotion: str,
+        audio_confidence: float,
+        text_sentiment: str,
+        text_confidence: float,
+        audio_arousal: float,
+        combined_reliability: float,
+        current_pattern: str,
+    ) -> List[str]:
+        """Compute counterfactual sensitivity: what parameter perturbation would change this result?
+
+        Deterministically tests small perturbations against the rules:
+          1. Text confidence threshold crossing.
+          2. Voice direction shift.
+          3. Reliability abstention threshold.
+        """
+        cfs: List[str] = []
+
+        audio_dir = self._emotion_direction(self._normalize_emotion(audio_emotion))
+        text_dir = self._normalize_sentiment(text_sentiment)
+        agreement = (audio_dir == text_dir)
+        high_audio = (audio_confidence >= self.confidence_threshold)
+
+        # 1. Text confidence perturbation
+        if not agreement and high_audio:
+            if text_confidence < self.confidence_threshold:
+                hyp_mismatch = True
+                new_pat, _, _ = self._evaluate_pattern_rules(
+                    audio_direction=audio_dir,
+                    text_direction=text_dir,
+                    audio_arousal=audio_arousal,
+                    agreement=False,
+                    mismatch=hyp_mismatch,
+                )
+                if new_pat != current_pattern:
+                    cfs.append(
+                        f"If text confidence rose from {text_confidence:.2f} to {self.confidence_threshold:.2f}, "
+                        f"pattern would flip from '{current_pattern}' to '{new_pat}'."
+                    )
+            else:
+                hyp_mismatch = False
+                new_pat, _, _ = self._evaluate_pattern_rules(
+                    audio_direction=audio_dir,
+                    text_direction=text_dir,
+                    audio_arousal=audio_arousal,
+                    agreement=False,
+                    mismatch=hyp_mismatch,
+                )
+                if new_pat != current_pattern:
+                    cfs.append(
+                        f"If text confidence fell below {self.confidence_threshold:.2f} (currently {text_confidence:.2f}), "
+                        f"pattern would soften to '{new_pat}'."
+                    )
+
+        # 2. Voice tone shift
+        if not agreement:
+            new_pat, _, _ = self._evaluate_pattern_rules(
+                audio_direction=text_dir,
+                text_direction=text_dir,
+                audio_arousal=audio_arousal,
+                agreement=True,
+                mismatch=False,
+            )
+            cfs.append(
+                f"If vocal tone aligned with text sentiment ({text_dir}), "
+                f"pattern would become '{new_pat}'."
+            )
+        else:
+            opp_dir = "positive" if audio_dir == "negative" else ("negative" if audio_dir == "positive" else "neutral")
+            if opp_dir != audio_dir and high_audio:
+                hyp_mismatch = (text_confidence >= self.confidence_threshold)
+                new_pat, _, _ = self._evaluate_pattern_rules(
+                    audio_direction=audio_dir,
+                    text_direction=opp_dir,
+                    audio_arousal=audio_arousal,
+                    agreement=False,
+                    mismatch=hyp_mismatch,
+                )
+                cfs.append(
+                    f"If text sentiment shifted from {text_dir} to {opp_dir}, "
+                    f"pattern would become '{new_pat}'."
+                )
+
+        # 3. Abstention boundary
+        if combined_reliability < self.abstention_threshold:
+            cfs.append(
+                f"If combined reliability rose above {self.abstention_threshold:.2f} (currently {combined_reliability:.2f}), "
+                "the system would produce an active classification instead of abstaining."
+            )
+        else:
+            margin = round(combined_reliability - self.abstention_threshold, 2)
+            cfs.append(
+                f"Abstention buffer: combined reliability ({combined_reliability:.2f}) is {margin:.2f} above "
+                f"the abstention cut-off ({self.abstention_threshold:.2f})."
+            )
+
+        return cfs
 
     # ---------------------------------------------------------
     # Fusion
@@ -485,6 +597,40 @@ class MultimodalFusion:
         )
 
         # -----------------------------------------------------
+        # Combined reliability & Abstention check (Prompt G)
+        # -----------------------------------------------------
+        combined_reliability = round(
+            effective_audio_weight * audio_reliability
+            + effective_text_weight * text_reliability,
+            4,
+        )
+
+        is_abstention = combined_reliability < self.abstention_threshold
+
+        if is_abstention:
+            pattern_label = "Insufficient reliability. Review audio"
+            pattern_explanation = (
+                f"Combined modality reliability ({combined_reliability:.2f}) is below the "
+                f"abstention threshold ({self.abstention_threshold:.2f}). Voice or text signal "
+                "quality is insufficient for a confident classification. Manual review is recommended."
+            )
+            rule_ids_fired = ["abstention_low_reliability"]
+            interpretation = "Insufficient reliability. Review audio"
+
+        # -----------------------------------------------------
+        # Counterfactual sensitivity (Prompt G)
+        # -----------------------------------------------------
+        counterfactuals = self.compute_counterfactuals(
+            audio_emotion=audio_emotion,
+            audio_confidence=audio_confidence,
+            text_sentiment=text_sentiment,
+            text_confidence=text_confidence,
+            audio_arousal=audio_arousal,
+            combined_reliability=combined_reliability,
+            current_pattern=pattern_label,
+        )
+
+        # -----------------------------------------------------
         # Final result
         # -----------------------------------------------------
 
@@ -523,6 +669,11 @@ class MultimodalFusion:
             "pattern_label": pattern_label,
             "pattern_explanation": pattern_explanation,
             "rule_ids_fired": rule_ids_fired,
+
+            # ---- Prompt G additions ----
+            "abstention": is_abstention,
+            "combined_reliability": combined_reliability,
+            "counterfactuals": counterfactuals,
         }
 
         logger.info(

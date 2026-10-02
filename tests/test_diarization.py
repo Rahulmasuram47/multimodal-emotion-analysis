@@ -391,7 +391,7 @@ def test_assign_speaker_uses_custom_label_map(diarizer):
 
 
 def test_assign_speaker_uses_nearest_turn_fallback(diarizer):
-    """A nearby turn should be selected when there is a small timestamp gap."""
+    """A nearby turn without sufficient overlap should yield Uncertain Speaker, never forcing a label."""
 
     segments = [
         {
@@ -411,7 +411,7 @@ def test_assign_speaker_uses_nearest_turn_fallback(diarizer):
 
     result = diarizer.assign_speakers(segments, turns)
 
-    assert result[0]["speaker"] == "Speaker A"
+    assert result[0]["speaker"] == "Uncertain Speaker"
 
 
 def test_assign_speaker_returns_unknown_when_turn_is_too_far(diarizer):

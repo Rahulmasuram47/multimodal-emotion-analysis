@@ -47,9 +47,9 @@ init_session_state()
 
 
 @st.cache_resource(show_spinner=False)
-def load_analyzer() -> ConversationAnalyzer:
-    """Load and initialize the complete ML pipeline once per process."""
-    return ConversationAnalyzer()
+def load_analyzer(whisper_model_size: str = "base", whisper_language: str = "auto") -> ConversationAnalyzer:
+    """Load and initialize the complete ML pipeline once per configuration."""
+    return ConversationAnalyzer(whisper_model_size=whisper_model_size, whisper_language=whisper_language)
 
 
 # 2. BRAND HEADER & SIDEBAR
@@ -69,7 +69,7 @@ st.markdown(
 )
 
 uploader_key, mic_key = get_active_uploader_keys()
-upload_tab, mic_tab = st.tabs(["📂 Upload File", "🎙️ Record Microphone"])
+upload_tab, mic_tab, sample_tab = st.tabs(["📂 Upload File", "🎙️ Record Microphone", "🎵 Pick Sample Audio"])
 
 with upload_tab:
     uploaded_file = st.file_uploader(
@@ -87,6 +87,26 @@ with mic_tab:
     else:
         st.info(f"ℹ️ {FALLBACK_MICROPHONE_MESSAGE}")
 
+with sample_tab:
+    sample_options = {
+        "rising_tone.wav": "Rising Tone (Escalating Multimodal Dynamics)",
+        "happy_sample.wav": "Happy Clip (Positive Emotion Alignment)",
+        "angry_sample.wav": "Angry Clip (High-Arousal Negative Emotion)",
+        "sad_sample.wav": "Sad Clip (Low-Arousal Negative Emotion)",
+        "neutral_sample.wav": "Neutral Discussion (Balanced Dialogue)",
+        "real_voice.wav": "Real Conversational Voice Recording",
+    }
+    selected_sample = st.selectbox(
+        "Choose benchmark sample clip:",
+        options=list(sample_options.keys()),
+        format_func=lambda x: f"{x} — {sample_options[x]}",
+        key="sample_clip_selector",
+    )
+    if st.button("LOAD SAMPLE CLIP 📥", use_container_width=True):
+        st.session_state["_selected_sample_clip"] = selected_sample
+        clear_results()
+        st.rerun()
+
 # Reconcile audio inputs
 active_audio = None
 audio_format = "audio/wav"
@@ -102,8 +122,8 @@ elif uploaded_file is not None:
     format_map = {".wav": "audio/wav", ".mp3": "audio/mp3", ".ogg": "audio/ogg", ".flac": "audio/flac", ".m4a": "audio/mp4"}
     audio_format = format_map.get(suffix, "audio/wav")
     current_source = "upload"
-elif st.query_params.get("sample"):
-    sample_name = str(st.query_params.get("sample"))
+elif st.session_state.get("_selected_sample_clip") or st.query_params.get("sample"):
+    sample_name = str(st.session_state.get("_selected_sample_clip") or st.query_params.get("sample"))
     candidate = Path("sample_audio") / (sample_name if sample_name.endswith(".wav") else f"{sample_name}.wav")
     if candidate.exists():
         with open(candidate, "rb") as f:
@@ -112,6 +132,7 @@ elif st.query_params.get("sample"):
         active_audio.name = candidate.name
         audio_format = "audio/wav"
         current_source = "sample"
+        st.caption(f"Loaded demo sample: `{candidate.name}`")
 
 if current_source != st.session_state.get("_last_active_source"):
     st.session_state["_last_active_source"] = current_source
@@ -134,15 +155,14 @@ if analyze_clicked and active_audio is not None:
     if hasattr(active_audio, "seek"):
         active_audio.seek(0)
 
-    with st.status("Running Multimodal Emotion Analysis Pipeline...", expanded=True) as status:
+    t_pipeline_start = time.perf_counter()
+    with st.status("Executing Multimodal Emotion Analysis Pipeline...", expanded=True) as status:
         try:
-            status.write("Initializing ConversationAnalyzer...")
-            analyzer = load_analyzer()
-            # Phase 5: apply this session's fusion settings (sidebar
-            # sliders) on this run. Constructing MultimodalFusion is
-            # cheap (no ML weights), so this does not reload any model —
-            # only the cached analyzer's speech/emotion/sentiment models
-            # are reused via load_analyzer()'s @st.cache_resource.
+            whisper_size = st.session_state.get("whisper_model_size", "base")
+            whisper_lang = st.session_state.get("whisper_language", "auto")
+            status.write(f"[0.00s] Initializing ConversationAnalyzer (Whisper {whisper_size}, lang={whisper_lang})...")
+            analyzer = load_analyzer(whisper_model_size=whisper_size, whisper_language=whisper_lang)
+
             from app.fusion import MultimodalFusion
             from ui.state import get_fusion_settings
             fusion_settings = get_fusion_settings()
@@ -152,8 +172,13 @@ if analyze_clicked and active_audio is not None:
                 confidence_threshold=fusion_settings["confidence_threshold"],
             )
             temp_path = save_audio_buffer(audio_bytes, suffix=Path(getattr(active_audio, "name", "record.wav")).suffix or ".wav")
-            status.write("Executing neural speech, acoustic emotion, text sentiment & fusion models...")
-            result = analyzer.analyze(temp_path)
+
+            def progress_cb(msg: str, current: int, total: int) -> None:
+                elapsed = time.perf_counter() - t_pipeline_start
+                status.write(f"[{elapsed:.2f}s] {msg} ({current}/{total})")
+
+            status.write(f"[{time.perf_counter() - t_pipeline_start:.2f}s] Executing acoustic Wav2Vec2, Whisper STT & RoBERTa models...")
+            result = analyzer.analyze(temp_path, progress_callback=progress_cb)
             try:
                 Path(temp_path).unlink(missing_ok=True)
             except Exception:
@@ -162,7 +187,8 @@ if analyze_clicked and active_audio is not None:
             st.session_state["analysis_result"] = result
             st.session_state["audio_bytes"] = audio_bytes
             st.session_state["audio_format"] = audio_format
-            status.update(label="Analysis Completed Successfully!", state="complete", expanded=False)
+            t_total = time.perf_counter() - t_pipeline_start
+            status.update(label=f"Analysis Completed Successfully in {t_total:.2f}s!", state="complete", expanded=False)
         except Exception as exc:
             title, guidance = categorize_pipeline_error(exc)
             st.error(f"**{title}**\n\n{guidance}")
@@ -211,44 +237,34 @@ if result:
 
     dom_voice, dom_text, agree_count, mismatch_count = derive_segment_summary(segments)
 
-    tab_analysis, tab_acoustic, tab_validation, tab_annotation = st.tabs([
-        "💬 Conversation & Multimodal Analysis",
-        "🎛️ Acoustic Inspection",
-        "📊 Multimodal Validation",
-        "🏷️ Annotation Helper",
-    ])
+    if result.get("no_speech_detected"):
+        st.info("ℹ️ **No speech detected.** " + result.get("no_speech_message", "The recording appears to be silence or non-speech audio."))
 
-    with tab_analysis:
-        render_analysis_page(
-            result=result,
-            audio_bytes=audio_bytes,
-            audio_format=audio_format,
-            duration=duration,
-            language=language,
-            language_prob=language_prob,
-            segments=segments,
-            skipped_segments=skipped_segments,
-            dominant_voice=dom_voice,
-            dominant_text=dom_text,
-            agree_count=agree_count,
-            mismatch_count=mismatch_count,
-            trend=trend,
-            trend_label=trend_label,
-            trend_delta=trend_delta,
-            escalation=escalation,
-            escalation_detected=escalation_detected,
-            escalation_reason=escalation_reason,
-            verdict=verdict,
-        )
+    voice_collapse = result.get("voice_collapse")
+    if voice_collapse and voice_collapse.get("detected"):
+        st.warning(f"⚠️ **Voice model shows low discrimination on this input:** {voice_collapse.get('warning', 'Treat voice labels as low reliability.')}")
 
-    with tab_acoustic:
-        render_acoustic_page(audio_bytes=audio_bytes, segments=segments, duration=duration)
-
-    with tab_validation:
-        render_multimodal_validation_section()
-
-    with tab_annotation:
-        render_annotation_page()
+    render_analysis_page(
+        result=result,
+        audio_bytes=audio_bytes,
+        audio_format=audio_format,
+        duration=duration,
+        language=language,
+        language_prob=language_prob,
+        segments=segments,
+        skipped_segments=skipped_segments,
+        dominant_voice=dom_voice,
+        dominant_text=dom_text,
+        agree_count=agree_count,
+        mismatch_count=mismatch_count,
+        trend=trend,
+        trend_label=trend_label,
+        trend_delta=trend_delta,
+        escalation=escalation,
+        escalation_detected=escalation_detected,
+        escalation_reason=escalation_reason,
+        verdict=verdict,
+    )
 
     # Explainability & System Transparency Panels
     render_fusion_explainer()

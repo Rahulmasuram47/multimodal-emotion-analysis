@@ -33,6 +33,16 @@ Given an audio recording of speech, the system aims to:
 
 ---
 
+## 🔬 Empirical Research Questions
+
+The system is designed and evaluated around three core empirical research questions:
+
+1. **RQ1 (Multimodal Arbitration vs. Unimodal Classifiers)**: Does transparent, rule-based arbitration between acoustic emotion (Wav2Vec2) and linguistic sentiment (RoBERTa) yield more reliable affect characterization than either modality evaluated in isolation, particularly during cross-modal incongruence?
+2. **RQ2 (Continuous Reliability Gating & Collapse Mitigation)**: Can dynamic down-weighting informed by ASR transcription log-probabilities (`text_reliability`) and acoustic distribution collapse detection (`voice_reliability`) reduce spurious incongruence flags when one modality operates in a degraded acoustic or linguistic regime?
+3. **RQ3 (Temporal Dynamics & Escalation Sensitivity)**: Does turn-by-turn intensity tracking combining prosodic arousal and lexical negativity provide actionable early warning of conversational escalation compared to static single-utterance emotion classification?
+
+---
+
 ## 🏗️ Architecture
 
 ```text

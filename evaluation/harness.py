@@ -49,6 +49,7 @@ class EvaluationResult:
     has_ground_truth: bool
     escalation_metrics: Dict[str, Any] = field(default_factory=dict)
     incongruence_metrics: Dict[str, Any] = field(default_factory=dict)
+    fusion_rule_audit: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -60,6 +61,7 @@ class EvaluationResult:
             "speaker_count": self.speaker_count_metrics,
             "escalation": self.escalation_metrics,
             "incongruence": self.incongruence_metrics,
+            "fusion_rule_audit": self.fusion_rule_audit,
             "sample_records": self.sample_records,
         }
 
@@ -142,6 +144,18 @@ class EvaluationResult:
         else:
             lines.append("   Status: N/A (no speaker count ground truth provided)")
 
+        # Fusion Rule Audit (Prompt G)
+        lines.append("")
+        lines.append("5. FUSION RULE AUDIT TABLE (REAL DATA ONLY):")
+        if self.fusion_rule_audit:
+            lines.append("   " + f"{'Rule ID':<38} | {'Fired':<6} | {'Evaluated':<9} | {'Matched':<7} | {'Match Rate'}")
+            lines.append("   " + "-" * 75)
+            for r in self.fusion_rule_audit:
+                rate_str = f"{r['match_rate']:.1%}" if r['match_rate'] is not None else "N/A (pending GT)"
+                lines.append(f"   {r['rule_id']:<38} | {r['times_fired']:<6} | {r['evaluated_gt']:<9} | {r['matched_gt']:<7} | {rate_str}")
+        else:
+            lines.append("   No fusion rule firing events captured in this evaluation run.")
+
         lines.append("=" * 64)
         return "\n".join(lines)
 
@@ -222,6 +236,7 @@ class EvaluationHarness:
                 "wer": None,
                 "cer": None,
                 "notes": sample.notes,
+                "extra": pred.extra,
             }
 
             # 1. Voice emotion
@@ -327,6 +342,62 @@ class EvaluationHarness:
                 "overall_wer": None,
             }
 
+        # Aggregate Fusion Rule Audit (Prompt G)
+        rule_audit_stats: Dict[str, Dict[str, int]] = {}
+        for sample, pred in zip(dataset, [pred_map.get(s.filename or str(i), SamplePrediction(filename=s.filename)) for i, s in enumerate(dataset)]):
+            fusion_res = (pred.extra.get("fusion_result") or {})
+            fired_rules = fusion_res.get("rule_ids_fired", [])
+            for r_id in fired_rules:
+                if r_id not in rule_audit_stats:
+                    rule_audit_stats[r_id] = {"times_fired": 0, "evaluated_gt": 0, "matched_gt": 0}
+                rule_audit_stats[r_id]["times_fired"] += 1
+
+                has_gt = False
+                matched = False
+                if "mismatch" in r_id:
+                    if sample.true_incongruent is not None:
+                        has_gt = True
+                        matched = (sample.true_incongruent.strip().lower() == "yes")
+                elif "agreement_positive" in r_id:
+                    if sample.true_text_sentiment or sample.true_voice_emotion:
+                        has_gt = True
+                        matched = (
+                            (sample.true_text_sentiment or "").strip().lower() == "positive"
+                            or (sample.true_voice_emotion or "").strip().lower() == "happy"
+                        )
+                elif "agreement_negative" in r_id:
+                    if sample.true_text_sentiment or sample.true_voice_emotion:
+                        has_gt = True
+                        matched = (
+                            (sample.true_text_sentiment or "").strip().lower() == "negative"
+                            or (sample.true_voice_emotion or "").strip().lower() in ("angry", "sad")
+                        )
+                elif "agreement_neutral" in r_id:
+                    if sample.true_text_sentiment or sample.true_voice_emotion:
+                        has_gt = True
+                        matched = (
+                            (sample.true_text_sentiment or "").strip().lower() == "neutral"
+                            or (sample.true_voice_emotion or "").strip().lower() == "neutral"
+                        )
+
+                if has_gt:
+                    rule_audit_stats[r_id]["evaluated_gt"] += 1
+                    if matched:
+                        rule_audit_stats[r_id]["matched_gt"] += 1
+
+        fusion_rule_audit = []
+        for r_id, stats in sorted(rule_audit_stats.items()):
+            ev = stats["evaluated_gt"]
+            m = stats["matched_gt"]
+            rate = round(m / ev, 4) if ev > 0 else None
+            fusion_rule_audit.append({
+                "rule_id": r_id,
+                "times_fired": stats["times_fired"],
+                "evaluated_gt": ev,
+                "matched_gt": m,
+                "match_rate": rate,
+            })
+
         return EvaluationResult(
             total_samples=len(dataset),
             voice_emotion_metrics=ve_metrics,
@@ -337,5 +408,6 @@ class EvaluationHarness:
             incongruence_metrics=inc_metrics,
             sample_records=sample_records,
             has_ground_truth=has_any_gt,
+            fusion_rule_audit=fusion_rule_audit,
         )
 

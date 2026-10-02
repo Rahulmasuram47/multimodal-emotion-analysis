@@ -1,25 +1,86 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Default: Dark Theme (WCAG AA Compliant) */
 :root {
     --bg: #101318;
     --panel: #181D24;
     --panel-2: #1D232C;
     --panel-hover: #222933;
     --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.15);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    /* Typography & Core Text */
     --text: #F1F3F5;
-    --muted: #8E97A6;
-    --muted-dark: #636B78;
-    --voice: #E8A33D;
-    --voice-glow: rgba(232, 163, 61, 0.15);
-    --text-accent: #4FB3A9;
-    --text-glow: rgba(79, 179, 169, 0.15);
-    --positive: #58B889;
-    --positive-bg: rgba(88, 184, 137, 0.12);
-    --negative: #E46B6B;
-    --negative-bg: rgba(228, 107, 107, 0.12);
-    --neutral: #9AA3B2;
-    --neutral-bg: rgba(154, 163, 178, 0.10);
-    --fused: #D7DBE2;
+    --muted: #94A3B8;
+    --muted-dark: #64748B;
+
+    /* Semantic Modal Tokens */
+    --voice: #FBBF24;
+    --voice-glow: rgba(251, 191, 36, 0.15);
+    --text-accent: #38BDF8;
+    --text-glow: rgba(56, 189, 248, 0.15);
+    --positive: #4ADE80;
+    --positive-bg: rgba(74, 222, 128, 0.12);
+    --negative: #F87171;
+    --negative-bg: rgba(248, 113, 113, 0.12);
+    --warning: #FBBF24;
+    --warning-bg: rgba(251, 191, 36, 0.12);
+    --neutral: #94A3B8;
+    --neutral-bg: rgba(148, 163, 184, 0.10);
+    --fused: #E2E8F0;
+
+    /* Layout & Spacing Scale */
     --card-radius: 8px;
+    --card-radius-sm: 4px;
+    --card-radius-lg: 12px;
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1.0rem;
+    --space-lg: 1.5rem;
+}
+
+/* Light Theme support via OS preference or data-theme */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --bg: #F8FAFC;
+        --panel: #FFFFFF;
+        --panel-2: #F1F5F9;
+        --panel-hover: #E2E8F0;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.18);
+
+        --text: #0F172A;
+        --muted: #475569;
+        --muted-dark: #64748B;
+
+        --voice: #B45309;
+        --voice-glow: rgba(180, 83, 9, 0.12);
+        --text-accent: #0284C7;
+        --text-glow: rgba(2, 132, 199, 0.12);
+        --positive: #15803D;
+        --positive-bg: rgba(21, 128, 61, 0.10);
+        --negative: #DC2626;
+        --negative-bg: rgba(220, 38, 38, 0.10);
+        --warning: #B45309;
+        --warning-bg: rgba(180, 83, 9, 0.10);
+        --neutral: #475569;
+        --neutral-bg: rgba(71, 85, 105, 0.08);
+        --fused: #334155;
+    }
+}
+
+/* Accessible focus ring indicators (WCAG 2.1 2.4.7) */
+:focus-visible {
+    outline: 2px solid var(--text-accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* Reduced Motion Mode (WCAG 2.1 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
 }

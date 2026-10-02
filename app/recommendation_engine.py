@@ -192,8 +192,8 @@ def generate_recommendation(analysis_result: Dict[str, Any]) -> ActionableRecomm
         return ActionableRecommendation(
             status=STATUS_HIGH_INCONGRUENCE,
             status_level="warning",
-            recommended_action="Review conversation context for potential sarcasm, passive tension, or transcription mismatch.",
-            reason="Strong contradiction detected between spoken acoustic tone (e.g. angry or agitated voice) and literal linguistic sentiment (e.g. positive text), suggesting potential nuance or masking.",
+            recommended_action="Voice and text point in different directions. Review the audio and context.",
+            reason="Strong contradiction detected between spoken acoustic tone (e.g. angry or agitated voice) and literal linguistic sentiment (e.g. positive text), indicating computational modality disagreement.",
             contributing_factors=contributing_factors,
         )
 

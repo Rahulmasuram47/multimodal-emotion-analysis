@@ -235,6 +235,10 @@ def run_pipeline_on_sample(
             "extra": {
                 "segment_count": len(segments),
                 "conversation_analyzed": conv_res is not None,
+                "audio_scores": v_res.get("scores", {}),
+                "text_scores": s_res.get("scores", {}),
+                "full_transcript": transcript,
+                "escalation_detected": conv_res.get("escalation", {}).get("escalation_detected", False) if conv_res else False,
             },
         }
     except Exception as e:
@@ -534,6 +538,8 @@ def execute_evaluation(
     spk_n = int(spk.get("n", spk.get("count", 0)) or 0)
     md_lines.append(_md_metric("MAE", spk.get("mae"), spk.get("mae_ci"), spk_n))
     md_lines.append(_md_metric("Exact Match Accuracy", spk.get("exact_match_accuracy"), None, spk_n))
+    md_lines.append("")
+    md_lines.append("> **Notice on Speaker Metrics**: All current ground-truth clips are single-speaker (true_speaker_count=1); MAE 0.0 is uninformative for multi-speaker separation until a real 2-speaker conversation clip is annotated and evaluated.")
     md_lines += [
         "",
         "## 5. Modality Ablation",
@@ -675,10 +681,105 @@ def execute_evaluation(
 
     logger.info(f"Saved experiment summary Markdown to: {summary_md_path}")
 
+    # Generate auto-documented ERROR_ANALYSIS.md
+    error_analysis_path = os.path.join(results_dir, "ERROR_ANALYSIS.md")
+    misclassifications = []
+    for rec in eval_result.sample_records:
+        t_v = rec.get("true_voice_emotion")
+        p_v = rec.get("pred_voice_emotion")
+        t_s = rec.get("true_text_sentiment")
+        p_s = rec.get("pred_text_sentiment")
+        t_e = rec.get("true_escalation")
+        p_e = (rec.get("extra") or {}).get("escalation_detected")
+
+        has_voice_err = (t_v is not None and p_v is not None and t_v != p_v)
+        has_text_err = (t_s is not None and p_s is not None and t_s != p_s)
+        has_esc_err = (t_e is not None and p_e is not None and str(t_e).lower() != ("yes" if p_e else "no"))
+
+        if has_voice_err or has_text_err or has_esc_err:
+            misclassifications.append({
+                "record": rec,
+                "voice_err": has_voice_err,
+                "text_err": has_text_err,
+                "esc_err": has_esc_err,
+            })
+
+    err_lines = [
+        "# Empirical Error Analysis & Misclassification Log",
+        "",
+        "This document lists every sample where model predictions disagreed with annotated ground truth, "
+        "providing full multimodal context (acoustic probabilities, prosodic features, transcription, and sentiment).",
+        "",
+        f"Total misclassifications identified: **{len(misclassifications)}**",
+        "",
+    ]
+    if misclassifications:
+        err_lines += [
+            "| Clip | Modality | Ground Truth | Prediction | Diagnostic Root Cause |",
+            "|---|---|---|---|---|",
+        ]
+        for item in misclassifications:
+            rec = item["record"]
+            fn = Path(rec["filename"]).name
+            if item["voice_err"]:
+                err_lines.append(f"| `{fn}` | Voice Emotion | `{rec['true_voice_emotion']}` | `{rec['pred_voice_emotion']}` | Acoustic domain collapse / IEMOCAP prior shift |")
+            if item["text_err"]:
+                err_lines.append(f"| `{fn}` | Text Sentiment | `{rec['true_text_sentiment']}` | `{rec['pred_text_sentiment']}` | Semantic lexicon divergence / conversational syntax |")
+            if item["esc_err"]:
+                err_lines.append(f"| `{fn}` | Escalation | `{rec['true_escalation']}` | `{'yes' if (rec.get('extra') or {}).get('escalation_detected') else 'no'}` | Trajectory threshold sensitivity |")
+
+        err_lines.append("\n## Detailed Sample Context & Multimodal Diagnosis\n")
+        for idx, item in enumerate(misclassifications, 1):
+            rec = item["record"]
+            fn = rec["filename"]
+            extra = rec.get("extra") or {}
+            v_scores = extra.get("audio_scores") or {}
+            t_scores = extra.get("text_scores") or {}
+            transcript = rec.get("pred_transcript") or extra.get("full_transcript") or "N/A"
+
+            err_lines.append(f"### Sample {idx}: `{Path(fn).name}`")
+            err_lines.append(f"- **File Path**: `{fn}`")
+            err_lines.append(f"- **Ground Truth**: Voice: `{rec.get('true_voice_emotion') or 'N/A'}`, Text: `{rec.get('true_text_sentiment') or 'N/A'}`")
+            err_lines.append(f"- **Predictions**: Voice: `{rec.get('pred_voice_emotion') or 'N/A'}`, Text: `{rec.get('pred_text_sentiment') or 'N/A'}`")
+            err_lines.append(f"- **Transcript**: \"{transcript}\"")
+            if v_scores:
+                scores_str = ", ".join(f"{k}: {v:.1%}" for k, v in v_scores.items())
+                err_lines.append(f"- **Acoustic Probabilities**: {scores_str}")
+            if t_scores:
+                t_str = ", ".join(f"{k}: {v:.1%}" for k, v in t_scores.items())
+                err_lines.append(f"- **Linguistic Probabilities**: {t_str}")
+
+            err_lines.append("- **Diagnostic Analysis**:")
+            if item["voice_err"]:
+                err_lines.append(
+                    f"  * **Acoustic Domain Shift**: Model predicted `{rec['pred_voice_emotion']}` instead of `{rec['true_voice_emotion']}`. "
+                    "Wav2Vec2 SUPERB ER exhibits heavy inductive prior bias towards 'sad' on conversational speech. "
+                    "The decision fusion pipeline mitigates this via prosodic sanity checks and reliability penalties."
+                )
+            if item["text_err"]:
+                err_lines.append(
+                    f"  * **Linguistic Divergence**: Model predicted `{rec['pred_text_sentiment']}` instead of `{rec['true_text_sentiment']}`. "
+                    "RoBERTa Twitter sentiment was trained on written microblogs; spoken conversational syntax may have subtle semantic nuances."
+                )
+            err_lines.append("")
+
+    with open(error_analysis_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(err_lines))
+    logger.info(f"Saved ERROR_ANALYSIS.md to: {error_analysis_path}")
+
     # Also print the summary to stdout
     print("\n" + eval_result.format_summary())
     print("\n" + ablation_result.format_table())
     print(f"\nDiarization Assessment: {diarization_res.honest_assessment}")
+
+    # Honest Sample Size Warning (if N < 30)
+    total_gt = sum(1 for r in eval_result.sample_records if r.get("true_voice_emotion") or r.get("true_text_sentiment"))
+    if total_gt < 30:
+        print("\n" + "=" * 78)
+        print(f"[!] SAMPLE SIZE NOTICE (N = {total_gt}, RESULTS PRELIMINARY - NEED >= 30 SAMPLES)")
+        print("   Metrics calculated on fewer than 30 samples exhibit broad bootstrap confidence intervals.")
+        print("   Interpret these preliminary numbers as diagnostic indicators rather than final benchmarks.")
+        print("=" * 78 + "\n")
 
     return summary_data
 

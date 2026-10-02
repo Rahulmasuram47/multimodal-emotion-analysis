@@ -3,7 +3,7 @@ Modality cards and dual-modality channel meters rendering.
 """
 
 import html
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import streamlit as st
 
 from ui.utils import emotion_icon, safe_float
@@ -60,17 +60,40 @@ def render_modality_cards(
     segments: List[Dict[str, Any]],
     agree_count: int,
     mismatch_count: int,
+    voice_reliability: Optional[float] = None,
+    text_reliability: Optional[float] = None,
+    combined_reliability: Optional[float] = None,
+    abstention: bool = False,
 ) -> None:
-    """Render side-by-side Voice, Text, and Alignment snapshot cards."""
+    """Render side-by-side Voice, Text, and Alignment snapshot cards with reliability chips."""
     st.markdown(
         """
         <div class="section-header-bar">
             <div class="section-title">🎚️ Modality Snapshot & Fusion Arbitration</div>
-            <div class="section-badge">VOICE VS TEXT ALIGNMENT</div>
+            <div class="section-badge">VOICE VS TEXT ALIGNMENT & RELIABILITY</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    # Compute average reliabilities across segments if not explicitly passed
+    if voice_reliability is None and segments:
+        v_rels = [safe_float((s.get("fusion") or {}).get("audio_reliability", 1.0)) for s in segments]
+        voice_reliability = sum(v_rels) / len(v_rels) if v_rels else 1.0
+    elif voice_reliability is None:
+        voice_reliability = 1.0
+
+    if text_reliability is None and segments:
+        t_rels = [safe_float((s.get("fusion") or {}).get("text_reliability", 1.0)) for s in segments]
+        text_reliability = sum(t_rels) / len(t_rels) if t_rels else 1.0
+    elif text_reliability is None:
+        text_reliability = 1.0
+
+    if combined_reliability is None and segments:
+        c_rels = [safe_float((s.get("fusion") or {}).get("combined_reliability", 1.0)) for s in segments]
+        combined_reliability = sum(c_rels) / len(c_rels) if c_rels else 1.0
+    elif combined_reliability is None:
+        combined_reliability = 1.0
 
     snap_col1, snap_col2, snap_col3 = st.columns(3)
 
@@ -78,13 +101,18 @@ def render_modality_cards(
         st.markdown(
             f"""
             <div class="modality-card voice-accent">
-                <div class="card-meta-label">Acoustic Modality (Voice)</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                    <div class="card-meta-label">Acoustic Modality (Voice)</div>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(251,191,36,0.15); color:var(--voice); padding:2px 6px; border-radius:4px; font-weight:700;">
+                        REL: {voice_reliability:.2f}
+                    </span>
+                </div>
                 <div class="card-highlight-value" style="color: var(--voice);">
                     <span>{emotion_icon(dominant_voice)}</span>
                     <span>{html.escape(dominant_voice.title())}</span>
                 </div>
                 <div class="card-subtext">
-                    Dominant acoustic emotion extracted via Wav2Vec2-SUPERB acoustic emotion classification.
+                    Dominant acoustic emotion extracted via Wav2Vec2-SUPERB acoustic classification.
                 </div>
             </div>
             """,
@@ -95,7 +123,12 @@ def render_modality_cards(
         st.markdown(
             f"""
             <div class="modality-card text-accent">
-                <div class="card-meta-label">Linguistic Modality (Text)</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                    <div class="card-meta-label">Linguistic Modality (Text)</div>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 6px; border-radius:4px; font-weight:700;">
+                        REL: {text_reliability:.2f}
+                    </span>
+                </div>
                 <div class="card-highlight-value" style="color: var(--text-accent);">
                     <span>{emotion_icon(dominant_text)}</span>
                     <span>{html.escape(dominant_text.title())}</span>
@@ -111,10 +144,18 @@ def render_modality_cards(
     with snap_col3:
         total_segs = max(1, len(segments))
         agree_pct = (agree_count / total_segs) * 100
+        abstain_badge = (
+            """<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(248,113,113,0.2); color:var(--negative); padding:2px 6px; border-radius:4px; font-weight:700;">ABSTAINED</span>"""
+            if abstention
+            else f"""<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.15); color:var(--fused); padding:2px 6px; border-radius:4px; font-weight:700;">REL: {combined_reliability:.2f}</span>"""
+        )
         st.markdown(
             f"""
             <div class="modality-card fusion-accent">
-                <div class="card-meta-label">Cross-Modal Alignment</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                    <div class="card-meta-label">Cross-Modal Alignment</div>
+                    {abstain_badge}
+                </div>
                 <div class="card-highlight-value" style="color: var(--fused);">
                     <span>⚡ {agree_count}/{total_segs} Agree</span>
                 </div>

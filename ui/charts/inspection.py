@@ -49,6 +49,11 @@ def extract_acoustic_features(audio_bytes: bytes, audio_hash: str) -> Dict[str, 
 
     freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
 
+    # MFCC extraction (13 coefficients)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, hop_length=hop_length)
+    mfcc_mean = [round(float(v), 3) for v in np.mean(mfcc, axis=1)]
+    mfcc_std = [round(float(v), 3) for v in np.std(mfcc, axis=1)]
+
     return {
         "spectrogram_db": spectrogram_db.tolist(),
         "times_spec": times_spec.tolist(),
@@ -57,6 +62,8 @@ def extract_acoustic_features(audio_bytes: bytes, audio_hash: str) -> Dict[str, 
         "times_rms": times_rms.tolist(),
         "f0": [None if np.isnan(v) else float(v) for v in f0],
         "times_f0": times_f0.tolist(),
+        "mfcc_mean": mfcc_mean,
+        "mfcc_std": mfcc_std,
     }
 
 
@@ -190,7 +197,41 @@ def render_acoustic_inspection(
 
     fig.update_xaxes(title_text="Time (seconds)", row=3, col=1)
     fig.update_yaxes(title_text="Hz", row=1, col=1)
-    fig.update_yaxes(title_text="Pitch (Hz)", row=2, col=1)
-    fig.update_yaxes(title_text="Amplitude", row=3, col=1)
-
     st.plotly_chart(fig, use_container_width=True)
+
+    # MFCC Summary (Prompt G)
+    mfcc_mean = features.get("mfcc_mean", [])
+    mfcc_std = features.get("mfcc_std", [])
+    if mfcc_mean:
+        st.markdown(
+            """
+            <div class="section-header-bar" style="margin-top: 1.2rem;">
+                <div class="section-title">📊 Mel-Frequency Cepstral Coefficients (MFCC-13)</div>
+                <div class="section-badge">TIMBRAL ACOUSTIC SUMMARY</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        mfcc_labels = [f"MFCC {i+1}" for i in range(len(mfcc_mean))]
+        mfcc_fig = go.Figure()
+        mfcc_fig.add_trace(
+            go.Bar(
+                x=mfcc_labels,
+                y=mfcc_mean,
+                error_y=dict(type="data", array=mfcc_std, visible=True),
+                marker_color="#38bdf8",
+                opacity=0.85,
+                name="Mean ± Std",
+            )
+        )
+        mfcc_fig.update_layout(
+            height=250,
+            margin=dict(l=40, r=20, t=20, b=30),
+            paper_bgcolor="#101318",
+            plot_bgcolor="#181D24",
+            font=dict(family="IBM Plex Mono", color="#8E97A6", size=10),
+            xaxis=dict(gridcolor="rgba(255, 255, 255, 0.05)"),
+            yaxis=dict(title="Coefficient Value", gridcolor="rgba(255, 255, 255, 0.05)"),
+            showlegend=False,
+        )
+        st.plotly_chart(mfcc_fig, use_container_width=True)

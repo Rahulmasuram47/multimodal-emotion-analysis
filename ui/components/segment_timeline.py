@@ -11,6 +11,10 @@ from ui.components.modality_cards import render_channel_meters_html
 from ui.utils import direction_label, emotion_icon, safe_float
 
 
+import re
+import textwrap
+
+
 def _render_why_this_result(fusion: Dict[str, Any]) -> None:
     """Phase 5: 'Why this result?' expander — shows the declarative
     pattern rule that fired, the evidence behind it, and the effective
@@ -45,64 +49,64 @@ def _render_why_this_result(fusion: Dict[str, Any]) -> None:
     if not pattern_label:
         return  # nothing to show for an older/incomplete fusion dict
 
+    rule_ids_block = ""
+    if rule_ids:
+        rule_ids_str = ", ".join(html.escape(str(r)) for r in rule_ids)
+        rule_ids_block = (
+            f'<div style="font-size: 0.68rem; color: var(--muted); margin-bottom: 0.6rem;">'
+            f'Rule ID(s) fired: <code>{rule_ids_str}</code></div>'
+        )
+
+    arousal_display = f"{safe_float(audio_arousal):.2f}" if isinstance(audio_arousal, (int, float)) else "n/a"
+    weight_note = (
+        " (adjusted from base due to segment reliability)"
+        if weights_shifted
+        else " (equal to base weights — both modalities fully reliable)"
+    )
+
+    audio_rel_note = " (widened short-segment window)" if audio_reliability < 1.0 else ""
+    text_rel_note = " (low ASR confidence)" if text_reliability < 1.0 else ""
+
+    cfs = fusion.get("counterfactuals", [])
+    cfs_block = ""
+    if cfs:
+        cfs_items = "".join(f"<li style='margin-bottom:0.25rem;'>{html.escape(c)}</li>" for c in cfs)
+        cfs_block = (
+            f'<div style="margin-top:0.6rem; border-top:1px dashed var(--border); padding-top:0.4rem;">'
+            f'<div style="font-family: \'IBM Plex Mono\', monospace; font-size:0.75rem; font-weight:700; color:var(--text-accent); text-transform:uppercase; margin-bottom:0.25rem;">'
+            f'Counterfactual Sensitivity:</div>'
+            f'<ul style="margin:0; padding-left:1.1rem; font-size:0.75rem; color:var(--text); line-height:1.4;">{cfs_items}</ul>'
+            f'</div>'
+        )
+
+    content = textwrap.dedent(f"""
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--fused); text-transform: uppercase; margin-bottom: 0.3rem;">
+Pattern: {html.escape(pattern_label)}
+</div>
+<div style="font-size: 0.78rem; color: var(--text); line-height: 1.5; margin-bottom: 0.6rem;">
+{html.escape(pattern_explanation)}
+</div>
+{rule_ids_block}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;">
+<div>Voice arousal: <strong style="color:var(--text);">{arousal_display}</strong></div>
+<div>Text arousal: <strong style="color:var(--text);">{html.escape(str(text_arousal))}</strong> (not modeled)</div>
+</div>
+<div style="font-size:0.75rem;color:var(--muted);">
+<div style="margin-bottom:0.2rem;">
+Base weights: audio {base_audio_w:.2f} / text {base_text_w:.2f}
+</div>
+<div>
+Effective weights used: <strong style="color:var(--text);">audio {eff_audio_w:.2f} / text {eff_text_w:.2f}</strong>{weight_note}
+</div>
+<div style="margin-top:0.3rem;">
+Reliability — voice: {audio_reliability:.2f}, text: {text_reliability:.2f}{audio_rel_note}{text_rel_note}
+</div>
+</div>
+{cfs_block}
+""").strip()
+
     with st.expander("🔎 Why this result?", expanded=False):
-        st.markdown(
-            f"""
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--fused); text-transform: uppercase; margin-bottom: 0.3rem;">
-                Pattern: {html.escape(pattern_label)}
-            </div>
-            <div style="font-size: 0.78rem; color: var(--text); line-height: 1.5; margin-bottom: 0.6rem;">
-                {html.escape(pattern_explanation)}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if rule_ids:
-            rule_ids_str = ", ".join(html.escape(str(r)) for r in rule_ids)
-            st.markdown(
-                f"""
-                <div style="font-size: 0.68rem; color: var(--muted); margin-bottom: 0.6rem;">
-                    Rule ID(s) fired: <code>{rule_ids_str}</code>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        arousal_display = f"{safe_float(audio_arousal):.2f}" if isinstance(audio_arousal, (int, float)) else "n/a"
-        st.markdown(
-            f"""
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;">
-                <div>Voice arousal: <strong style="color:var(--text);">{arousal_display}</strong></div>
-                <div>Text arousal: <strong style="color:var(--text);">{html.escape(str(text_arousal))}</strong> (not modeled — RoBERTa gives no arousal signal)</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        weight_note = (
-            " (adjusted from base due to segment reliability)"
-            if weights_shifted
-            else " (equal to base weights — both modalities fully reliable)"
-        )
-        st.markdown(
-            f"""
-            <div style="font-size:0.72rem;color:var(--muted);">
-                <div style="margin-bottom:0.2rem;">
-                    Base weights: audio {base_audio_w:.2f} / text {base_text_w:.2f}
-                </div>
-                <div>
-                    Effective weights used: <strong style="color:var(--text);">audio {eff_audio_w:.2f} / text {eff_text_w:.2f}</strong>{weight_note}
-                </div>
-                <div style="margin-top:0.3rem;">
-                    Reliability — voice: {audio_reliability:.2f}, text: {text_reliability:.2f}
-                    {' (widened short-segment window)' if audio_reliability < 1.0 else ''}
-                    {' (low ASR confidence)' if text_reliability < 1.0 else ''}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown(content, unsafe_allow_html=True)
 
 
 def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
@@ -152,13 +156,74 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             f"Voice: {v_emotion.upper()} | Text: {t_sentiment.upper()} | Intensity: {intensity:.0%}"
         )
 
+        # Per-speaker color assignment (Prompt H)
+        speaker_colors = {
+            "Speaker A": "#38bdf8",
+            "Speaker B": "#f472b6",
+            "Speaker C": "#a78bfa",
+            "Speaker D": "#fbbf24",
+        }
+        spk_color = speaker_colors.get(speaker, "#94a3b8")
+        pat_label = html.escape(str(fusion.get("pattern_label", "Multimodal Arbitration")))
+
         with st.expander(expander_title, expanded=True):
+            # Chat-style turn header with emotion chips & speaker tag
+            st.markdown(
+                f"""
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{spk_color};"></span>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:0.78rem; font-weight:700; color:{spk_color};">
+                            {html.escape(speaker if speaker and speaker != 'Unknown' else 'Speaker')}
+                        </span>
+                        <span style="font-size:0.75rem; color:var(--muted);">[{start:.2f}s → {end:.2f}s]</span>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(251,191,36,0.15); color:var(--voice); padding:2px 8px; border-radius:4px;">🎙️ {v_emotion.upper()}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 8px; border-radius:4px;">💬 {t_sentiment.upper()}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.12); color:var(--fused); padding:2px 8px; border-radius:4px;">⚡ {pat_label}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Intensity mini-bar
+            st.markdown(
+                f"""
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem;">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; color:var(--muted); min-width:90px;">Intensity: {intensity:.0%}</span>
+                    <div style="flex-grow:1; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden;">
+                        <div style="background:linear-gradient(90deg, #38bdf8, #f87171); width:{max(0.0, min(1.0, intensity))*100:.1f}%; height:100%; border-radius:3px;"></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             if text:
-                speaker_prefix = f"{html.escape(speaker)}: " if speaker and speaker != "Unknown" else ""
+                clean_text = text
+                if speaker and speaker != "Unknown":
+                    clean_text = re.sub(rf"^{re.escape(speaker)}\s*:\s*", "", clean_text, flags=re.IGNORECASE)
+                    speaker_prefix = f"{html.escape(speaker)}: "
+                else:
+                    speaker_prefix = ""
                 st.markdown(
                     f"""
-                    <div class="segment-transcript-box">
-                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--text-accent); font-weight: 700; text-transform: uppercase;">Transcript:</span> "{speaker_prefix}{html.escape(text)}"
+                    <div class="segment-transcript-box" style="border-left: 3px solid {spk_color};">
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--text-accent); font-weight: 700; text-transform: uppercase;">Transcript:</span> "{speaker_prefix}{html.escape(clean_text)}"
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            seg_text_rel = safe_float(segment.get("text_reliability", fusion.get("text_reliability", 1.0)))
+            seg_low_conf = bool(segment.get("is_low_confidence", False) or seg_text_rel < 0.65)
+            if seg_low_conf:
+                st.markdown(
+                    f"""
+                    <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--text);">
+                        ⚠️ <strong>Low ASR Confidence (Text Reliability {seg_text_rel:.0%}):</strong> Sentiment ran on an uncertain transcript.
                     </div>
                     """,
                     unsafe_allow_html=True,

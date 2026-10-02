@@ -9,6 +9,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from faster_whisper import WhisperModel
+import numpy as np
 
 import config
 
@@ -82,6 +83,7 @@ class SpeechToText:
         segments, info = self.model.transcribe(
             audio_path,
             beam_size=5,
+            word_timestamps=True,
             vad_filter=True,
             vad_parameters={
                 "min_silence_duration_ms": 300,
@@ -102,10 +104,26 @@ class SpeechToText:
             avg_logprob = float(getattr(segment, "avg_logprob", 0.0))
             no_speech_prob = float(getattr(segment, "no_speech_prob", 0.0))
 
+            # Continuous text reliability calculation from avg_logprob and no_speech_prob
+            # exp(avg_logprob) ranges in (0, 1]; scaled by (1 - no_speech_prob)
+            raw_asr_conf = float(np.exp(np.clip(avg_logprob, -3.0, 0.0))) * (1.0 - np.clip(no_speech_prob, 0.0, 1.0))
+            text_reliability = float(np.clip(round(raw_asr_conf, 3), 0.20, 1.0))
+
             is_low_confidence = (
                 avg_logprob <= config.STT_LOW_CONFIDENCE_AVG_LOGPROB
                 or no_speech_prob >= config.STT_HIGH_NO_SPEECH_PROB_THRESHOLD
+                or text_reliability < 0.65
             )
+
+            # Extract word-level timestamps if available
+            words_list: List[Dict[str, Any]] = []
+            for w in getattr(segment, "words", []) or []:
+                words_list.append({
+                    "word": getattr(w, "word", ""),
+                    "start": float(getattr(w, "start", 0.0)),
+                    "end": float(getattr(w, "end", 0.0)),
+                    "probability": float(getattr(w, "probability", 1.0)),
+                })
 
             segment_results.append(
                 {
@@ -114,27 +132,30 @@ class SpeechToText:
                     "text": text,
                     "avg_logprob": avg_logprob,
                     "no_speech_prob": no_speech_prob,
+                    "text_reliability": text_reliability,
                     "is_low_confidence": is_low_confidence,
+                    "words": words_list,
                 }
             )
 
             transcript_parts.append(text)
 
         transcript = " ".join(transcript_parts).strip()
+        no_speech = (len(segment_results) == 0)
 
         result = {
             "text": transcript,
-            "language": info.language,
-            "language_probability": float(
-                info.language_probability
-            ),
+            "language": getattr(info, "language", "unknown") if info else "unknown",
+            "language_probability": float(getattr(info, "language_probability", 0.0)) if info else 0.0,
             "segments": segment_results,
+            "no_speech_detected": no_speech,
         }
 
         logger.info(
-            "Transcription completed: %d characters, %d segments",
+            "Transcription completed: %d characters, %d segments (no_speech=%s)",
             len(transcript),
             len(segment_results),
+            no_speech,
         )
 
         return result

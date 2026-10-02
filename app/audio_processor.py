@@ -4,7 +4,7 @@ Handles validation, loading, resampling, normalization, and acoustic feature ext
 """
 import os
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 import numpy as np
 import soundfile as sf
 import librosa
@@ -170,7 +170,11 @@ def extract_acoustic_features(
     y: np.ndarray,
     sr: int = TARGET_SAMPLE_RATE,
     n_mfcc: int = N_MFCC,
+    sample_rate: Optional[int] = None,
 ) -> Dict[str, Any]:
+    if sample_rate is not None:
+        sr = sample_rate
+
     """
     Extract key acoustic features from the audio signal:
     - MFCCs (matrix and summary statistics)
@@ -277,3 +281,7 @@ def extract_acoustic_features(
 
     except Exception as e:
         raise AudioProcessingError(f"Failed to extract acoustic features: {e}") from e
+
+
+# Convenience alias for feature extraction
+extract_features = extract_acoustic_features

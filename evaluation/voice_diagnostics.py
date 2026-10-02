@@ -66,9 +66,20 @@ def run_voice_diagnostics(
 
     print(f"    id2label matches SUPERB official spec: {id2label_matches}")
 
-    # 2. Audio input inspection across sample files
-    sample_files = sorted(Path(sample_dir).glob("*.wav"))
-    print(f"\n[3] Auditing {len(sample_files)} sample clips in {sample_dir}:")
+    # 2. Audio input inspection across sample files and data/
+    search_dirs = [sample_dir, "data", config.RECORDINGS_DIR]
+    sample_files: List[Path] = []
+    seen_names = set()
+    for sdir in search_dirs:
+        p_dir = Path(sdir)
+        if p_dir.exists() and p_dir.is_dir():
+            for f in sorted(p_dir.glob("*.wav")):
+                if f.name not in ("test_corrupted.wav", "test_empty.wav") and f.name not in seen_names:
+                    sample_files.append(f)
+                    seen_names.add(f.name)
+
+    print(f"\n[3] Auditing {len(sample_files)} sample clips across {search_dirs}:")
+
 
     clip_results: List[Dict[str, Any]] = []
     class_prob_sums: Dict[str, float] = {cls_name: 0.0 for cls_name in config.AUDIO_EMOTION_CLASSES}

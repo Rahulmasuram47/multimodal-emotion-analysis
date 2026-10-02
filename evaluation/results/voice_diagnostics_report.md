@@ -1,7 +1,7 @@
 # Voice Model Diagnostics & Collapse Analysis Report
 
 **Model ID:** `superb/wav2vec2-base-superb-er`  
-**Sample Audio Directory:** `X:\sample_audio`  
+**Sample Audio Directory:** `C:\Project\multimodal-emotion-analysis\sample_audio`  
 **Date:** 2026-10-01  
 
 ## 1. Technical Pipeline Verification

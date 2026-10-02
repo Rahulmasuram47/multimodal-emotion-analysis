@@ -92,6 +92,14 @@ VOICE_CALIBRATION_MIN_FIT_SAMPLES: int = 15
 VOICE_COLLAPSE_THRESHOLD: float = 0.70
 VOICE_COLLAPSE_RELIABILITY_PENALTY: float = 0.50
 
+# Tier 4 (Item 32): Voice confidence & reliability thresholds
+# When segment voice confidence falls below this threshold, apply a reliability penalty
+# to lower the voice weight in multimodal fusion and show 'Low voice reliability' chip.
+LOW_VOICE_CONFIDENCE_THRESHOLD: float = 0.50
+LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY: float = 0.60
+LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD: float = 0.65
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3: Short-Segment Handling
 # ─────────────────────────────────────────────────────────────────────────

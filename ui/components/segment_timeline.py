@@ -207,6 +207,27 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 
         with st.expander(expander_title, expanded=True):
             # Chat-style turn header with emotion chips & speaker tag
+            # Tier 4 (Item 32): Low voice reliability chip
+            import config as _config
+            low_v_conf_thresh = getattr(_config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
+            low_v_rel_disp_thresh = getattr(_config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
+            v_rel = safe_float(segment.get("voice_reliability", voice.get("voice_reliability", fusion.get("audio_reliability", 1.0))))
+            is_low_voice_rel = bool(
+                segment.get("low_voice_reliability", False)
+                or voice.get("low_voice_reliability", False)
+                or segment.get("voice_collapse_detected", False)
+                or voice.get("voice_collapse_detected", False)
+                or voice.get("is_low_voice_confidence", False)
+                or v_rel < low_v_rel_disp_thresh
+                or v_conf < low_v_conf_thresh
+            )
+            low_voice_chip_html = (
+                f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
+                f'background:rgba(239,68,68,0.15); color:var(--warning); padding:2px 8px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">'
+                f'⚠️ LOW VOICE RELIABILITY</span>'
+                if is_low_voice_rel else ""
+            )
+
             st.markdown(
                 html_block(f"""
 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
@@ -221,6 +242,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(251,191,36,0.15); color:var(--voice); padding:2px 8px; border-radius:4px;">🎙️ {v_emotion_display.upper()}</span>
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 8px; border-radius:4px;">💬 {t_sentiment_display.upper()}</span>
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.12); color:var(--fused); padding:2px 8px; border-radius:4px;">⚡ {pat_label}</span>
+{low_voice_chip_html}
 </div>
 </div>
 """),
@@ -262,7 +284,6 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 )
 
             # Item 15: use config threshold for low ASR confidence badge
-            import config as _config
             low_asr_threshold = getattr(_config, "LOW_ASR_CONFIDENCE_DISPLAY_THRESHOLD", 0.65)
             seg_text_rel = safe_float(segment.get("text_reliability", fusion.get("text_reliability", 1.0)))
             seg_low_conf = bool(segment.get("is_low_confidence", False) or seg_text_rel < low_asr_threshold)
@@ -275,6 +296,19 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 """),
                     unsafe_allow_html=True,
                 )
+
+            # Tier 4 (Item 32): Low voice reliability warning callout
+            if is_low_voice_rel:
+                collapse_reason = "Acoustic domain shift (class collapse detected)" if segment.get("voice_collapse_detected") or voice.get("voice_collapse_detected") else f"Voice confidence ({v_conf:.0%}) < {low_v_conf_thresh:.0%}"
+                st.markdown(
+                    html_block(f"""
+<div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--text);">
+⚠️ <strong>Low Voice Reliability ({v_rel:.0%}):</strong> {collapse_reason}; voice weight reduced in multimodal fusion.
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
+
 
             card_col1, card_col2, card_col3 = st.columns(3)
 

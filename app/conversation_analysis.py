@@ -711,6 +711,23 @@ class ConversationAnalyzer:
             voice_result.get("voice_reliability", 1.0) * margin_factor, 4
         )
 
+        # Tier 4 (Item 32): Low voice confidence check
+        low_v_conf_thresh = getattr(config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
+        v_conf = float(voice_result.get("confidence", 0.0))
+        if v_conf < low_v_conf_thresh:
+            conf_penalty = getattr(config, "LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY", 0.60)
+            voice_result["voice_reliability"] = round(
+                voice_result.get("voice_reliability", 1.0) * conf_penalty, 4
+            )
+            voice_result["is_low_voice_confidence"] = True
+
+        low_v_rel_display_thresh = getattr(config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
+        is_low_v_rel = bool(
+            voice_result.get("voice_reliability", 1.0) < low_v_rel_display_thresh
+            or voice_result.get("is_low_voice_confidence", False)
+        )
+        voice_result["low_voice_reliability"] = is_low_v_rel
+
         try:
             sentiment_result = self.sentiment_analyzer.analyze(text)
         except Exception:
@@ -750,10 +767,13 @@ class ConversationAnalyzer:
             "text_sentiment": sentiment_result,
             "fusion": fusion_result,
             "text_reliability": float(sentiment_result.get("text_reliability", 1.0)),
+            "voice_reliability": float(voice_result.get("voice_reliability", 1.0)),
+            "low_voice_reliability": is_low_v_rel,
             "is_low_confidence": bool(raw_segment.get("is_low_confidence", False)),
             "acoustic_window_widened": was_widened,
             "segment_duration": max(0.0, end - start),
         }
+
 
 
         # Intensity — v2 by default, with a defensive fallback to v1.
@@ -963,12 +983,17 @@ class ConversationAnalyzer:
                             seg["voice_emotion"].get("voice_reliability", 1.0) * penalty, 4
                         )
                         seg["voice_emotion"]["collapse_warning"] = voice_collapse["warning"]
+                        seg["voice_emotion"]["voice_collapse_detected"] = True
+                        seg["voice_emotion"]["low_voice_reliability"] = True
+                        seg["voice_collapse_detected"] = True
+                        seg["low_voice_reliability"] = True
                         if "fusion" in seg and "text_sentiment" in seg:
                             try:
                                 seg["fusion"] = self.fusion.fuse(
                                     seg["voice_emotion"],
                                     seg["text_sentiment"],
                                 )
+
                             except Exception:
                                 logger.exception(
                                     "Re-fusion after collapse penalty failed for segment %s.",

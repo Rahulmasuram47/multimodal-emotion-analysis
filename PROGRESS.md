@@ -209,3 +209,34 @@ Root cause was Streamlit following the browser/OS light theme while all custom C
 
 ### Tasks NOT done in this tier
 - Tiers 1–N (layout polish, chart accessibility, remaining UI bugs) not yet started.
+
+---
+
+## fix/final-polish — Tier 1: Rendering, Contradictions, and Single Source of Truth (2026-10-02)
+
+**Branch:** ix/final-polish  **Commit:** cb8b9d5
+
+### What changed
+- **ui/utils.py** — Added html_block() helper which dedents and strips leading spaces from every line, guaranteeing no line ever contains 4+ leading spaces. Added canonical emotion_code_label() mapping (
+eu -> Neutral, hap -> Happy, ng -> Angry, sad -> Sad). Added compute_ols_slope() as the single source of truth for OLS slope and net change. Added predominantly_label() implementing the >= 60% rule.
+- **ui/charts/dynamics.py** — Fixed ribbon turn indexing to 1-based Turn 01, Turn 02. Integrated compute_ols_slope() and verdict slope as single source of truth. When < 3 turns: hide OLS fitted slope and tolerance band, display "Too few turns to assess a trend", and omit slope claim from legend.
+- **ui/components/verdict_card.py** — Key finding uses "predominantly" only when >= 60% of turns share the class (from config.PREDOMINANTLY_THRESHOLD), otherwise reports mixed distribution (e.g. "Voice is mixed (Sad in turn 1, Happy in turn 2)"). When < 3 turns: slope and net change display "n/a". Review Attention Gauge action text ("LOW PRIORITY", "MONITOR", "REVIEW RECOMMENDED") is derived from the same attention score and level that drives the gauge percentage.
+- **ui/components/segment_timeline.py** — Stripped duplicate "Speaker A:" prefix from transcript display. Displayed modality-incongruence page-level disclaimer once. Direction mismatch line is only shown when directions actually differ. Widening note (widened short-segment window) is only shown when segment duration < config.SHORT_SEG_SECONDS AND widening actually happened. Low ASR confidence threshold is now configurable via config.LOW_ASR_CONFIDENCE_THRESHOLD.
+- **ui/components/incongruence_card.py** — Added show_disclaimer parameter to suppress redundant repeated disclaimers within turn cards.
+- **ui/components/header.py** — Updated application version to config.APP_VERSION (2.0). Unified fusion strategy naming to config.FUSION_STRATEGY_NAME (Multi-Evidence Arbitration). Speaker ID chip displays "Single speaker detected" when 1 speaker is detected, and hides speaker-comparison UI.
+- **ui/pages/why_result_view.py** — Replaced redundant per-turn expanders with a single comprehensive audit matrix table (Turn, Time Window, Rule Fired, Pattern Label, Effective Weights, Modality Reliability, Counterfactual Sensitivity).
+- **ui/pages/analysis_view.py** — Rendered success banner once at top of Results page with elapsed time of current run.
+- **ui/state.py** + **pp/microphone.py** — Added banner state (_last_run_elapsed, _show_success_banner) to reset and clear functions to avoid stale display.
+- **ui/components/export_bar.py** — Cleaned transcript of speaker prefixes and exported canonical emotion labels in JSON and CSV reports.
+- **pp/conversation_analysis.py** — Passed coustic_window_widened and segment_duration to fusion and segment results.
+- **pp/speech_to_text.py** — Wired config.LOW_ASR_CONFIDENCE_THRESHOLD into ASR reliability checks.
+- **	ests/test_tier1_regressions.py** — Added 11 regression tests covering items 7-19.
+
+### Why
+Addressed rendering inconsistencies, duplicate UI components, code-block markdown glitches, and contradictions between metrics, charts, and text summaries.
+
+### Measured
+- **Tests before:** 272 passed, 3 warnings
+- **Tests after:** 295 passed, 3 warnings
+- All 11 new Tier 1 regression tests passing
+- python -m pytest -q exit code 0

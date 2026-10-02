@@ -177,3 +177,35 @@
 | Phase 6 + Novelty | Counterfactuals, VAD resilience, MFCC & consistency | **270** |
 
 All **270 tests** pass cleanly with `python -m pytest -q`.
+
+---
+
+## fix/final-polish — Tier 0: Theme System (2026-10-02)
+
+**Branch:** ix/final-polish  **Commit:** 427c03f
+
+### What changed
+- **.streamlit/config.toml** — already had explicit [theme] (ase="dark", locked colours, 	oolbarMode="minimal"). Verified no changes needed.
+- **ui/styles/tokens.css** — Complete rewrite: added canonical CSS-variable tokens (--surface, --surface-raised, --text-muted, --accent, --voice, --text-modality, --fused, --positive, --warning, --critical). Light theme variant via [data-theme="light"] selector. All old token names preserved as aliases so existing code is unaffected.
+- **ui/styles_loader.py** — Now reads st.session_state["theme"] (default "dark") and injects the appropriate CSS variable overrides on every load_css() call, enabling live theme switching without a page reload.
+- **ui/styles/layout.css** — .stApp background, sidebar background, sidebar spec rows all converted from hardcoded hex to token variables.
+- **ui/styles/components.css** — Brand container, tabs, file uploader, metric cards, buttons, modality cards, status badges, step cards: all colours converted to token variables. Fixed invisible elements in light mode (uploader help icon, Play button, empty-state cards, meter bars).
+- **ui/charts/theme.py** — **New file.** get_chart_theme_tokens() + pply_chart_theme(fig) helper. All Plotly charts must use this for consistent dark/light appearance.
+- **ui/charts/dynamics.py** + **ui/charts/inspection.py** — Replaced all hardcoded paper_bgcolor/plot_bgcolor/ont.color with pply_chart_theme() calls.
+- **ui/components/header.py** — Added Appearance radio (Dark / Light) in sidebar; on change writes st.session_state["theme"] and calls st.rerun(). Removed HF token display entirely — now shows only "? Configured / ? Not configured / ? Error" diarization status.
+- **ui/components/waveform_player.py** — Theme-aware iframe colours; height raised from 135 ? 155 px to prevent Play button clipping; dark/light CSS vars injected inline.
+- **scripts/check_contrast.py** — **New file.** WCAG 2.1 contrast-ratio checker. Tests 9 text tokens × 3 background surfaces × 2 themes = 54 pairs; all pass AA (= 4.5:1). Exposes un_contrast_audit() -> bool called by 	ests/test_ui_contracts.py.
+- **	ests/test_audio_features.py** — Wrapped bare-script body in 	est_extract_acoustic_features() to fix pytest collection error.
+- **	ests/test_audio_setup.py** — Added 	est_milestone1_verification() to fix pytest collection error.
+
+### Why
+Root cause was Streamlit following the browser/OS light theme while all custom CSS assumed dark — text and cards became invisible in light mode. The fix centralises every colour as a CSS variable and locks the Streamlit theme explicitly.
+
+### Measured
+- **Tests before:** 183 passed (prior stable baseline, 2-upgrade)
+- **Tests after:** 272 passed, 3 warnings (all new tests added in Phases 2-6 + Tier 0 test fixes)
+- **Contrast audit:** 54 / 54 pairs = 4.5 : 1 WCAG AA (dark and light themes)
+- python -m pytest -q exit code 0
+
+### Tasks NOT done in this tier
+- Tiers 1–N (layout polish, chart accessibility, remaining UI bugs) not yet started.

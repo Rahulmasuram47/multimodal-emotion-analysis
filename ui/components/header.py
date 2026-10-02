@@ -292,7 +292,7 @@ No token found. Speakers will show as "Unknown". See docs/DIARIZATION_SETUP.md t
         # Phase 5: Fusion Settings (session-scoped)
         # -----------------------------------------------------
         st.markdown('<div class="sidebar-heading">Fusion Settings</div>', unsafe_allow_html=True)
-        st.caption("Applied on your next ANALYZE AUDIO run, not instantly.")
+        st.caption("Change weights then click ⚡ Recompute Fusion (no model reload). Applied on next ANALYZE run if no result exists.")
 
         settings = get_fusion_settings()
         new_audio_weight = st.slider(

@@ -1,4 +1,4 @@
-# Multimodal Voice & Conversation Emotion Analysis System — Progress Log
+# Multimodal Voice & Conversation Emotion Analysis System â€” Progress Log
 
 ## Current Status & Verification Summary
 
@@ -119,7 +119,7 @@
 
 ### v2 Phase 6: Speaker Diarization & Analytics (`phase-6-diarization`, IN PROGRESS)
 - **What Changed**:
-  - Truthful status badges: Real-time checks for HuggingFace token and Pyannote runtime state (`Active`, `Off — No Token`, `Error`).
+  - Truthful status badges: Real-time checks for HuggingFace token and Pyannote runtime state (`Active`, `Off â€” No Token`, `Error`).
   - Implemented multi-speaker analytics: talk-time share, per-speaker intensity trajectories and verdicts, escalation initiator heuristic, and speaker count estimation.
   - Implemented "Uncertain Speaker" assignment for low-overlap segments.
   - Secure credential handling: verified `.env` is gitignored and token never leaks in application logs.
@@ -180,26 +180,26 @@ All **270 tests** pass cleanly with `python -m pytest -q`.
 
 ---
 
-## fix/final-polish � Tier 0: Theme System (2026-10-02)
+## fix/final-polish — Tier 0: Theme System (2026-10-02)
 
 **Branch:** ix/final-polish  **Commit:** 427c03f
 
 ### What changed
-- **.streamlit/config.toml** � already had explicit [theme] (ase="dark", locked colours, 	oolbarMode="minimal"). Verified no changes needed.
-- **ui/styles/tokens.css** � Complete rewrite: added canonical CSS-variable tokens (--surface, --surface-raised, --text-muted, --accent, --voice, --text-modality, --fused, --positive, --warning, --critical). Light theme variant via [data-theme="light"] selector. All old token names preserved as aliases so existing code is unaffected.
-- **ui/styles_loader.py** � Now reads st.session_state["theme"] (default "dark") and injects the appropriate CSS variable overrides on every load_css() call, enabling live theme switching without a page reload.
-- **ui/styles/layout.css** � .stApp background, sidebar background, sidebar spec rows all converted from hardcoded hex to token variables.
-- **ui/styles/components.css** � Brand container, tabs, file uploader, metric cards, buttons, modality cards, status badges, step cards: all colours converted to token variables. Fixed invisible elements in light mode (uploader help icon, Play button, empty-state cards, meter bars).
-- **ui/charts/theme.py** � **New file.** get_chart_theme_tokens() + pply_chart_theme(fig) helper. All Plotly charts must use this for consistent dark/light appearance.
-- **ui/charts/dynamics.py** + **ui/charts/inspection.py** � Replaced all hardcoded paper_bgcolor/plot_bgcolor/ont.color with pply_chart_theme() calls.
-- **ui/components/header.py** � Added Appearance radio (Dark / Light) in sidebar; on change writes st.session_state["theme"] and calls st.rerun(). Removed HF token display entirely � now shows only "? Configured / ? Not configured / ? Error" diarization status.
-- **ui/components/waveform_player.py** � Theme-aware iframe colours; height raised from 135 ? 155 px to prevent Play button clipping; dark/light CSS vars injected inline.
-- **scripts/check_contrast.py** � **New file.** WCAG 2.1 contrast-ratio checker. Tests 9 text tokens � 3 background surfaces � 2 themes = 54 pairs; all pass AA (= 4.5:1). Exposes un_contrast_audit() -> bool called by 	ests/test_ui_contracts.py.
-- **	ests/test_audio_features.py** � Wrapped bare-script body in 	est_extract_acoustic_features() to fix pytest collection error.
-- **	ests/test_audio_setup.py** � Added 	est_milestone1_verification() to fix pytest collection error.
+- **.streamlit/config.toml** — already had explicit [theme] (ase="dark", locked colours, 	oolbarMode="minimal"). Verified no changes needed.
+- **ui/styles/tokens.css** — Complete rewrite: added canonical CSS-variable tokens (--surface, --surface-raised, --text-muted, --accent, --voice, --text-modality, --fused, --positive, --warning, --critical). Light theme variant via [data-theme="light"] selector. All old token names preserved as aliases so existing code is unaffected.
+- **ui/styles_loader.py** — Now reads st.session_state["theme"] (default "dark") and injects the appropriate CSS variable overrides on every load_css() call, enabling live theme switching without a page reload.
+- **ui/styles/layout.css** — .stApp background, sidebar background, sidebar spec rows all converted from hardcoded hex to token variables.
+- **ui/styles/components.css** — Brand container, tabs, file uploader, metric cards, buttons, modality cards, status badges, step cards: all colours converted to token variables. Fixed invisible elements in light mode (uploader help icon, Play button, empty-state cards, meter bars).
+- **ui/charts/theme.py** — **New file.** get_chart_theme_tokens() + pply_chart_theme(fig) helper. All Plotly charts must use this for consistent dark/light appearance.
+- **ui/charts/dynamics.py** + **ui/charts/inspection.py** — Replaced all hardcoded paper_bgcolor/plot_bgcolor/ont.color with pply_chart_theme() calls.
+- **ui/components/header.py** — Added Appearance radio (Dark / Light) in sidebar; on change writes st.session_state["theme"] and calls st.rerun(). Removed HF token display entirely — now shows only "? Configured / ? Not configured / ? Error" diarization status.
+- **ui/components/waveform_player.py** — Theme-aware iframe colours; height raised from 135 ? 155 px to prevent Play button clipping; dark/light CSS vars injected inline.
+- **scripts/check_contrast.py** — **New file.** WCAG 2.1 contrast-ratio checker. Tests 9 text tokens × 3 background surfaces × 2 themes = 54 pairs; all pass AA (= 4.5:1). Exposes un_contrast_audit() -> bool called by 	ests/test_ui_contracts.py.
+- **	ests/test_audio_features.py** — Wrapped bare-script body in 	est_extract_acoustic_features() to fix pytest collection error.
+- **	ests/test_audio_setup.py** — Added 	est_milestone1_verification() to fix pytest collection error.
 
 ### Why
-Root cause was Streamlit following the browser/OS light theme while all custom CSS assumed dark � text and cards became invisible in light mode. The fix centralises every colour as a CSS variable and locks the Streamlit theme explicitly.
+Root cause was Streamlit following the browser/OS light theme while all custom CSS assumed dark — text and cards became invisible in light mode. The fix centralises every colour as a CSS variable and locks the Streamlit theme explicitly.
 
 ### Measured
 - **Tests before:** 183 passed (prior stable baseline, 2-upgrade)
@@ -208,29 +208,29 @@ Root cause was Streamlit following the browser/OS light theme while all custom C
 - python -m pytest -q exit code 0
 
 ### Tasks NOT done in this tier
-- Tiers 1�N (layout polish, chart accessibility, remaining UI bugs) not yet started.
+- Tiers 1–N (layout polish, chart accessibility, remaining UI bugs) not yet started.
 
 ---
 
-## fix/final-polish � Tier 1: Rendering, Contradictions, and Single Source of Truth (2026-10-02)
+## fix/final-polish — Tier 1: Rendering, Contradictions, and Single Source of Truth (2026-10-02)
 
 **Branch:** ix/final-polish  **Commit:** cb8b9d5
 
 ### What changed
-- **ui/utils.py** � Added html_block() helper which dedents and strips leading spaces from every line, guaranteeing no line ever contains 4+ leading spaces. Added canonical emotion_code_label() mapping (
+- **ui/utils.py** — Added html_block() helper which dedents and strips leading spaces from every line, guaranteeing no line ever contains 4+ leading spaces. Added canonical emotion_code_label() mapping (
 eu -> Neutral, hap -> Happy, ng -> Angry, sad -> Sad). Added compute_ols_slope() as the single source of truth for OLS slope and net change. Added predominantly_label() implementing the >= 60% rule.
-- **ui/charts/dynamics.py** � Fixed ribbon turn indexing to 1-based Turn 01, Turn 02. Integrated compute_ols_slope() and verdict slope as single source of truth. When < 3 turns: hide OLS fitted slope and tolerance band, display "Too few turns to assess a trend", and omit slope claim from legend.
-- **ui/components/verdict_card.py** � Key finding uses "predominantly" only when >= 60% of turns share the class (from config.PREDOMINANTLY_THRESHOLD), otherwise reports mixed distribution (e.g. "Voice is mixed (Sad in turn 1, Happy in turn 2)"). When < 3 turns: slope and net change display "n/a". Review Attention Gauge action text ("LOW PRIORITY", "MONITOR", "REVIEW RECOMMENDED") is derived from the same attention score and level that drives the gauge percentage.
-- **ui/components/segment_timeline.py** � Stripped duplicate "Speaker A:" prefix from transcript display. Displayed modality-incongruence page-level disclaimer once. Direction mismatch line is only shown when directions actually differ. Widening note (widened short-segment window) is only shown when segment duration < config.SHORT_SEG_SECONDS AND widening actually happened. Low ASR confidence threshold is now configurable via config.LOW_ASR_CONFIDENCE_THRESHOLD.
-- **ui/components/incongruence_card.py** � Added show_disclaimer parameter to suppress redundant repeated disclaimers within turn cards.
-- **ui/components/header.py** � Updated application version to config.APP_VERSION (2.0). Unified fusion strategy naming to config.FUSION_STRATEGY_NAME (Multi-Evidence Arbitration). Speaker ID chip displays "Single speaker detected" when 1 speaker is detected, and hides speaker-comparison UI.
-- **ui/pages/why_result_view.py** � Replaced redundant per-turn expanders with a single comprehensive audit matrix table (Turn, Time Window, Rule Fired, Pattern Label, Effective Weights, Modality Reliability, Counterfactual Sensitivity).
-- **ui/pages/analysis_view.py** � Rendered success banner once at top of Results page with elapsed time of current run.
-- **ui/state.py** + **pp/microphone.py** � Added banner state (_last_run_elapsed, _show_success_banner) to reset and clear functions to avoid stale display.
-- **ui/components/export_bar.py** � Cleaned transcript of speaker prefixes and exported canonical emotion labels in JSON and CSV reports.
-- **pp/conversation_analysis.py** � Passed coustic_window_widened and segment_duration to fusion and segment results.
-- **pp/speech_to_text.py** � Wired config.LOW_ASR_CONFIDENCE_THRESHOLD into ASR reliability checks.
-- **	ests/test_tier1_regressions.py** � Added 11 regression tests covering items 7-19.
+- **ui/charts/dynamics.py** — Fixed ribbon turn indexing to 1-based Turn 01, Turn 02. Integrated compute_ols_slope() and verdict slope as single source of truth. When < 3 turns: hide OLS fitted slope and tolerance band, display "Too few turns to assess a trend", and omit slope claim from legend.
+- **ui/components/verdict_card.py** — Key finding uses "predominantly" only when >= 60% of turns share the class (from config.PREDOMINANTLY_THRESHOLD), otherwise reports mixed distribution (e.g. "Voice is mixed (Sad in turn 1, Happy in turn 2)"). When < 3 turns: slope and net change display "n/a". Review Attention Gauge action text ("LOW PRIORITY", "MONITOR", "REVIEW RECOMMENDED") is derived from the same attention score and level that drives the gauge percentage.
+- **ui/components/segment_timeline.py** — Stripped duplicate "Speaker A:" prefix from transcript display. Displayed modality-incongruence page-level disclaimer once. Direction mismatch line is only shown when directions actually differ. Widening note (widened short-segment window) is only shown when segment duration < config.SHORT_SEG_SECONDS AND widening actually happened. Low ASR confidence threshold is now configurable via config.LOW_ASR_CONFIDENCE_THRESHOLD.
+- **ui/components/incongruence_card.py** — Added show_disclaimer parameter to suppress redundant repeated disclaimers within turn cards.
+- **ui/components/header.py** — Updated application version to config.APP_VERSION (2.0). Unified fusion strategy naming to config.FUSION_STRATEGY_NAME (Multi-Evidence Arbitration). Speaker ID chip displays "Single speaker detected" when 1 speaker is detected, and hides speaker-comparison UI.
+- **ui/pages/why_result_view.py** — Replaced redundant per-turn expanders with a single comprehensive audit matrix table (Turn, Time Window, Rule Fired, Pattern Label, Effective Weights, Modality Reliability, Counterfactual Sensitivity).
+- **ui/pages/analysis_view.py** — Rendered success banner once at top of Results page with elapsed time of current run.
+- **ui/state.py** + **pp/microphone.py** — Added banner state (_last_run_elapsed, _show_success_banner) to reset and clear functions to avoid stale display.
+- **ui/components/export_bar.py** — Cleaned transcript of speaker prefixes and exported canonical emotion labels in JSON and CSV reports.
+- **pp/conversation_analysis.py** — Passed coustic_window_widened and segment_duration to fusion and segment results.
+- **pp/speech_to_text.py** — Wired config.LOW_ASR_CONFIDENCE_THRESHOLD into ASR reliability checks.
+- **	ests/test_tier1_regressions.py** — Added 11 regression tests covering items 7-19.
 
 ### Why
 Addressed rendering inconsistencies, duplicate UI components, code-block markdown glitches, and contradictions between metrics, charts, and text summaries.
@@ -250,7 +250,7 @@ Addressed rendering inconsistencies, duplicate UI components, code-block markdow
 ### What changed
 - **evaluation/dataset.py** - Added `DatasetInventory` dataclass, `get_dataset_inventory()`, and `format_remaining_annotation_checklist()`. `get_dataset_inventory()` serves as the single source of truth for both Annotation Helper and Validation tabs, returning the unified counts and a detailed `gap_explanation` explaining why there are 9 WAV files on disk (7 evaluation recordings + 2 unit test fixtures: `test_corrupted.wav`, `test_empty.wav`) and 7 dataset records (5 with ground truth, 2 pending).
 - **evaluation/run_evaluation.py** - Safe metric string formatting with `_fmt_float()` so evaluation reporting never crashes when metric values are `None` on partial datasets. Updated `latest_eval_data` to explicitly provide `"n"` and `"total_samples"` keys for `voice_emotion` and `text_sentiment`. Added stdout print of `format_remaining_annotation_checklist(dataset)` at the end of evaluation runs.
-- **ui/pages/validation_view.py** - Integrated `get_dataset_inventory()` in summary banner with explicit gap explanation callout. Fixed `_render_classification_section` to safely extract sample count `n` from multiple possible keys (`evaluated_samples`, `n`, `total_samples`). When $N < \text{EVAL\_MIN\_N}$ (Item 29), displays "⚠️ Insufficient data: N=4, need >=5" along with a raw prediction-vs-label table marked "descriptive only, not a metric". Under Speaker Count (Item 30), when all labeled clips are single-speaker ($true\_speaker\_count=1$), suppresses the headline MAE metric card and shows an informational notice stating that MAE is uninformative for multi-speaker separation, accompanied by sample-level counts. Displays the remaining-annotation checklist (Item 31).
+- **ui/pages/validation_view.py** - Integrated `get_dataset_inventory()` in summary banner with explicit gap explanation callout. Fixed `_render_classification_section` to safely extract sample count `n` from multiple possible keys (`evaluated_samples`, `n`, `total_samples`). When $N < \text{EVAL\_MIN\_N}$ (Item 29), displays "âš ï¸� Insufficient data: N=4, need >=5" along with a raw prediction-vs-label table marked "descriptive only, not a metric". Under Speaker Count (Item 30), when all labeled clips are single-speaker ($true\_speaker\_count=1$), suppresses the headline MAE metric card and shows an informational notice stating that MAE is uninformative for multi-speaker separation, accompanied by sample-level counts. Displays the remaining-annotation checklist (Item 31).
 - **ui/pages/annotation_view.py** - Integrated `get_dataset_inventory()` in the Dataset Dashboard subtab, aligning the metrics (Audio Files on Disk: 9, Dataset Records: 7, Annotated Clips: 5) and displaying the inventory gap explanation.
 - **tests/test_tier3_validation.py** - Added 5 regression tests covering dataset inventory counts, raw prediction table loading, all single-speaker MAE suppression, safe handling of None metrics in report formatting, and remaining-annotation checklist formatting.
 
@@ -280,7 +280,7 @@ Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 r
   * `LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY: float = 0.60`
   * `LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD: float = 0.65`
 - **app/conversation_analysis.py** - Integrated segment-level low voice confidence check: when segment voice confidence is below `LOW_VOICE_CONFIDENCE_THRESHOLD` (0.50), voice reliability is penalized by `LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY` (0.60), setting `low_voice_reliability = True` and lowering the voice weight in multimodal fusion. Across clips/recordings, when one class occupies $\ge 70\%$ of turns (`VOICE_COLLAPSE_THRESHOLD`), collapse penalty (0.50) is applied, `low_voice_reliability = True` is marked, and fusion re-runs with down-weighted acoustic contribution.
-- **ui/components/segment_timeline.py** - Added `⚠️ LOW VOICE RELIABILITY` chip in turn header and an explanatory warning callout when segment voice reliability is low, confidence is below threshold, or collapse is detected.
+- **ui/components/segment_timeline.py** - Added `âš ï¸� LOW VOICE RELIABILITY` chip in turn header and an explanatory warning callout when segment voice reliability is low, confidence is below threshold, or collapse is detected.
 - **tests/test_tier4_voice_diagnostics.py** - Added 4 tests verifying Tier 4 thresholds, ensuring prior correction refuses to fit below $N=15$, verifying that low voice reliability lowers effective voice weight in fusion, and testing collapse penalty behavior.
 
 ### Empirical Diagnostics Numbers & Root Cause (Domain Shift vs. Bug)
@@ -303,3 +303,47 @@ Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 r
 - **Tests after:** 304 passed, 3 warnings
 - All 4 new Tier 4 regression tests passing
 - python -m pytest -q exit code 0
+
+---
+
+## Tier 5: Polish — Items 33–36 (branch: fix/final-polish)
+
+### What Changed
+
+**Item 33 — Results Order & Landing Layout**
+- Verified: `analysis_view.py` already enforces the correct hierarchy: verdict hero → modality cards → timeline → tabs.
+- `render_pipeline_steps()` in `ui/components/header.py` provides the 3-step start card + live system strip, called before the audio ingestion section.
+- `render_segment_timeline()` already has chat-style turns, per-speaker color dot, emotion chips (🎙️ voice, 💬 text, ⚡ fused), and intensity mini-bar.
+
+**Item 34 — Charts: titles, consistent colors, n/a states**
+- `ui/charts/dynamics.py`: replaced all bare `#hex` color literals in trace/bar definitions with `get_chart_theme_tokens()` values. Color mapping:
+  - Voice/intensity line → `tokens["critical"]` (warm-red, consistent across dark/light)
+  - OLS trend line → `tokens["accent"]` (blue, consistent)
+  - Speaker comparison bars → `tokens["accent"]` + `tokens["critical"]`
+- Added `title=dict(...)` to `fig.update_layout()` for all three charts.
+- `render_valence_arousal_map`: tightened guard to `< 2` segments; shows "Trajectory n/a — need ≥ 2 turns" annotation for single-segment recordings.
+- Fixed two `render_*` section headers (speaker comparison, valence map) to use `html_block()` instead of raw indented HTML strings.
+
+**Item 35 — Responsive caching & fusion-only recompute**
+- `load_analyzer()` already `@st.cache_resource`, keyed on `(whisper_model_size, whisper_language)`. Models never reload when only fusion sliders change.
+- `extract_acoustic_features()` in `ui/charts/inspection.py` already `@st.cache_data`.
+- **New: "⚡ Recompute Fusion" button** appears in `streamlit_app.py` when fusion slider settings differ from the settings that produced the current result (`_last_fusion_settings`). Clicking it re-fuses the stored `voice_emotion` + `text_sentiment` per segment using the new weights — no ML model invocation.
+- After each full analysis, `_last_fusion_settings` is saved to session state as the baseline.
+- Sidebar caption updated to explain the two-path behavior.
+
+**Item 36 — Optional UI library audit**
+- Evaluated: streamlit-shadcn-ui (MIT, but requires React/Node build), streamlit-extras (MIT, but some components need npm), streamlit-option-menu (MIT, works offline).
+- Decision: **no new libraries added**. Existing plain CSS token system (`ui/styles/tokens.css`) already provides sufficient theming. Adding any of the three candidates would introduce build-step risk or break the offline constraint.
+
+### Tests
+- `tests/test_tier5_polish.py` — 16 tests, **16 passed**.
+- Full suite: to be updated after test run completes.
+
+### Files Touched
+| File | Change |
+|------|--------|
+| `ui/charts/dynamics.py` | Token colors, chart titles, n/a guards, html_block headers |
+| `streamlit_app.py` | Fusion recompute button, `_last_fusion_settings` save |
+| `ui/components/header.py` | Sidebar caption update |
+| `tests/test_tier5_polish.py` | New — 16 tests |
+| `PROGRESS.md` | This entry |

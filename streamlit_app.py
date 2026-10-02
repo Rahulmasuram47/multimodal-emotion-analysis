@@ -154,7 +154,7 @@ if current_source != st.session_state.get("_last_active_source"):
         clear_results()
 
 # Analysis trigger & action buttons
-btn_col1, btn_col2, _ = st.columns([1.5, 1, 3])
+btn_col1, btn_col2, btn_col3, _ = st.columns([1.5, 1, 1.2, 1.8])
 auto_analyze = st.query_params.get("auto_analyze") in ("true", "1")
 with btn_col1:
     clicked = st.button(
@@ -172,6 +172,24 @@ with btn_col2:
     if st.button("RESET SESSION ⟲", use_container_width=True):
         reset_session()
         st.rerun()
+
+# Item 35: Fusion-only recompute button — shown only when sliders changed
+# and a result already exists, so models are never re-loaded.
+fusion_recompute_clicked = False
+with btn_col3:
+    existing_result = st.session_state.get("analysis_result")
+    last_fs = st.session_state.get("_last_fusion_settings", {})
+    current_fs = get_fusion_settings()
+    settings_differ = existing_result and (
+        abs(last_fs.get("audio_weight", -1) - current_fs["audio_weight"]) > 1e-6
+        or abs(last_fs.get("confidence_threshold", -1) - current_fs["confidence_threshold"]) > 1e-6
+    )
+    if settings_differ:
+        fusion_recompute_clicked = st.button(
+            "⚡ Recompute Fusion", use_container_width=True,
+            help="Re-fuse existing model predictions with new weights — no model reload.",
+        )
+
 
 # 4. PIPELINE EXECUTION
 if analyze_clicked and active_audio is not None:
@@ -220,6 +238,8 @@ if analyze_clicked and active_audio is not None:
                 st.session_state["analysis_result"] = result
                 st.session_state["audio_bytes"] = audio_bytes
                 st.session_state["audio_format"] = audio_format
+                # Item 35: record which fusion settings produced this result
+                st.session_state["_last_fusion_settings"] = dict(fusion_settings)
                 t_total = time.perf_counter() - t_pipeline_start
                 st.session_state["_last_run_elapsed"] = t_total
                 st.session_state["_show_success_banner"] = True
@@ -236,6 +256,32 @@ if analyze_clicked and active_audio is not None:
                         Path(temp_path).unlink(missing_ok=True)
                     except Exception:
                         pass
+
+# Item 35: Fusion-only recompute — re-fuse stored segment predictions without
+# re-running any ML model.  This path is triggered only when the result exists
+# and the user has changed a fusion slider since the last full analysis.
+if fusion_recompute_clicked and st.session_state.get("analysis_result"):
+    _fs = get_fusion_settings()
+    _fuser = MultimodalFusion(
+        audio_weight=_fs["audio_weight"],
+        text_weight=_fs["text_weight"],
+        confidence_threshold=_fs["confidence_threshold"],
+    )
+    _result = st.session_state["analysis_result"]
+    for _seg in _result.get("segments", []) or []:
+        _v = _seg.get("voice_emotion") or {}
+        _t = _seg.get("text_sentiment") or {}
+        if _v and _t:
+            try:
+                _seg["fusion"] = _fuser.fuse(_v, _t)
+            except Exception:
+                pass  # leave original fusion if re-fuse fails
+    st.session_state["analysis_result"] = _result
+    st.session_state["_last_fusion_settings"] = dict(_fs)
+    st.session_state["_show_success_banner"] = False
+    st.success(f"⚡ Fusion recomputed with audio weight={_fs['audio_weight']:.2f} / text weight={_fs['text_weight']:.2f}")
+    st.rerun()
+
 
 # 5. DASHBOARD VIEWS (ACTIVE OR EMPTY STATE)
 result = st.session_state.get("analysis_result")

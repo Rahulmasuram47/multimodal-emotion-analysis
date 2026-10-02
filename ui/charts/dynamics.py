@@ -95,12 +95,12 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         return
 
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.0rem;">
-            <div class="section-title">🧭 Valence-Arousal Trajectory Map</div>
-            <div class="section-badge">2D AFFECTIVE TRAJECTORY</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.0rem;">
+<div class="section-title">🧭 Valence-Arousal Trajectory Map</div>
+<div class="section-badge">2D AFFECTIVE TRAJECTORY</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
@@ -139,36 +139,52 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
             f"Transcript: {html.escape(str(s.get('transcript', ''))[:45])}..."
         )
 
+    theme_tokens = get_chart_theme_tokens()
     fig = go.Figure()
 
-    # Connecting trajectory path with arrows
-    fig.add_trace(
-        go.Scatter(
-            x=valence_scores,
-            y=arousal_scores,
-            mode="lines+markers+text",
-            line=dict(color="#38bdf8", width=2, dash="dot"),
-            marker=dict(
-                size=12,
-                color=list(range(len(segments))),
-                colorscale="Viridis",
-                showscale=False,
-                line=dict(color="#ffffff", width=1),
-            ),
-            text=turn_labels,
-            textposition="top center",
-            hovertext=hover_texts,
-            hoverinfo="text",
-            name="Emotional Path",
+    if len(segments) < 2:
+        # n/a state: single segment — show point but annotate that trajectory is unavailable
+        fig.add_annotation(
+            text="Trajectory n/a — need ≥ 2 turns",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=11, color=theme_tokens["font_color"]),
         )
-    )
+    else:
+        # Connecting trajectory path with arrows
+        fig.add_trace(
+            go.Scatter(
+                x=valence_scores,
+                y=arousal_scores,
+                mode="lines+markers+text",
+                line=dict(color=theme_tokens["accent"], width=2, dash="dot"),
+                marker=dict(
+                    size=12,
+                    color=list(range(len(segments))),
+                    colorscale="Viridis",
+                    showscale=False,
+                    line=dict(color=theme_tokens["title_color"], width=1),
+                ),
+                text=turn_labels,
+                textposition="top center",
+                hovertext=hover_texts,
+                hoverinfo="text",
+                name="Emotional Path",
+            )
+        )
 
-    theme_tokens = get_chart_theme_tokens()
     # Reference quadrant lines (X=0, Y=0.5)
     fig.add_hline(y=0.5, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
     fig.add_vline(x=0.0, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
 
-    apply_chart_theme(fig, height=360, margin=dict(l=40, r=40, t=30, b=40), show_legend=False)
+    apply_chart_theme(fig, height=360, margin=dict(l=40, r=40, t=40, b=40), show_legend=False)
+    fig.update_layout(
+        title=dict(
+            text="Valence-Arousal Emotional Trajectory",
+            font=dict(color=theme_tokens["title_color"], size=12),
+            x=0,
+        ),
+    )
     fig.update_xaxes(
         title="Valence (Negative ← Neutral → Positive)",
         range=[-1.05, 1.05],
@@ -178,7 +194,8 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         range=[0.0, 1.05],
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
 
 
 def render_intensity_trajectory_chart(
@@ -250,15 +267,21 @@ def render_intensity_trajectory_chart(
             )
         )
 
-    # Actual intensity line
+    # Item 34: Fetch tokens for consistent modality colors
+    _tokens = get_chart_theme_tokens()
+    # fused color = accent; voice modality uses critical/pink-red
+    _voice_color = _tokens["critical"]   # consistent: voice=warm-red across all charts
+    _trend_color = _tokens["accent"]     # consistent: trend/OLS=blue accent
+
+    # Actual intensity line (voice-derived, use voice color)
     turn_names = [f"Turn {i}" for i in x]
     fig.add_trace(
         go.Scatter(
             x=x,
             y=y,
             mode="lines+markers",
-            line=dict(color="#f472b6", width=2.5),
-            marker=dict(size=8, color="#f472b6"),
+            line=dict(color=_voice_color, width=2.5),
+            marker=dict(size=8, color=_voice_color),
             name="Segment Intensity",
             hovertext=[f"<b>{turn_names[i-1]}</b><br>Intensity: {y[i-1]:.1%}" for i in range(1, n + 1)],
             hoverinfo="text",
@@ -272,7 +295,7 @@ def render_intensity_trajectory_chart(
                 x=x,
                 y=fitted_y,
                 mode="lines",
-                line=dict(color="#38bdf8", width=2, dash="dash"),
+                line=dict(color=_trend_color, width=2, dash="dash"),
                 name=f"OLS Slope ({slope:+.3f}/turn)",
             )
         )
@@ -283,20 +306,16 @@ def render_intensity_trajectory_chart(
             xref="paper", yref="paper",
             x=0.5, y=0.5,
             showarrow=False,
-            font=dict(size=11, color="#8E97A6"),
+            font=dict(size=11, color=_tokens["font_color"]),
         )
 
-    apply_chart_theme(fig, height=340, margin=dict(l=40, r=20, t=30, b=40), show_legend=True)
-    fig.update_xaxes(
-        title="Conversation Turn",
-        tickvals=list(x),
-        ticktext=turn_names,
-    )
-    fig.update_yaxes(
-        title="Emotional Intensity",
-        range=[0.0, 1.05],
-    )
+    apply_chart_theme(fig, height=340, margin=dict(l=40, r=20, t=40, b=40), show_legend=True)
     fig.update_layout(
+        title=dict(
+            text="Emotional Intensity Trajectory",
+            font=dict(color=_tokens["title_color"], size=12),
+            x=0,
+        ),
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -306,8 +325,18 @@ def render_intensity_trajectory_chart(
             font=dict(size=10),
         ),
     )
+    fig.update_xaxes(
+        title="Conversation Turn",
+        tickvals=list(x),
+        ticktext=turn_names,
+    )
+    fig.update_yaxes(
+        title="Emotional Intensity",
+        range=[0.0, 1.05],
+    )
 
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 
@@ -318,12 +347,12 @@ def render_speaker_comparison_chart(speaker_analytics: List[Dict[str, Any]]) -> 
         return
 
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.0rem;">
-            <div class="section-title">👥 Speaker-by-Speaker Comparison</div>
-            <div class="section-badge">INTER-SPEAKER DYNAMICS</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.0rem;">
+<div class="section-title">👥 Speaker-by-Speaker Comparison</div>
+<div class="section-badge">INTER-SPEAKER DYNAMICS</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
@@ -331,13 +360,14 @@ def render_speaker_comparison_chart(speaker_analytics: List[Dict[str, Any]]) -> 
     talk_shares = [safe_float(sa.get("talk_time_share", 0.0)) * 100 for sa in speaker_analytics]
     mean_intensities = [safe_float(sa.get("mean_intensity", 0.0)) * 100 for sa in speaker_analytics]
 
+    _tokens = get_chart_theme_tokens()
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
             name="Talk Time Share (%)",
             x=speakers,
             y=talk_shares,
-            marker_color="#38bdf8",
+            marker_color=_tokens["accent"],
         )
     )
     fig.add_trace(
@@ -345,15 +375,21 @@ def render_speaker_comparison_chart(speaker_analytics: List[Dict[str, Any]]) -> 
             name="Mean Intensity (%)",
             x=speakers,
             y=mean_intensities,
-            marker_color="#f87171",
+            marker_color=_tokens["critical"],
         )
     )
 
-    apply_chart_theme(fig, height=280, margin=dict(l=40, r=20, t=30, b=40), show_legend=True)
+    apply_chart_theme(fig, height=280, margin=dict(l=40, r=20, t=40, b=40), show_legend=True)
     fig.update_layout(
+        title=dict(
+            text="Speaker Comparison — Talk Share vs Mean Intensity",
+            font=dict(color=_tokens["title_color"], size=12),
+            x=0,
+        ),
         barmode="group",
         yaxis=dict(title="Percentage (%)", range=[0, 100]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     st.plotly_chart(fig, use_container_width=True)
+

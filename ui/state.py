@@ -75,8 +75,16 @@ def clear_results() -> None:
     widget as brand new on the next rerun, silently dropping the file the
     user just selected before the analyze click can process it.
     """
-    for key in ("analysis_result", "audio_bytes", "audio_format", "seek_time"):
+    for key in (
+        "analysis_result",
+        "audio_bytes",
+        "audio_format",
+        "seek_time",
+        "_last_run_elapsed",
+        "_show_success_banner",
+    ):
         st.session_state[key] = None
+
 
 
 def get_fusion_settings() -> Dict[str, float]:

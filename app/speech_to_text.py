@@ -109,11 +109,13 @@ class SpeechToText:
             raw_asr_conf = float(np.exp(np.clip(avg_logprob, -3.0, 0.0))) * (1.0 - np.clip(no_speech_prob, 0.0, 1.0))
             text_reliability = float(np.clip(round(raw_asr_conf, 3), 0.20, 1.0))
 
+            low_asr_thresh = getattr(config, "LOW_ASR_CONFIDENCE_THRESHOLD", 0.65)
             is_low_confidence = (
                 avg_logprob <= config.STT_LOW_CONFIDENCE_AVG_LOGPROB
                 or no_speech_prob >= config.STT_HIGH_NO_SPEECH_PROB_THRESHOLD
-                or text_reliability < 0.65
+                or text_reliability < low_asr_thresh
             )
+
 
             # Extract word-level timestamps if available
             words_list: List[Dict[str, Any]] = []

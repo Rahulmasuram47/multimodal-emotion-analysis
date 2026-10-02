@@ -1,12 +1,17 @@
 """
 Modality incongruence conflict card rendering with safety disclaimers.
 Extracted from v1.0-baseline:streamlit_app.py with exact logic and styling parity.
+
+Item 14: The long heuristic_notice disclaimer is shown at per-turn card level
+by default (show_disclaimer=True). Pass show_disclaimer=False to suppress it
+when the calling context has already shown it once at page level.
 """
 
 import html
 import streamlit as st
 
 from app.incongruence_analysis import detect_modality_incongruence
+from ui.utils import html_block
 
 
 def render_incongruence_card(
@@ -15,8 +20,17 @@ def render_incongruence_card(
     text_label: str,
     text_confidence: float,
     title: str = "MODALITY INCONGRUENCE",
+    show_disclaimer: bool = True,
 ) -> None:
-    """Render a transparent, safe, explainable Modality Incongruence Card."""
+    """Render a transparent, safe, explainable Modality Incongruence Card.
+
+    Parameters
+    ----------
+    show_disclaimer:
+        When False the long heuristic_notice footer is suppressed. Use this
+        when the disclaimer has already been rendered at the page level so it
+        does not repeat for every turn (item 14).
+    """
     inc = detect_modality_incongruence(
         acoustic_label=acoustic_label,
         acoustic_confidence=acoustic_confidence,
@@ -42,38 +56,45 @@ def render_incongruence_card(
         badge_color = "var(--muted)"
         border_color = "var(--border)"
 
+    disclaimer_html = (
+        f'<div style="font-size:0.70rem; color:var(--muted-dark); line-height:1.35;'
+        f' font-style:italic; border-top:1px dashed var(--border); padding-top:0.4rem;">'
+        f'⚠️ {html.escape(inc.heuristic_notice)}'
+        f'</div>'
+        if show_disclaimer
+        else ""
+    )
+
     st.markdown(
-        f"""
-        <div class="modality-card" style="border-left: 3px solid {border_color}; margin-top: 0.6rem; margin-bottom: 0.6rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem; flex-wrap:wrap; gap:0.4rem;">
-                <div class="card-meta-label" style="letter-spacing: 0.1em; color: var(--text);">
-                    ⚡ {html.escape(title)}
-                </div>
-                <span style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:700; background:{badge_bg}; color:{badge_color}; padding:2px 8px; border-radius:4px;">
-                    CONFLICT: {strength}
-                </span>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.6rem;">
-                <div style="background:var(--panel-2); padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border);">
-                    <div style="font-size:0.68rem; color:var(--muted); text-transform:uppercase; font-family:'IBM Plex Mono',monospace;">Acoustic Signal (Voice)</div>
-                    <div style="font-size:0.95rem; font-weight:700; color:var(--voice); font-family:'IBM Plex Mono',monospace;">
-                        {html.escape(inc.acoustic_label.upper())} — {inc.acoustic_confidence:.0%}
-                    </div>
-                </div>
-                <div style="background:var(--panel-2); padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border);">
-                    <div style="font-size:0.68rem; color:var(--muted); text-transform:uppercase; font-family:'IBM Plex Mono',monospace;">Text Signal (Sentiment)</div>
-                    <div style="font-size:0.95rem; font-weight:700; color:var(--text-accent); font-family:'IBM Plex Mono',monospace;">
-                        {html.escape(inc.text_label.upper())} — {inc.text_confidence:.0%}
-                    </div>
-                </div>
-            </div>
-            <div style="font-size:0.78rem; color:var(--text); line-height:1.45; margin-bottom: 0.4rem;">
-                <strong style="color:var(--muted);">Possible interpretation:</strong> {html.escape(inc.explanation)}
-            </div>
-            <div style="font-size:0.70rem; color:var(--muted-dark); line-height:1.35; font-style:italic; border-top:1px dashed var(--border); padding-top:0.4rem;">
-                ⚠️ {html.escape(inc.heuristic_notice)}
-            </div>
-        </div>
-        """,
+        html_block(f"""
+<div class="modality-card" style="border-left: 3px solid {border_color}; margin-top: 0.6rem; margin-bottom: 0.6rem;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem; flex-wrap:wrap; gap:0.4rem;">
+<div class="card-meta-label" style="letter-spacing: 0.1em; color: var(--text);">
+⚡ {html.escape(title)}
+</div>
+<span style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:700; background:{badge_bg}; color:{badge_color}; padding:2px 8px; border-radius:4px;">
+CONFLICT: {strength}
+</span>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.6rem;">
+<div style="background:var(--panel-2); padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border);">
+<div style="font-size:0.68rem; color:var(--muted); text-transform:uppercase; font-family:'IBM Plex Mono',monospace;">Acoustic Signal (Voice)</div>
+<div style="font-size:0.95rem; font-weight:700; color:var(--voice); font-family:'IBM Plex Mono',monospace;">
+{html.escape(inc.acoustic_label.upper())} — {inc.acoustic_confidence:.0%}
+</div>
+</div>
+<div style="background:var(--panel-2); padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border);">
+<div style="font-size:0.68rem; color:var(--muted); text-transform:uppercase; font-family:'IBM Plex Mono',monospace;">Text Signal (Sentiment)</div>
+<div style="font-size:0.95rem; font-weight:700; color:var(--text-accent); font-family:'IBM Plex Mono',monospace;">
+{html.escape(inc.text_label.upper())} — {inc.text_confidence:.0%}
+</div>
+</div>
+</div>
+<div style="font-size:0.78rem; color:var(--text); line-height:1.45; margin-bottom: 0.4rem;">
+<strong style="color:var(--muted);">Possible interpretation:</strong> {html.escape(inc.explanation)}
+</div>
+{disclaimer_html}
+</div>
+"""),
         unsafe_allow_html=True,
     )

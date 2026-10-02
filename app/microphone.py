@@ -244,7 +244,10 @@ RESET_SESSION_KEYS = (
     "_last_active_source",
     "audio_file_uploader",
     "audio_mic_recorder",
+    "_last_run_elapsed",
+    "_show_success_banner",
 )
+
 
 
 def reset_analysis_session_state(session_state: Any) -> None:

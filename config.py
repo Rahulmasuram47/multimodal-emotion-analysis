@@ -264,3 +264,30 @@ SPEAKER_ANALYTICS_MIN_SPEAKERS: int = 2
 # required to assign a speaker label. Below this ratio, the segment is labeled
 # "Uncertain Speaker" to avoid forcing uncertain or noisy speaker assignments.
 DIARIZATION_MIN_OVERLAP_RATIO: float = 0.35
+
+# ─────────────────────────────────────────────────────────────────────────
+# UI Display Constants (Tier 1 fixes)
+# ─────────────────────────────────────────────────────────────────────────
+# Application version shown in the header badge.
+APP_VERSION: str = "2.0"
+
+# Single canonical name for the production fusion strategy — used in the
+# header chip AND the sidebar spec row so they always match.
+FUSION_STRATEGY_NAME: str = "Multi-Evidence Arbitration"
+
+# Fraction of turns that must share the same dominant emotion/sentiment
+# before the key-finding says "predominantly X". Below this the key finding
+# uses a "mixed" description listing the per-turn breakdown instead.
+PREDOMINANTLY_THRESHOLD: float = 0.60
+
+# Duration (seconds) below which a segment is considered "short" FOR
+# DISPLAY PURPOSES (the "(widened short-segment window)" badge). Must be
+# kept in sync with SHORT_SEGMENT_THRESHOLD_SECONDS; this alias makes the
+# UI threshold explicit and independently configurable.
+SHORT_SEG_SECONDS: float = SHORT_SEGMENT_THRESHOLD_SECONDS
+
+# Per-segment text reliability value below which the "(low ASR confidence)"
+# badge is shown. Derived from exp(avg_logprob) * (1 - no_speech_prob)
+# in app/speech_to_text.py; 0.65 matches the existing hard-coded check.
+LOW_ASR_CONFIDENCE_DISPLAY_THRESHOLD: float = 0.65
+LOW_ASR_CONFIDENCE_THRESHOLD: float = LOW_ASR_CONFIDENCE_DISPLAY_THRESHOLD

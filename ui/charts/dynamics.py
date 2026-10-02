@@ -9,7 +9,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from ui.utils import safe_float
+from ui.utils import compute_ols_slope, html_block, safe_float
 from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens
 
 
@@ -19,18 +19,20 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
         return
 
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.0rem;">
-            <div class="section-title">🚥 Modality Agreement Ribbon</div>
-            <div class="section-badge">TURN-BY-TURN MODALITY ALIGNMENT</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.0rem;">
+<div class="section-title">🚥 Modality Agreement Ribbon</div>
+<div class="section-badge">TURN-BY-TURN MODALITY ALIGNMENT</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
     blocks_html = []
     for s in segments:
-        idx = s.get("segment_index", 0) + 1
+        # Item 8: segment_index is 0-based → display as Turn 01, Turn 02, ...
+        raw_idx = s.get("segment_index", 0)
+        display_idx = int(raw_idx) + 1  # 1-based
         fusion = s.get("fusion", {}) or {}
         is_agree = bool(fusion.get("agreement", False))
         is_mismatch = bool(fusion.get("mismatch", False))
@@ -60,30 +62,31 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
             status = "WEAK"
             status_color = "var(--warning)"
 
-        blocks_html.append(
-            f"""
-            <div style="flex: 1 1 80px; min-width: 80px; max-width: 140px; background: {bg}; border: 1px solid {border}; border-radius: 6px; padding: 6px 8px; text-align: center;">
-                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); font-weight: 600;">
-                    T{idx:02d}
-                </div>
-                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 700; color: {status_color}; margin: 2px 0;">
-                    {status}
-                </div>
-                <div style="font-size: 0.75rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    {v_dir[:3]}/{t_dir[:3]}
-                </div>
-            </div>
-            """
+        # Item 7: each block built without indented leading whitespace
+        block = (
+            f'<div style="flex: 1 1 80px; min-width: 80px; max-width: 140px;'
+            f' background: {bg}; border: 1px solid {border}; border-radius: 6px;'
+            f' padding: 6px 8px; text-align: center;">'
+            f'<div style="font-family: \'IBM Plex Mono\', monospace; font-size: 0.75rem;'
+            f' color: var(--muted); font-weight: 600;">Turn {display_idx:02d}</div>'
+            f'<div style="font-family: \'IBM Plex Mono\', monospace; font-size: 0.75rem;'
+            f' font-weight: 700; color: {status_color}; margin: 2px 0;">{status}</div>'
+            f'<div style="font-size: 0.75rem; color: var(--text); overflow: hidden;'
+            f' text-overflow: ellipsis; white-space: nowrap;">{v_dir[:3]}/{t_dir[:3]}</div>'
+            f'</div>'
         )
+        blocks_html.append(block)
 
     st.markdown(
-        f"""
-        <div style="display: flex; gap: 8px; overflow-x: auto; padding: 6px 0; margin-bottom: 1.0rem;">
-            {''.join(blocks_html)}
-        </div>
-        """,
+        html_block(f"""
+<div style="display: flex; gap: 8px; overflow-x: auto; padding: 6px 0; margin-bottom: 1.0rem;">
+{''.join(blocks_html)}
+</div>
+"""),
         unsafe_allow_html=True,
     )
+
+
 
 
 def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
@@ -183,17 +186,24 @@ def render_intensity_trajectory_chart(
     verdict: Optional[Dict[str, Any]] = None,
     escalation: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Render fitted OLS slope, tolerance band, and escalation segments."""
+    """Render fitted OLS slope, tolerance band, and escalation segments.
+
+    Item 11: When fewer than 3 turns are present, the OLS slope and
+    tolerance band are hidden, no 'stable' claim is made, and the legend
+    shows 'Too few turns to assess a trend'. The slope shown in the legend
+    comes from verdict["slope"] (the same value used by the verdict panel)
+    so all three displays (verdict, legend, exports) are always consistent.
+    """
     if len(segments) < 2:
         return
 
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.0rem;">
-            <div class="section-title">📈 Intensity Trajectory with Fitted Slope & Tolerance Band</div>
-            <div class="section-badge">OLS REGRESSION & TOLERANCE DYNAMICS</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.0rem;">
+<div class="section-title">📈 Intensity Trajectory with Fitted Slope &amp; Tolerance Band</div>
+<div class="section-badge">OLS REGRESSION &amp; TOLERANCE DYNAMICS</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
@@ -202,30 +212,43 @@ def render_intensity_trajectory_chart(
     x = np.arange(1, n + 1)
     y = np.array(intensities)
 
-    # OLS fitted line
-    slope, intercept = np.polyfit(x, y, 1)
-    fitted_y = slope * x + intercept
-
     import config
-    dip_tol = getattr(config, "ESCALATION_DIP_TOLERANCE", 0.08)
-    upper_band = np.clip(fitted_y + dip_tol, 0.0, 1.0)
-    lower_band = np.clip(fitted_y - dip_tol, 0.0, 1.0)
+    # Item 11: slope is shown only for >= 3 turns (same threshold as verdict)
+    min_turns_for_slope = getattr(config, "VERDICT_MIN_SEGMENTS", 3)
+    enough_turns = n >= min_turns_for_slope
+
+    # Use verdict["slope"] as SSOT (same value displayed in verdict panel)
+    v_dict = verdict or {}
+    if enough_turns:
+        if v_dict.get("verdict") not in (None, "", "insufficient_data"):
+            slope = safe_float(v_dict.get("slope", 0.0))
+        else:
+            slope, _intercept, _net = compute_ols_slope(intensities)
+        intercept_arr = np.polyfit(x, y, 1)
+        intercept = intercept_arr[1]
+        fitted_y = slope * x + intercept
+        dip_tol = getattr(config, "ESCALATION_DIP_TOLERANCE", 0.08)
+        upper_band = np.clip(fitted_y + dip_tol, 0.0, 1.0)
+        lower_band = np.clip(fitted_y - dip_tol, 0.0, 1.0)
+    else:
+        slope = 0.0
 
     fig = go.Figure()
 
-    # Tolerance band
-    fig.add_trace(
-        go.Scatter(
-            x=list(x) + list(x)[::-1],
-            y=list(upper_band) + list(lower_band)[::-1],
-            fill="toself",
-            fillcolor="rgba(56, 189, 248, 0.10)",
-            line=dict(color="rgba(255, 255, 255, 0)"),
-            hoverinfo="skip",
-            showlegend=True,
-            name=f"Tolerance Band (±{dip_tol:.2f})",
+    if enough_turns:
+        # Tolerance band
+        fig.add_trace(
+            go.Scatter(
+                x=list(x) + list(x)[::-1],
+                y=list(upper_band) + list(lower_band)[::-1],
+                fill="toself",
+                fillcolor="rgba(56, 189, 248, 0.10)",
+                line=dict(color="rgba(255, 255, 255, 0)"),
+                hoverinfo="skip",
+                showlegend=True,
+                name=f"Tolerance Band (±{dip_tol:.2f})",
+            )
         )
-    )
 
     # Actual intensity line
     turn_names = [f"Turn {i}" for i in x]
@@ -242,16 +265,26 @@ def render_intensity_trajectory_chart(
         )
     )
 
-    # OLS Fitted Trend Line
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=fitted_y,
-            mode="lines",
-            line=dict(color="#38bdf8", width=2, dash="dash"),
-            name=f"OLS Slope ({slope:+.3f}/turn)",
+    if enough_turns:
+        # OLS Fitted Trend Line — slope is SSOT from verdict dict
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=fitted_y,
+                mode="lines",
+                line=dict(color="#38bdf8", width=2, dash="dash"),
+                name=f"OLS Slope ({slope:+.3f}/turn)",
+            )
         )
-    )
+    else:
+        # Item 11: fewer than min_turns — no slope claim, clear notice
+        fig.add_annotation(
+            text=f"Too few turns to assess a trend (need ≥ {min_turns_for_slope})",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=11, color="#8E97A6"),
+        )
 
     apply_chart_theme(fig, height=340, margin=dict(l=40, r=20, t=30, b=40), show_legend=True)
     fig.update_xaxes(
@@ -275,6 +308,8 @@ def render_intensity_trajectory_chart(
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
+
 
 
 def render_speaker_comparison_chart(speaker_analytics: List[Dict[str, Any]]) -> None:

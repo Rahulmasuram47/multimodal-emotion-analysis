@@ -221,7 +221,10 @@ if analyze_clicked and active_audio is not None:
                 st.session_state["audio_bytes"] = audio_bytes
                 st.session_state["audio_format"] = audio_format
                 t_total = time.perf_counter() - t_pipeline_start
+                st.session_state["_last_run_elapsed"] = t_total
+                st.session_state["_show_success_banner"] = True
                 status.update(label=f"Analysis Completed Successfully in {t_total:.2f}s!", state="complete", expanded=False)
+
             except Exception as exc:
                 title, guidance = categorize_pipeline_error(exc)
                 st.error(f"**{title}**\n\n{guidance}")

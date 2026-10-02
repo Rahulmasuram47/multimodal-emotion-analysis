@@ -26,7 +26,7 @@ from ui.components.verdict_card import build_key_finding, render_verdict_hero
 from ui.components.waveform_player import render_wavesurfer_player
 from ui.pages.acoustic_view import render_acoustic_page
 from ui.pages.why_result_view import render_why_result_page
-from ui.utils import safe_float
+from ui.utils import html_block, safe_float
 
 
 def render_analysis_page(
@@ -52,8 +52,17 @@ def render_analysis_page(
 ) -> None:
     """Orchestrate Conversation & Multimodal Analysis results page in Prompt H hierarchy."""
     # -------------------------------------------------------------
+    # Item 18: Success banner — show once, results tab only, one icon,
+    # with elapsed time of the CURRENT run.
+    # -------------------------------------------------------------
+    if st.session_state.get("_show_success_banner") and st.session_state.get("_last_run_elapsed") is not None:
+        elapsed = safe_float(st.session_state.get("_last_run_elapsed"))
+        st.success(f"Analysis completed in {elapsed:.2f}s")
+
+    # -------------------------------------------------------------
     # (a) Verdict Hero: verdict, reason, attention gauge, recommendation
     # -------------------------------------------------------------
+
     finding = build_key_finding(
         dominant_voice=dominant_voice,
         dominant_text=dominant_text,
@@ -108,12 +117,12 @@ def render_analysis_page(
 
     # Audio Playback (WaveSurfer) & Complete Transcript
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.2rem;">
-            <div class="section-title">🎙️ Audio Recording & Transcript</div>
-            <div class="section-badge">WHISPER RECOGNITION & WAVESURFER.JS</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.2rem;">
+<div class="section-title">🎙️ Audio Recording & Transcript</div>
+<div class="section-badge">WHISPER RECOGNITION & WAVESURFER.JS</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
@@ -133,16 +142,16 @@ def render_analysis_page(
         if full_transcript:
             escaped_transcript = html.escape(full_transcript).replace("\n", "<br>")
             st.markdown(
-                f"""
-                <div class="transcript-container">
-                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 700; color: var(--text-accent); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.08em;">
-                        COMPLETE SPEECH TRANSCRIPT
-                    </div>
-                    <div style="font-size: 0.82rem; color: var(--text); line-height: 1.55;">
-                        {escaped_transcript}
-                    </div>
-                </div>
-                """,
+                html_block(f"""
+<div class="transcript-container">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 700; color: var(--text-accent); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.08em;">
+COMPLETE SPEECH TRANSCRIPT
+</div>
+<div style="font-size: 0.82rem; color: var(--text); line-height: 1.55;">
+{escaped_transcript}
+</div>
+</div>
+"""),
                 unsafe_allow_html=True,
             )
         else:
@@ -152,14 +161,15 @@ def render_analysis_page(
     # (d) Tabs: segments, acoustic inspection, why-this-result, validation
     # -------------------------------------------------------------
     st.markdown(
-        """
-        <div class="section-header-bar" style="margin-top: 1.5rem;">
-            <div class="section-title">📑 Detailed Analysis & Evidence Tabs</div>
-            <div class="section-badge">SEGMENTS · ACOUSTIC · WHY THIS RESULT · VALIDATION</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar" style="margin-top: 1.5rem;">
+<div class="section-title">📑 Detailed Analysis & Evidence Tabs</div>
+<div class="section-badge">SEGMENTS · ACOUSTIC · WHY THIS RESULT · VALIDATION</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
+
 
     tab_segs, tab_acoust, tab_why, tab_valid, tab_annot = st.tabs([
         "💬 Segments",

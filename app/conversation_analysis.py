@@ -732,6 +732,8 @@ class ConversationAnalyzer:
 
         try:
             fusion_result = self.fusion.fuse(voice_result, sentiment_result)
+            fusion_result["acoustic_window_widened"] = was_widened
+            fusion_result["segment_duration"] = max(0.0, end - start)
         except Exception:
             logger.exception(
                 "Multimodal fusion failed for segment %d; skipping.",
@@ -749,7 +751,10 @@ class ConversationAnalyzer:
             "fusion": fusion_result,
             "text_reliability": float(sentiment_result.get("text_reliability", 1.0)),
             "is_low_confidence": bool(raw_segment.get("is_low_confidence", False)),
+            "acoustic_window_widened": was_widened,
+            "segment_duration": max(0.0, end - start),
         }
+
 
         # Intensity — v2 by default, with a defensive fallback to v1.
         try:

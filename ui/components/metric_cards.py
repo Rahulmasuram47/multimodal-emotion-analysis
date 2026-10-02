@@ -8,9 +8,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from ui.utils import emotion_icon, safe_float
+from ui.utils import emotion_icon, html_block, safe_float
 
 # Phase 4: icons for the unified verdict labels (kept separate from
+
 # emotion_icon, which maps emotion words like happy/sad, not verdict
 # words like escalating/fluctuating).
 _VERDICT_ICONS: Dict[str, str] = {
@@ -43,14 +44,15 @@ def render_overview_metrics(
     unchanged for transparency/ablation rather than removed.
     """
     st.markdown(
-        """
-        <div class="section-header-bar">
-            <div class="section-title">📊 Analysis Overview</div>
-            <div class="section-badge">SYSTEM LEVEL METRICS</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar">
+<div class="section-title">📊 Analysis Overview</div>
+<div class="section-badge">SYSTEM LEVEL METRICS</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
+
 
     n_cols = 7 if verdict_label else 6
     cols = st.columns(n_cols)
@@ -141,14 +143,15 @@ def render_speaker_metrics(
     left it ambiguous whether diarization ran at all.
     """
     st.markdown(
-        """
-        <div class="section-header-bar">
-            <div class="section-title">🗣️ Speaker Analysis</div>
-            <div class="section-badge">DIARIZATION OUTPUT</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar">
+<div class="section-title">🗣️ Speaker Analysis</div>
+<div class="section-badge">DIARIZATION OUTPUT</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
+
 
     if diarization_error:
         st.warning(
@@ -196,12 +199,12 @@ def render_dynamics_card(
     hiding the legacy metrics that the ablation/report still relies on.
     """
     st.markdown(
-        """
-        <div class="section-header-bar">
-            <div class="section-title">📈 Emotional Intensity Trajectory</div>
-            <div class="section-badge">MULTIMODAL TEMPORAL DYNAMICS</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar">
+<div class="section-title">📈 Emotional Intensity Trajectory</div>
+<div class="section-badge">MULTIMODAL TEMPORAL DYNAMICS</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
 
@@ -211,10 +214,16 @@ def render_dynamics_card(
     if verdict:
         verdict_label = str(verdict.get("verdict", "")).lower()
         verdict_reason = str(verdict.get("reason", "")).strip()
-        slope = safe_float(verdict.get("slope", 0.0))
-        net_change = safe_float(verdict.get("net_change", 0.0))
         icon = _VERDICT_ICONS.get(verdict_label, "❔")
         display_label = verdict_label.replace("_", " ").title() if verdict_label else "Unknown"
+
+        # Item 11: Fewer than 3 turns -> slope/net are n/a
+        if verdict_label == "insufficient_data":
+            stats_display = "slope=n/a &middot; net change=n/a"
+        else:
+            slope = safe_float(verdict.get("slope", 0.0))
+            net_change = safe_float(verdict.get("net_change", 0.0))
+            stats_display = f"slope={slope:+.3f}/turn &middot; net change={net_change:+.2f}"
 
         verdict_color_var = {
             "escalating": "var(--negative)",
@@ -225,24 +234,25 @@ def render_dynamics_card(
         }.get(verdict_label, "var(--muted)")
 
         st.markdown(
-            f"""
-            <div class="modality-card" style="border-left: 3px solid {verdict_color_var}; margin-bottom: 0.8rem;">
-                <div class="card-meta-label">UNIFIED CONVERSATION VERDICT</div>
-                <div style="display:flex;align-items:baseline;gap:0.6rem;margin-top:0.2rem;">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.1rem;color:{verdict_color_var};">
-                        {icon} {html.escape(display_label)}
-                    </div>
-                    <div style="font-size:0.76rem;color:var(--muted);">
-                        slope={slope:+.3f}/turn &middot; net change={net_change:+.2f}
-                    </div>
-                </div>
-                <div style="margin-top:0.4rem;font-size:0.8rem;color:var(--text);line-height:1.5;">
-                    {html.escape(verdict_reason)}
-                </div>
-            </div>
-            """,
+            html_block(f"""
+<div class="modality-card" style="border-left: 3px solid {verdict_color_var}; margin-bottom: 0.8rem;">
+<div class="card-meta-label">UNIFIED CONVERSATION VERDICT</div>
+<div style="display:flex;align-items:baseline;gap:0.6rem;margin-top:0.2rem;">
+<div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.1rem;color:{verdict_color_var};">
+{icon} {html.escape(display_label)}
+</div>
+<div style="font-size:0.76rem;color:var(--muted);">
+{stats_display}
+</div>
+</div>
+<div style="margin-top:0.4rem;font-size:0.8rem;color:var(--text);line-height:1.5;">
+{html.escape(verdict_reason)}
+</div>
+</div>
+"""),
             unsafe_allow_html=True,
         )
+
 
     scores = trend.get("intensity_scores", []) or []
 
@@ -333,11 +343,11 @@ def render_dynamics_card(
 
     if escalation_reason:
         st.markdown(
-            f"""
-            <div style="background: var(--panel); border: 1px solid var(--border); border-left: 3px solid {'var(--negative)' if escalation_detected else 'var(--muted)'}; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text);">
-                <strong style="font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; color: {'var(--negative)' if escalation_detected else 'var(--muted)'};">{'🚨' if escalation_detected else 'ℹ️'} Escalation Diagnostics:</strong> {html.escape(escalation_reason)}
-            </div>
-            """,
+            html_block(f"""
+<div style="background: var(--panel); border: 1px solid var(--border); border-left: 3px solid {'var(--negative)' if escalation_detected else 'var(--muted)'}; border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text);">
+<strong style="font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; color: {'var(--negative)' if escalation_detected else 'var(--muted)'};">{'🚨' if escalation_detected else 'ℹ️'} Escalation Diagnostics:</strong> {html.escape(escalation_reason)}
+</div>
+"""),
             unsafe_allow_html=True,
         )
 
@@ -371,33 +381,33 @@ def render_dynamics_card(
     esc_factors_html = "".join([f"<li style='margin-bottom: 0.25rem;'>{f}</li>" for f in esc_factors])
 
     st.markdown(
-        f"""
-        <div class="modality-card" style="margin-top:0.8rem;">
-            <div class="card-meta-label">CONVERSATION DYNAMICS & ESCALATION EXPLANATION (LEGACY DETAIL)</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                <div>
-                    <div style="font-size:0.8rem;color:var(--muted);">Overall Emotional Trend</div>
-                    <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--text);">
-                        {emotion_icon(trend_label)} {html.escape(trend_label)}
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size:0.8rem;color:var(--muted);">Continuous Escalation</div>
-                    <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:{'var(--negative)' if escalation_detected else 'var(--positive)'};">
-                        {html.escape(escalation_wording)}
-                    </div>
-                </div>
-            </div>
-            <div style="margin-top:0.7rem;font-size:0.76rem;color:var(--muted);line-height:1.5;">
-                {html.escape(trend_explanation)} {html.escape(continuous_note)}
-            </div>
-            <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);font-size:0.74rem;color:var(--muted);">
-                <strong style="color:var(--text);">Why was escalation {'detected' if escalation_detected else 'not detected'} (legacy rule)?</strong>
-                <ul style="margin: 0.3rem 0 0 1.2rem; padding: 0;">
-                    {esc_factors_html}
-                </ul>
-            </div>
-        </div>
-        """,
+        html_block(f"""
+<div class="modality-card" style="margin-top:0.8rem;">
+<div class="card-meta-label">CONVERSATION DYNAMICS & ESCALATION EXPLANATION (LEGACY DETAIL)</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+<div>
+<div style="font-size:0.8rem;color:var(--muted);">Overall Emotional Trend</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--text);">
+{emotion_icon(trend_label)} {html.escape(trend_label)}
+</div>
+</div>
+<div>
+<div style="font-size:0.8rem;color:var(--muted);">Continuous Escalation</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:{'var(--negative)' if escalation_detected else 'var(--positive)'};">
+{html.escape(escalation_wording)}
+</div>
+</div>
+</div>
+<div style="margin-top:0.7rem;font-size:0.76rem;color:var(--muted);line-height:1.5;">
+{html.escape(trend_explanation)} {html.escape(continuous_note)}
+</div>
+<div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);font-size:0.74rem;color:var(--muted);">
+<strong style="color:var(--text);">Why was escalation {'detected' if escalation_detected else 'not detected'} (legacy rule)?</strong>
+<ul style="margin: 0.3rem 0 0 1.2rem; padding: 0;">
+{esc_factors_html}
+</ul>
+</div>
+</div>
+"""),
         unsafe_allow_html=True,
-    )
+    )

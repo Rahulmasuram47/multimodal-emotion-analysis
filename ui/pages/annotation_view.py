@@ -37,7 +37,13 @@ from config import (
     TEXT_SENTIMENT_OPTIONS,
     EVAL_MIN_N,
 )
-from evaluation.dataset import EvaluationDataset, EvaluationSample, EXTENDED_COLUMNS
+from evaluation.dataset import (
+    EvaluationDataset,
+    EvaluationSample,
+    EXTENDED_COLUMNS,
+    get_dataset_inventory,
+)
+
 from scripts.merge_annotations import load_annotator_csvs, analyze_agreement, write_consensus_dataset
 import wave
 
@@ -430,19 +436,20 @@ def render_annotation_page() -> None:
         mins = int(total_dur_sec // 60)
         secs = int(total_dur_sec % 60)
 
-        annotated_samples = [s for s in consensus_dataset.samples if any([
-            s.true_voice_emotion, s.true_text_sentiment, s.true_transcript,
-            s.true_speaker_count is not None, s.true_escalation, s.true_incongruent
-        ])]
-        n_annotated = len(annotated_samples)
+        # Item 28: Use shared get_dataset_inventory() function
+        inv = get_dataset_inventory()
 
         d_col1, d_col2, d_col3, d_col4 = st.columns(4)
-        d_col1.metric("Total Audio Clips", total_clips)
-        d_col2.metric("Total Audio Duration", f"{mins}m {secs}s")
-        d_col3.metric("Annotated Clips", n_annotated)
-        d_col4.metric(f"Min N for Metrics ({EVAL_MIN_N})", f"{n_annotated}/{EVAL_MIN_N}")
+        d_col1.metric("Audio Files on Disk", inv.total_audio_files)
+        d_col2.metric("Dataset Records", inv.total_dataset_records)
+        d_col3.metric("Annotated Clips", inv.annotated_records_count)
+        d_col4.metric(f"Min N Target ({EVAL_MIN_N})", f"{inv.annotated_records_count}/{EVAL_MIN_N}")
+
+        with st.expander("ℹ️ Dataset Inventory & Gap Explanation (Item 28)", expanded=False):
+            st.markdown(inv.gap_explanation)
 
         st.divider()
+
         st.markdown("#### 🎯 Class Balance (Consensus Dataset)")
         b_col1, b_col2, b_col3 = st.columns(3)
         with b_col1:

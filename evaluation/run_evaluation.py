@@ -27,7 +27,13 @@ from app.speech_to_text import SpeechToText
 from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.conversation_analysis import ConversationAnalyzer
-from evaluation.dataset import EvaluationDataset, EvaluationSample, load_evaluation_dataset
+from evaluation.dataset import (
+    EvaluationDataset,
+    EvaluationSample,
+    format_remaining_annotation_checklist,
+    load_evaluation_dataset,
+)
+
 from evaluation.harness import EvaluationHarness, SamplePrediction, EvaluationResult
 from evaluation.ablation import AblationEvaluator, AblationResult
 from evaluation.diarization_validation import validate_diarization_cases, DiarizationValidationResult
@@ -44,6 +50,16 @@ from config import EVAL_DATASET_PATH as _DEFAULT_DATASET
 
 DEFAULT_DATASET_PATH = _DEFAULT_DATASET
 DEFAULT_RESULTS_DIR = "evaluation/results"
+
+
+def _fmt_float(val: Any, decimals: int = 4) -> str:
+    """Format float or return N/A if None."""
+    if val is None:
+        return "N/A"
+    try:
+        return f"{float(val):.{decimals}f}"
+    except (TypeError, ValueError):
+        return str(val)
 
 
 def format_human_readable_report(
@@ -80,11 +96,11 @@ def format_human_readable_report(
     lines.append("1. VOICE EMOTION (ACOUSTIC) METRICS:")
     ve = eval_result.voice_emotion_metrics
     if ve.get("status") == "OK":
-        lines.append(f"   Evaluated: {ve['total_samples']}")
-        lines.append(f"   Accuracy:  {ve['accuracy']:.4f}")
-        lines.append(f"   Macro F1:  {ve['f1_macro']:.4f}")
-        lines.append(f"   Precision: {ve['precision_macro']:.4f}")
-        lines.append(f"   Recall:    {ve['recall_macro']:.4f}")
+        lines.append(f"   Evaluated: {ve.get('total_samples', 0)}")
+        lines.append(f"   Accuracy:  {_fmt_float(ve.get('accuracy'))}")
+        lines.append(f"   Macro F1:  {_fmt_float(ve.get('f1_macro'))}")
+        lines.append(f"   Precision: {_fmt_float(ve.get('precision_macro'))}")
+        lines.append(f"   Recall:    {_fmt_float(ve.get('recall_macro'))}")
         lines.append("   Confusion Matrix (True v Pred):")
         for true_lbl, preds in ve.get("confusion_matrix", {}).items():
             row_str = " | ".join(f"{p}:{cnt}" for p, cnt in preds.items())
@@ -97,11 +113,11 @@ def format_human_readable_report(
     lines.append("2. TEXT SENTIMENT (LINGUISTIC) METRICS:")
     ts = eval_result.text_sentiment_metrics
     if ts.get("status") == "OK":
-        lines.append(f"   Evaluated: {ts['total_samples']}")
-        lines.append(f"   Accuracy:  {ts['accuracy']:.4f}")
-        lines.append(f"   Macro F1:  {ts['f1_macro']:.4f}")
-        lines.append(f"   Precision: {ts['precision_macro']:.4f}")
-        lines.append(f"   Recall:    {ts['recall_macro']:.4f}")
+        lines.append(f"   Evaluated: {ts.get('total_samples', 0)}")
+        lines.append(f"   Accuracy:  {_fmt_float(ts.get('accuracy'))}")
+        lines.append(f"   Macro F1:  {_fmt_float(ts.get('f1_macro'))}")
+        lines.append(f"   Precision: {_fmt_float(ts.get('precision_macro'))}")
+        lines.append(f"   Recall:    {_fmt_float(ts.get('recall_macro'))}")
         lines.append("   Confusion Matrix (True v Pred):")
         for true_lbl, preds in ts.get("confusion_matrix", {}).items():
             row_str = " | ".join(f"{p}:{cnt}" for p, cnt in preds.items())
@@ -114,10 +130,10 @@ def format_human_readable_report(
     lines.append("3. SPEECH-TO-TEXT (WER) METRICS:")
     stt = eval_result.speech_to_text_metrics
     if stt.get("status") == "OK":
-        lines.append(f"   Evaluated:         {stt['total_evaluated']}")
-        lines.append(f"   Average WER:       {stt['average_wer']:.4f}")
-        lines.append(f"   Total Ref Words:   {stt['total_reference_words']}")
-        lines.append(f"   Total Hyp Words:   {stt['total_hypothesis_words']}")
+        lines.append(f"   Evaluated:         {stt.get('total_evaluated', 0)}")
+        lines.append(f"   Average WER:       {_fmt_float(stt.get('average_wer'))}")
+        lines.append(f"   Total Ref Words:   {stt.get('total_reference_words', 0)}")
+        lines.append(f"   Total Hyp Words:   {stt.get('total_hypothesis_words', 0)}")
     else:
         lines.append("   Status: Pending Data (no reference transcripts provided)")
     lines.append("")
@@ -126,12 +142,13 @@ def format_human_readable_report(
     lines.append("4. SPEAKER COUNT METRICS:")
     spk = eval_result.speaker_count_metrics
     if spk.get("status") == "OK":
-        lines.append(f"   Evaluated:            {spk['count']}")
-        lines.append(f"   Exact Match Accuracy: {spk['exact_match_accuracy']:.4f}")
-        lines.append(f"   Mean Absolute Error:  {spk['mae']:.4f}")
+        lines.append(f"   Evaluated:            {spk.get('count', 0)}")
+        lines.append(f"   Exact Match Accuracy: {_fmt_float(spk.get('exact_match_accuracy'))}")
+        lines.append(f"   Mean Absolute Error:  {_fmt_float(spk.get('mae'))}")
     else:
         lines.append("   Status: Pending Data (no speaker count ground truth provided)")
     lines.append("")
+
 
     # 5. Model comparison
     lines.append("5. MODEL COMPARISON (ABLATION & LEARNED FUSION BASELINE):")
@@ -428,6 +445,8 @@ def execute_evaluation(
         "voice_emotion": {
             "status": eval_result.voice_emotion_metrics.get("status"),
             "evaluated_samples": eval_result.voice_emotion_metrics.get("total_samples", 0),
+            "n": eval_result.voice_emotion_metrics.get("total_samples", 0),
+            "total_samples": eval_result.voice_emotion_metrics.get("total_samples", 0),
             "accuracy": eval_result.voice_emotion_metrics.get("accuracy"),
             "f1_macro": eval_result.voice_emotion_metrics.get("f1_macro"),
             "precision_macro": eval_result.voice_emotion_metrics.get("precision_macro"),
@@ -437,12 +456,15 @@ def execute_evaluation(
         "text_sentiment": {
             "status": eval_result.text_sentiment_metrics.get("status"),
             "evaluated_samples": eval_result.text_sentiment_metrics.get("total_samples", 0),
+            "n": eval_result.text_sentiment_metrics.get("total_samples", 0),
+            "total_samples": eval_result.text_sentiment_metrics.get("total_samples", 0),
             "accuracy": eval_result.text_sentiment_metrics.get("accuracy"),
             "f1_macro": eval_result.text_sentiment_metrics.get("f1_macro"),
             "precision_macro": eval_result.text_sentiment_metrics.get("precision_macro"),
             "recall_macro": eval_result.text_sentiment_metrics.get("recall_macro"),
             "confusion_matrix": eval_result.text_sentiment_metrics.get("confusion_matrix"),
         },
+
         "rule_based_fusion": {
             "status": "OK" if ablation_result.voice_text_fusion.accuracy is not None else "PENDING_DATA",
             "evaluated_samples": ablation_result.voice_text_fusion.total_samples,
@@ -772,7 +794,11 @@ def execute_evaluation(
     print("\n" + ablation_result.format_table())
     print(f"\nDiarization Assessment: {diarization_res.honest_assessment}")
 
+    # Item 31: Print remaining-annotation checklist
+    print("\n" + format_remaining_annotation_checklist(dataset))
+
     # Honest Sample Size Warning (if N < 30)
+
     total_gt = sum(1 for r in eval_result.sample_records if r.get("true_voice_emotion") or r.get("true_text_sentiment"))
     if total_gt < 30:
         print("\n" + "=" * 78)

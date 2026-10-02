@@ -240,3 +240,25 @@ Addressed rendering inconsistencies, duplicate UI components, code-block markdow
 - **Tests after:** 295 passed, 3 warnings
 - All 11 new Tier 1 regression tests passing
 - python -m pytest -q exit code 0
+
+---
+
+## fix/final-polish - Tier 3: Validation Tab & Evaluation Dataset SSOT (2026-10-02)
+
+**Branch:** fix/final-polish
+
+### What changed
+- **evaluation/dataset.py** - Added `DatasetInventory` dataclass, `get_dataset_inventory()`, and `format_remaining_annotation_checklist()`. `get_dataset_inventory()` serves as the single source of truth for both Annotation Helper and Validation tabs, returning the unified counts and a detailed `gap_explanation` explaining why there are 9 WAV files on disk (7 evaluation recordings + 2 unit test fixtures: `test_corrupted.wav`, `test_empty.wav`) and 7 dataset records (5 with ground truth, 2 pending).
+- **evaluation/run_evaluation.py** - Safe metric string formatting with `_fmt_float()` so evaluation reporting never crashes when metric values are `None` on partial datasets. Updated `latest_eval_data` to explicitly provide `"n"` and `"total_samples"` keys for `voice_emotion` and `text_sentiment`. Added stdout print of `format_remaining_annotation_checklist(dataset)` at the end of evaluation runs.
+- **ui/pages/validation_view.py** - Integrated `get_dataset_inventory()` in summary banner with explicit gap explanation callout. Fixed `_render_classification_section` to safely extract sample count `n` from multiple possible keys (`evaluated_samples`, `n`, `total_samples`). When $N < \text{EVAL\_MIN\_N}$ (Item 29), displays "⚠️ Insufficient data: N=4, need >=5" along with a raw prediction-vs-label table marked "descriptive only, not a metric". Under Speaker Count (Item 30), when all labeled clips are single-speaker ($true\_speaker\_count=1$), suppresses the headline MAE metric card and shows an informational notice stating that MAE is uninformative for multi-speaker separation, accompanied by sample-level counts. Displays the remaining-annotation checklist (Item 31).
+- **ui/pages/annotation_view.py** - Integrated `get_dataset_inventory()` in the Dataset Dashboard subtab, aligning the metrics (Audio Files on Disk: 9, Dataset Records: 7, Annotated Clips: 5) and displaying the inventory gap explanation.
+- **tests/test_tier3_validation.py** - Added 5 regression tests covering dataset inventory counts, raw prediction table loading, all single-speaker MAE suppression, safe handling of None metrics in report formatting, and remaining-annotation checklist formatting.
+
+### Why
+Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 records), eliminated the bug where $N=4$ was reported as "No annotated ground truth", prevented misleading headline MAE metrics when ground truth lacks speaker diversity, and ensured evaluation runs never crash on partial data.
+
+### Measured
+- **Tests before:** 295 passed, 3 warnings
+- **Tests after:** 300 passed, 3 warnings
+- All 5 new Tier 3 regression tests passing
+- python -m pytest -q exit code 0

@@ -1,12 +1,15 @@
 """
-Multimodal Validation & Empirical Benchmarks page orchestrator (Tab 3).
+Multimodal Validation & Empirical Benchmarks page orchestrator (Tab 4).
 
 Reads the latest evaluation results from evaluation/results/latest_evaluation.json
 if available. Shows N alongside every metric, 95% bootstrap CIs, and "Insufficient data"
 banners when N < EVAL_MIN_N (configurable in config.py).
 
-Does NOT run the full pipeline inline — results are produced by:
-    python -m evaluation.run_evaluation
+Tier 3 Fixes:
+- Item 28: Uses shared get_dataset_inventory() to align audio files, records, and explain the gap.
+- Item 29: Displays 'Insufficient data: N=4, need >=5' plus raw prediction-vs-label table (descriptive only, not a metric).
+- Item 30: When all labeled clips are single-speaker, suppresses headline MAE and displays uninformative notice.
+- Item 31: Renders the remaining-annotation checklist; defensively guarded against crashes on partial data.
 """
 
 from __future__ import annotations
@@ -14,14 +17,18 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
+import pandas as pd
 import streamlit as st
 
-from config import EVAL_MIN_N, EVAL_DATASET_PATH
+from config import EVAL_DATASET_PATH, EVAL_MIN_N
+from evaluation.dataset import format_remaining_annotation_checklist, get_dataset_inventory
+from ui.utils import html_block
 
 
 RESULTS_JSON_PATH = "evaluation/results/latest_evaluation.json"
+PREDICTIONS_CSV_PATH = "evaluation/results/evaluation_predictions.csv"
 REPORT_MD_PATH = "evaluation/results/EVALUATION_REPORT.md"
 
 
@@ -65,45 +72,77 @@ def _ci_str(ci: Optional[Dict[str, Any]]) -> str:
     return f"[{lo:.4f}, {hi:.4f}]"
 
 
-def _render_metric_block(
-    label: str,
-    data: Dict[str, Any],
-    metric_key: str,
-    ci_key: Optional[str] = None,
-    n_key: str = "n",
-) -> None:
-    """Render a single metric with N badge and CI."""
-    n = int(data.get(n_key, data.get("total_samples", data.get("count", 0))) or 0)
-    val = data.get(metric_key)
-    ci = data.get(ci_key) if ci_key else None
+def _load_prediction_table(modality: str) -> Optional[pd.DataFrame]:
+    """Load and filter the raw prediction vs ground truth table from evaluation predictions (Item 29)."""
+    p = Path(PREDICTIONS_CSV_PATH)
+    if not p.exists():
+        return None
+    try:
+        df = pd.read_csv(p)
+        if modality == "voice":
+            col_true = "true_voice_emotion"
+            col_pred = "pred_voice_emotion"
+            col_match = "voice_match"
+        else:
+            col_true = "true_text_sentiment"
+            col_pred = "pred_text_sentiment"
+            col_match = "sentiment_match"
 
-    badge = _n_badge(n)
-    val_str = _fmt(val) if (n >= EVAL_MIN_N and val is not None) else "Insufficient data"
-    ci_display = _ci_str(ci) if (n >= EVAL_MIN_N and ci) else ""
+        # Filter to rows that actually have ground truth
+        valid_rows = df[df[col_true].notna() & (df[col_true].astype(str).str.strip().str.upper() != "N/A")].copy()
+        if valid_rows.empty:
+            return None
 
-    col1, col2, col3 = st.columns([3, 2, 2])
-    col1.markdown(f"**{label}**")
-    col2.markdown(val_str + (f"  `95% CI {ci_display}`" if ci_display else ""))
-    col3.markdown(badge)
+        # Build clean descriptive dataframe
+        res = pd.DataFrame({
+            "Recording": valid_rows["filename"].apply(lambda f: Path(str(f)).name),
+            "Ground Truth": valid_rows[col_true].astype(str),
+            "Model Prediction": valid_rows[col_pred].astype(str),
+            "Match": valid_rows[col_match].apply(lambda m: "✅ Yes" if str(m).strip().lower() in ("true", "yes", "1") else "❌ No"),
+            "Notes": valid_rows["notes"].fillna("").astype(str),
+        })
+        return res
+    except Exception:
+        return None
 
 
-def _render_classification_section(title: str, data: Dict[str, Any]) -> None:
-    """Render accuracy / F1 / confusion matrix for a classification task."""
+def _render_classification_section(title: str, data: Dict[str, Any], modality_type: str = "voice") -> None:
+    """Render accuracy / F1 / confusion matrix or raw descriptive table when N < EVAL_MIN_N.
+
+    Item 29: Shows 'Insufficient data: N=X, need >=5' plus a raw prediction-vs-label
+    table marked 'descriptive only, not a metric'.
+    """
     st.markdown(f"#### {title}")
     status = data.get("status", "NO_DATA")
-    n = int(data.get("n", data.get("total_samples", 0)) or 0)
+    # Defensively inspect multiple key names (Item 29 bugfix)
+    n = int(data.get("evaluated_samples", data.get("n", data.get("total_samples", 0))) or 0)
 
     if status == "NO_DATA" or n == 0:
-        st.info(f"No annotated ground truth for {title}. Add labels via the Annotation Helper.")
+        st.info(f"No annotated ground truth for {title}. Add labels via the Annotation Helper tab.")
         return
 
+    # Item 29: Small sample size (0 < n < EVAL_MIN_N)
     if n < EVAL_MIN_N:
         st.warning(
-            f"Insufficient data: N={n} (need ≥{EVAL_MIN_N} for reliable metrics). "
-            "Continue annotating via the Annotation Helper tab."
+            f"⚠️ **Insufficient data: N={n}, need ≥{EVAL_MIN_N} for statistically valid metrics.** "
+            f"The current sample size is too small to report meaningful accuracy or F1 scores."
         )
+
+        df_table = _load_prediction_table(modality_type)
+        if df_table is not None and not df_table.empty:
+            st.markdown(
+                "**Raw Prediction vs. Label Table** *(descriptive only, not a metric)*:"
+            )
+            st.dataframe(df_table, use_container_width=True, hide_index=True)
+            st.caption(
+                f"ℹ️ *Descriptive comparison only (N={n}) — not a benchmark metric. "
+                f"Requires at least {EVAL_MIN_N} annotated recordings before computing formal accuracy/F1.*"
+            )
+        else:
+            st.caption(f"Raw predictions table not yet generated. Run `python -m evaluation.run_evaluation`.")
         return
 
+    # Sufficient data (n >= EVAL_MIN_N)
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Accuracy", _fmt(data.get("accuracy")))
     col2.metric("Macro F1", _fmt(data.get("f1_macro")))
@@ -123,7 +162,6 @@ def _render_classification_section(title: str, data: Dict[str, Any]) -> None:
     if cm:
         labels = data.get("labels", list(cm.keys()))
         st.markdown("**Confusion matrix** (rows = true, cols = predicted):")
-        import pandas as pd
         rows = {true_lbl: {pred_lbl: cm.get(true_lbl, {}).get(pred_lbl, 0) for pred_lbl in labels}
                 for true_lbl in labels}
         df_cm = pd.DataFrame(rows).T.reindex(index=labels, columns=labels, fill_value=0)
@@ -131,16 +169,30 @@ def _render_classification_section(title: str, data: Dict[str, Any]) -> None:
 
 
 def render_multimodal_validation_section() -> None:
-    """Render empirical validation metrics tab."""
+    """Render empirical validation metrics tab (Item 28, 29, 30, 31)."""
     st.markdown(
-        """
-        <div class="section-header-bar">
-            <div class="section-title">📊 Multimodal Validation & Empirical Benchmarks</div>
-            <div class="section-badge">OFFLINE LABELED DATASET EVALUATION</div>
-        </div>
-        """,
+        html_block("""
+<div class="section-header-bar">
+<div class="section-title">📊 Multimodal Validation &amp; Empirical Benchmarks</div>
+<div class="section-badge">OFFLINE LABELED DATASET EVALUATION</div>
+</div>
+"""),
         unsafe_allow_html=True,
     )
+
+    # -------------------------------------------------------------------------
+    # Item 28: Shared inventory function for Annotation Helper and Validation tabs
+    # -------------------------------------------------------------------------
+    inv = get_dataset_inventory()
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Audio Files on Disk", inv.total_audio_files)
+    col2.metric("Dataset Records", inv.total_dataset_records)
+    col3.metric("Annotated Clips", inv.annotated_records_count)
+    col4.metric("Test Fixtures", inv.fixture_files_count)
+
+    with st.expander("ℹ️ Dataset Inventory & Gap Explanation (Item 28)", expanded=False):
+        st.markdown(inv.gap_explanation)
 
     results = _load_latest_results()
 
@@ -154,18 +206,14 @@ def render_multimodal_validation_section() -> None:
         return
 
     metadata = results.get("metadata", {})
-    total = metadata.get("total_dataset_records", 0)
     evaluated = metadata.get("evaluated_samples_count", 0)
     failed = metadata.get("failed_samples_count", 0)
     has_gt = metadata.get("has_ground_truth", False)
     missing = metadata.get("missing_annotations", [])
 
-    # Summary banner
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Dataset records", total)
-    col2.metric("Evaluated", evaluated)
-    col3.metric("Failed", failed)
-    col4.metric("Ground truth present", "Yes" if has_gt else "No")
+    st.caption(
+        f"Evaluated: **{evaluated}** | Failed: **{failed}** | Ground truth present: **{'Yes' if has_gt else 'No'}**"
+    )
 
     if missing:
         st.warning(
@@ -177,13 +225,21 @@ def render_multimodal_validation_section() -> None:
 
     # ── Voice emotion ──────────────────────────────────────────────────────────
     st.markdown("### 1. Voice Emotion (Acoustic)")
-    _render_classification_section("Voice Emotion Metrics", results.get("voice_emotion", {}))
+    _render_classification_section(
+        "Voice Emotion Metrics",
+        results.get("voice_emotion", {}),
+        modality_type="voice",
+    )
 
     st.divider()
 
     # ── Text sentiment ─────────────────────────────────────────────────────────
     st.markdown("### 2. Text Sentiment (Linguistic)")
-    _render_classification_section("Text Sentiment Metrics", results.get("text_sentiment", {}))
+    _render_classification_section(
+        "Text Sentiment Metrics",
+        results.get("text_sentiment", {}),
+        modality_type="text",
+    )
 
     st.divider()
 
@@ -195,7 +251,7 @@ def render_multimodal_validation_section() -> None:
     if stt.get("status") == "NO_DATA" or stt_n == 0:
         st.info("No reference transcripts annotated. Add via Annotation Helper.")
     elif stt_n < EVAL_MIN_N:
-        st.warning(f"Insufficient data: N={stt_n} (need ≥{EVAL_MIN_N}).")
+        st.warning(f"⚠️ Insufficient data: N={stt_n} (need ≥{EVAL_MIN_N} for statistically valid WER).")
     else:
         c1, c2, c3 = st.columns(3)
         c1.metric("Average WER", _fmt(stt.get("average_wer")))
@@ -205,14 +261,40 @@ def render_multimodal_validation_section() -> None:
     st.divider()
 
     # ── Speaker count ─────────────────────────────────────────────────────────
+    # Item 30: When all labeled clips are single-speaker, suppress headline MAE
     st.markdown("### 4. Speaker Count (MAE)")
     spk = results.get("speaker_count", {})
-    spk_n = spk.get("count", spk.get("n", 0))
+    spk_n = int(spk.get("count", spk.get("n", 0)) or 0)
+    per_sample = spk.get("per_sample", []) or []
+
+    all_single_speaker = (
+        spk_n > 0 and
+        all(int(p.get("true_speaker_count", 0)) == 1 for p in per_sample)
+    )
 
     if spk.get("status") == "NO_DATA" or spk_n == 0:
         st.info("No speaker count ground truth annotated.")
+    elif all_single_speaker:
+        mae_val = _fmt(spk.get("mae"))
+        st.info(
+            f"ℹ️ **Notice on Speaker Metrics**: All {spk_n} labeled clips are single-speaker "
+            f"(true_speaker_count=1); this MAE ({mae_val}) is uninformative for multi-speaker "
+            f"separation until multi-speaker conversations (2+ speakers) are annotated and evaluated."
+        )
+        if per_sample:
+            df_spk = pd.DataFrame([
+                {
+                    "Clip #": idx + 1,
+                    "True Count": p.get("true_speaker_count"),
+                    "Predicted Count": p.get("predicted_speaker_count"),
+                    "Absolute Difference": p.get("diff", 0),
+                }
+                for idx, p in enumerate(per_sample)
+            ])
+            st.dataframe(df_spk, use_container_width=False, hide_index=True)
+            st.caption("Descriptive breakdown (headline MAE card suppressed because all labeled clips are single-speaker).")
     elif spk_n < EVAL_MIN_N:
-        st.warning(f"Insufficient data: N={spk_n} (need ≥{EVAL_MIN_N}).")
+        st.warning(f"⚠️ Insufficient data: N={spk_n} (need ≥{EVAL_MIN_N}).")
     else:
         c1, c2 = st.columns(2)
         c1.metric("MAE", _fmt(spk.get("mae")))
@@ -248,6 +330,12 @@ def render_multimodal_validation_section() -> None:
         c3.metric("Message", lf.get("message", ""))
     else:
         st.info(f"Learned fusion: {lf.get('message', 'Insufficient labelled data.')}")
+
+    # Item 31: Print / show the remaining-annotation checklist
+    st.divider()
+    st.markdown("### 📋 Remaining-Annotation Checklist")
+    checklist_str = format_remaining_annotation_checklist()
+    st.code(checklist_str, language=None)
 
     # Link to full markdown report
     if Path(REPORT_MD_PATH).exists():

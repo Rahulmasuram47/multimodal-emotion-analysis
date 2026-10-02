@@ -49,6 +49,21 @@ from app.recommendation_engine import generate_recommendation
 
 logger = logging.getLogger(__name__)
 
+
+def set_seed(seed: int = 42) -> None:
+    """Seed Python random, NumPy, and PyTorch for deterministic repeatability."""
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except Exception:
+        pass
+
+
 # Signature: callback(stage: str, current: int, total: int) -> None
 ProgressCallback = Callable[[str, int, int], None]
 
@@ -840,6 +855,7 @@ class ConversationAnalyzer:
                 segments could be produced.
         """
         logger.info("Starting conversation analysis: %s", audio_path)
+        set_seed(42)
 
         t_total_start = time.perf_counter()
 

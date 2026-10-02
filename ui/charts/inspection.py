@@ -194,31 +194,51 @@ def render_acoustic_inspection(
     fig.update_yaxes(title_text="Hz", row=1, col=1)
     st.plotly_chart(fig, use_container_width=True)
 
-    # MFCC Summary (Prompt G)
+    # MFCC Summary (Prompt G / Item 27)
     mfcc_mean = features.get("mfcc_mean", [])
     mfcc_std = features.get("mfcc_std", [])
-    if mfcc_mean:
+    if mfcc_mean and len(mfcc_mean) > 1:
         st.markdown(
-            """
-            <div class="section-header-bar" style="margin-top: 1.2rem;">
-                <div class="section-title">📊 Mel-Frequency Cepstral Coefficients (MFCC-13)</div>
-                <div class="section-badge">TIMBRAL ACOUSTIC SUMMARY</div>
-            </div>
-            """,
+            html_block("""
+<div class="section-header-bar" style="margin-top: 1.2rem;">
+<div class="section-title">📊 Mel-Frequency Cepstral Coefficients (MFCC 2–13)</div>
+<div class="section-badge">TIMBRAL ACOUSTIC SUMMARY</div>
+</div>
+"""),
             unsafe_allow_html=True,
         )
-        mfcc_labels = [f"MFCC {i+1}" for i in range(len(mfcc_mean))]
+        st.caption(
+            "ℹ️ **About MFCCs**: Mel-Frequency Cepstral Coefficients (MFCCs 2–13) capture the spectral envelope and "
+            "timbral shape of the speaker's vocal tract across frames. MFCC 1 (overall signal power) is excluded here "
+            "to prevent scale dominance. These coefficients represent acoustic timbre and spectral distribution, "
+            "not discrete emotional categories directly."
+        )
+
+        tokens = get_chart_theme_tokens()
+        # Item 27: Plot MFCC 2–13 to avoid MFCC 1 energy dominance
+        mfcc_labels = [f"MFCC {i+1}" for i in range(1, len(mfcc_mean))]
+        mfcc_y = mfcc_mean[1:]
+        mfcc_err = mfcc_std[1:]
+
         mfcc_fig = go.Figure()
         mfcc_fig.add_trace(
             go.Bar(
                 x=mfcc_labels,
-                y=mfcc_mean,
-                error_y=dict(type="data", array=mfcc_std, visible=True),
-                marker_color="#38bdf8",
+                y=mfcc_y,
+                error_y=dict(type="data", array=mfcc_err, visible=True),
+                marker_color=tokens["accent"],
                 opacity=0.85,
-                name="Mean ± Std",
+                name="Mean ± Std across frames",
             )
         )
-        apply_chart_theme(mfcc_fig, height=250, margin=dict(l=40, r=20, t=20, b=30), show_legend=False)
-        mfcc_fig.update_yaxes(title="Coefficient Value")
+        apply_chart_theme(mfcc_fig, height=250, margin=dict(l=40, r=20, t=30, b=30), show_legend=False)
+        mfcc_fig.update_layout(
+            title=dict(
+                text="Timbral Cepstral Envelope (MFCC 2–13, mean ± std across frames)",
+                font=dict(color=tokens["title_color"], size=12),
+                x=0,
+            ),
+        )
+        mfcc_fig.update_yaxes(title="Coefficient Value (mean ± std across frames)")
         st.plotly_chart(mfcc_fig, use_container_width=True)
+

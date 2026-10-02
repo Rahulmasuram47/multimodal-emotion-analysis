@@ -83,6 +83,8 @@ class SpeechToText:
         segments, info = self.model.transcribe(
             audio_path,
             beam_size=5,
+            temperature=0.0,
+            condition_on_previous_text=False,
             word_timestamps=True,
             vad_filter=True,
             vad_parameters={

@@ -347,3 +347,45 @@ Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 r
 | `ui/components/header.py` | Sidebar caption update |
 | `tests/test_tier5_polish.py` | New — 16 tests |
 | `PROGRESS.md` | This entry |
+
+---
+
+## Tier 2: Correctness of Numbers — Items 20–27 (branch: fix/final-polish)
+
+### What Changed
+
+**Item 20 — Valence-Arousal Map**
+- Fixed valence fusion in `ui/charts/dynamics.py`: Fuses text sentiment valence and voice emotion valence using effective modality weights ($V_{\text{fused}} = w_{\text{audio}} V_{\text{voice}} + w_{\text{text}} V_{\text{text}}$).
+- Added an affective coordinates formula explanation caption.
+- Alternated label positions across turns (`top center`, `bottom center`, `top right`, `bottom left`, etc.) to prevent overlapping markers and labels.
+
+**Item 21 — Combined Confidence & No Weak Disagreement Boost**
+- Verified `combined_confidence` formula in `app/fusion.py` as a strict convex combination bounded in $[\min(c_a, c_t), \max(c_a, c_t)]$.
+- Removed unsupported claim of an "agreement bonus" in `ui/components/transparency_panels.py` to ensure transparency accurately reflects the code. Weak disagreement receives no artificial boost.
+
+**Item 22 — Intensity v2 Component Exposure**
+- In `ui/components/segment_timeline.py`, exposed the exact subcomponents for each segment: Prosody ($w=35\%$), Voice Arousal ($w=35\%$), Text Negativity ($w=30\%$).
+
+**Item 23 — Determinism & Seeding**
+- Added `set_seed(42)` in `app/conversation_analysis.py` seeding Python `random`, `numpy.random`, and `torch.manual_seed`.
+- Added `temperature=0.0` and `condition_on_previous_text=False` in `app/speech_to_text.py` for deterministic Whisper segment boundaries and log-probabilities.
+- Added same-file repeatability regression tests.
+
+**Item 24 — Explainable Multimodal Fusion Architecture**
+- In `ui/components/transparency_panels.py`, completely aligned the Declarative Rule Arbitration section with the actual 8 rule IDs from `app/fusion.py` (`agreement_negative_high_arousal`, `agreement_negative_low_arousal`, `agreement_positive`, `agreement_neutral`, `mismatch_positive_text_negative_voice`, `mismatch_negative_text_positive_voice`, `mismatch_generic`, `weak_disagreement`) and `abstention_low_reliability`, preserving LaTeX math.
+
+**Item 25 — Model Table Derived from Configuration**
+- Added canonical `DIARIZATION_MODEL_NAME = "pyannote/speaker-diarization-community-1"` to `config.py`.
+- Corrected Pyannote identification in `ui/components/transparency_panels.py` to Community-1 PyTorch and dynamically derived model names from `config.py`.
+
+**Item 26 — Conditional Limitations Statement**
+- Updated `render_professional_limitations_section` in `ui/components/transparency_panels.py` to check for local ground-truth evaluation metrics ($\ge 5$ annotated files); if not present, displays `"No local evaluation results yet (requires ≥ 5 annotated ground-truth recordings)."`.
+
+**Item 27 — MFCC Chart**
+- Fixed MFCC 1 energy dominance by plotting MFCC 2–13 in `ui/charts/inspection.py`.
+- Labeled series as "Mean ± Std across frames".
+- Applied theme token accent color.
+- Added plain-English explanation clarifying that MFCCs capture timbral vocal tract acoustics rather than discrete emotion classifications.
+
+### Tests
+- `tests/test_tier2_correctness.py`: 18 tests, all 18 passed.

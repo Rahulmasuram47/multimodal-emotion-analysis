@@ -268,6 +268,9 @@ SPEAKER_ESCALATION_INITIATOR_MIN_RISE: float = 0.15
 # sufficient and per-speaker breakdowns would be redundant.
 SPEAKER_ANALYTICS_MIN_SPEAKERS: int = 2
 
+# Diarization model identifier (Pyannote community-1)
+DIARIZATION_MODEL_NAME: str = "pyannote/speaker-diarization-community-1"
+
 # Minimum ratio of overlap between a speech segment and a diarization turn
 # required to assign a speaker label. Below this ratio, the segment is labeled
 # "Uncertain Speaker" to avoid forcing uncertain or noisy speaker assignments.

@@ -252,7 +252,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             # Intensity mini-bar
             st.markdown(
                 html_block(f"""
-<div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem;">
+<div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.4rem;">
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; color:var(--muted); min-width:90px;">Intensity: {intensity:.0%}</span>
 <div style="flex-grow:1; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden;">
 <div style="background:linear-gradient(90deg, #38bdf8, #f87171); width:{max(0.0, min(1.0, intensity))*100:.1f}%; height:100%; border-radius:3px;"></div>
@@ -261,6 +261,30 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 """),
                 unsafe_allow_html=True,
             )
+
+            # Item 22: Expose intensity v2 subcomponents per segment
+            int_comp = segment.get("intensity_components", {}) or {}
+            if int_comp.get("formula_version") == "v2":
+                p_arousal = safe_float(int_comp.get("prosodic_arousal", 0.0))
+                v_arousal = safe_float(int_comp.get("voice_arousal", 0.0))
+                t_neg = safe_float(int_comp.get("text_negativity", 0.0))
+                weights = int_comp.get("weights", {}) or {}
+                w_p = safe_float(weights.get("prosody", 0.35))
+                w_v = safe_float(weights.get("voice_arousal", 0.35))
+                w_t = safe_float(weights.get("text_negativity", 0.30))
+                st.markdown(
+                    html_block(f"""
+<div style="display:flex; gap:0.6rem; flex-wrap:wrap; font-family:'IBM Plex Mono',monospace; font-size:0.70rem; color:var(--muted); margin-bottom:0.6rem; padding:2px 6px; background:rgba(255,255,255,0.02); border-radius:4px;">
+<span><strong>Intensity v2:</strong></span>
+<span title="Loudness, pitch variation, voiced ratio, speech rate">Prosody (w={w_p:.0%}): <strong style="color:var(--text);">{p_arousal:.1%}</strong></span>
+<span>·</span>
+<span title="Expected-value voice-emotion arousal from class probabilities">Voice Arousal (w={w_v:.0%}): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
+<span>·</span>
+<span title="RoBERTa negative sentiment class probability">Text Negativity (w={w_t:.0%}): <strong style="color:var(--critical);">{t_neg:.1%}</strong></span>
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
 
             # Item 13: strip speaker prefix from raw_text before display
             # Store clean text (no "Speaker A:" prefix) for display

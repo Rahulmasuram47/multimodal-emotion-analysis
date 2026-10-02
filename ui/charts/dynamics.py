@@ -103,6 +103,10 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
 """),
         unsafe_allow_html=True,
     )
+    st.caption(
+        "💡 **Affective Coordinates Formula**: Valence ($X$) = $w_{\\text{audio}} V_{\\text{voice}} + w_{\\text{text}} V_{\\text{text}}$ "
+        "(range $[-1, +1]$: negative to positive). Arousal ($Y$) = acoustic energy and vocal activation (range $[0, 1]$: calm to excited)."
+    )
 
     valence_scores = []
     arousal_scores = []
@@ -114,17 +118,47 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         "neutral": 0.0,
         "negative": -0.75,
     }
+    voice_valence_map = {
+        "happy": 0.75,
+        "hap": 0.75,
+        "neutral": 0.0,
+        "neu": 0.0,
+        "sad": -0.75,
+        "angry": -0.75,
+        "ang": -0.75,
+    }
+
+    # Item 20: Alternate label positions to avoid overlapping text labels
+    label_positions = ["top center", "bottom center", "top right", "bottom left", "middle right", "middle left"]
 
     for idx, s in enumerate(segments):
         sentiment = s.get("text_sentiment", {}) or {}
         sent_label = str(sentiment.get("sentiment", "neutral")).lower()
         sent_conf = safe_float(sentiment.get("confidence", 0.7))
-        # Continuous valence scaled by confidence
-        base_v = sentiment_valence_map.get(sent_label, 0.0)
-        v = base_v * (0.5 + 0.5 * sent_conf)
-        valence_scores.append(round(v, 3))
+        base_text_v = sentiment_valence_map.get(sent_label, 0.0)
+        v_text = base_text_v * (0.5 + 0.5 * sent_conf)
+
+        voice = s.get("voice_emotion", {}) or {}
+        voice_label = str(voice.get("emotion", "neutral")).lower()
+        voice_conf = safe_float(voice.get("confidence", 0.7))
+        base_voice_v = voice_valence_map.get(voice_label, 0.0)
+        v_voice = base_voice_v * (0.5 + 0.5 * voice_conf)
 
         fusion = s.get("fusion", {}) or {}
+        eff_weights = fusion.get("effective_weights", {}) or {}
+        w_audio = safe_float(eff_weights.get("audio_weight", 0.5))
+        w_text = safe_float(eff_weights.get("text_weight", 0.5))
+        total_w = w_audio + w_text
+        if total_w > 0:
+            w_audio /= total_w
+            w_text /= total_w
+        else:
+            w_audio, w_text = 0.5, 0.5
+
+        # Item 20: Fused valence combining both modalities
+        fused_v = round(w_audio * v_voice + w_text * v_text, 3)
+        valence_scores.append(fused_v)
+
         arousal = fusion.get("audio_arousal")
         if arousal is None or not isinstance(arousal, (int, float)):
             intensity = safe_float(s.get("intensity", 0.5))
@@ -134,7 +168,8 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         turn_labels.append(f"T{idx+1}")
         hover_texts.append(
             f"<b>Turn {idx+1}</b><br>"
-            f"Text Sentiment: {sent_label.title()} (conf: {sent_conf:.0%})<br>"
+            f"Fused Valence: {fused_v:+.2f} (Voice: {v_voice:+.2f} [w={w_audio:.2f}], Text: {v_text:+.2f} [w={w_text:.2f}])<br>"
+            f"Voice: {voice_label.title()} ({voice_conf:.0%}) | Text: {sent_label.title()} ({sent_conf:.0%})<br>"
             f"Arousal: {arousal:.2f}<br>"
             f"Transcript: {html.escape(str(s.get('transcript', ''))[:45])}..."
         )
@@ -151,7 +186,8 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
             font=dict(size=11, color=theme_tokens["font_color"]),
         )
     else:
-        # Connecting trajectory path with arrows
+        # Item 20: connecting trajectory with non-overlapping label positions
+        text_positions = [label_positions[i % len(label_positions)] for i in range(len(segments))]
         fig.add_trace(
             go.Scatter(
                 x=valence_scores,
@@ -166,7 +202,7 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
                     line=dict(color=theme_tokens["title_color"], width=1),
                 ),
                 text=turn_labels,
-                textposition="top center",
+                textposition=text_positions,
                 hovertext=hover_texts,
                 hoverinfo="text",
                 name="Emotional Path",

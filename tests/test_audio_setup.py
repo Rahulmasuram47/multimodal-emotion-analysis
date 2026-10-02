@@ -59,5 +59,9 @@ def run_milestone1_verification():
     print('   [SUCCESS] Milestone 1 verification tests passed!       ')
     print('=============================================================')
 
+def test_milestone1_verification():
+    run_milestone1_verification()
+
+
 if __name__ == '__main__':
     run_milestone1_verification()

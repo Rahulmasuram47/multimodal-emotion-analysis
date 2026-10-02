@@ -1,33 +1,40 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Default: Dark Theme (WCAG AA Compliant) */
+/* =====================================================
+   DARK THEME (Default - WCAG AA & AAA Compliant)
+   ===================================================== */
 :root {
+    /* Required Core Tokens */
     --bg: #101318;
-    --panel: #181D24;
-    --panel-2: #1D232C;
-    --panel-hover: #222933;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.16);
-
-    /* Typography & Core Text */
-    --text: #F1F3F5;
-    --muted: #94A3B8;
-    --muted-dark: #64748B;
-
-    /* Semantic Modal Tokens */
+    --surface: #181D24;
+    --surface-raised: #202630;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --text: #F8FAFC;
+    --text-muted: #94A3B8;
+    --accent: #38BDF8;
     --voice: #FBBF24;
-    --voice-glow: rgba(251, 191, 36, 0.15);
-    --text-accent: #38BDF8;
-    --text-glow: rgba(56, 189, 248, 0.15);
+    --text-modality: #38BDF8;
+    --fused: #E2E8F0;
     --positive: #4ADE80;
-    --positive-bg: rgba(74, 222, 128, 0.12);
-    --negative: #F87171;
-    --negative-bg: rgba(248, 113, 113, 0.12);
     --warning: #FBBF24;
+    --critical: #F87171;
+
+    /* Semantic Aliases & Compatibility Tokens */
+    --panel: var(--surface);
+    --panel-2: var(--surface-raised);
+    --panel-hover: #262E3B;
+    --muted: var(--text-muted);
+    --muted-dark: #64748B;
+    --negative: var(--critical);
+    --text-accent: var(--accent);
+    --voice-glow: rgba(251, 191, 36, 0.15);
+    --text-glow: rgba(56, 189, 248, 0.15);
+    --positive-bg: rgba(74, 222, 128, 0.12);
+    --negative-bg: rgba(248, 113, 113, 0.12);
     --warning-bg: rgba(251, 191, 36, 0.12);
     --neutral: #94A3B8;
     --neutral-bg: rgba(148, 163, 184, 0.10);
-    --fused: #E2E8F0;
 
     /* Layout & Spacing Scale */
     --card-radius: 8px;
@@ -39,40 +46,54 @@
     --space-lg: 1.5rem;
 }
 
-/* Light Theme support via OS preference or data-theme */
-@media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-        --bg: #F8FAFC;
-        --panel: #FFFFFF;
-        --panel-2: #F1F5F9;
-        --panel-hover: #E2E8F0;
-        --border: rgba(0, 0, 0, 0.08);
-        --border-strong: rgba(0, 0, 0, 0.18);
+/* =====================================================
+   LIGHT THEME (WCAG AA & AAA Compliant)
+   ===================================================== */
+:root[data-theme="light"],
+body.light-theme,
+[data-theme="light"] {
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --surface-raised: #F1F5F9;
+    --border: rgba(0, 0, 0, 0.12);
+    --border-strong: rgba(0, 0, 0, 0.22);
+    --text: #0F172A;
+    --text-muted: #475569;
+    --accent: #0369A1;
+    --voice: #92400E;
+    --text-modality: #0369A1;
+    --fused: #334155;
+    --positive: #166534;
+    --warning: #92400E;
+    --critical: #B91C1C;
 
-        --text: #0F172A;
-        --muted: #475569;
-        --muted-dark: #64748B;
-
-        --voice: #B45309;
-        --voice-glow: rgba(180, 83, 9, 0.12);
-        --text-accent: #0284C7;
-        --text-glow: rgba(2, 132, 199, 0.12);
-        --positive: #15803D;
-        --positive-bg: rgba(21, 128, 61, 0.10);
-        --negative: #DC2626;
-        --negative-bg: rgba(220, 38, 38, 0.10);
-        --warning: #B45309;
-        --warning-bg: rgba(180, 83, 9, 0.10);
-        --neutral: #475569;
-        --neutral-bg: rgba(71, 85, 105, 0.08);
-        --fused: #334155;
-    }
+    /* Semantic Aliases & Compatibility Tokens */
+    --panel: var(--surface);
+    --panel-2: var(--surface-raised);
+    --panel-hover: #E2E8F0;
+    --muted: var(--text-muted);
+    --muted-dark: #64748B;
+    --negative: var(--critical);
+    --text-accent: var(--accent);
+    --voice-glow: rgba(146, 64, 14, 0.12);
+    --text-glow: rgba(3, 105, 161, 0.12);
+    --positive-bg: rgba(22, 101, 52, 0.10);
+    --negative-bg: rgba(185, 28, 28, 0.10);
+    --warning-bg: rgba(146, 64, 14, 0.10);
+    --neutral: #475569;
+    --neutral-bg: rgba(71, 85, 105, 0.08);
 }
 
 /* Accessible focus ring indicators (WCAG 2.1 2.4.7) */
-:focus-visible {
-    outline: 2px solid var(--text-accent) !important;
+:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="tab"]:focus-visible {
+    outline: 2px solid var(--accent) !important;
     outline-offset: 2px !important;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent) !important;
 }
 
 /* Reduced Motion Mode (WCAG 2.1 2.3.3) */

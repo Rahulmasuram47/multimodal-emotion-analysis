@@ -1,9 +1,6 @@
 /* Global Base */
 .stApp {
-    background:
-        radial-gradient(circle at 85% 5%, rgba(232, 163, 61, 0.045), transparent 28%),
-        radial-gradient(circle at 15% 15%, rgba(79, 179, 169, 0.04), transparent 25%),
-        var(--bg);
+    background: var(--bg);
     color: var(--text);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -76,7 +73,7 @@ header[data-testid="stHeader"] svg {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #12151B !important;
+    background-color: var(--surface) !important;
     border-right: 1px solid var(--border) !important;
 }
 
@@ -88,11 +85,11 @@ section[data-testid="stSidebar"] .block-container {
 
 .sidebar-heading {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.66rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--muted);
+    color: var(--text-muted);
     border-bottom: 1px solid var(--border);
     padding-bottom: 0.4rem;
     margin-top: 1.2rem;
@@ -103,21 +100,22 @@ section[data-testid="stSidebar"] .block-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.3rem 0;
+    padding: 0.35rem 0;
     font-size: 0.74rem;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+    border-bottom: 1px dashed var(--border);
 }
 
 .sidebar-spec-key {
     font-family: 'IBM Plex Mono', monospace !important;
-    color: var(--muted);
-    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-size: 0.70rem;
+    font-weight: 500;
 }
 
 .sidebar-spec-val {
     font-family: 'IBM Plex Mono', monospace !important;
     color: var(--text);
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 600;
 }
 

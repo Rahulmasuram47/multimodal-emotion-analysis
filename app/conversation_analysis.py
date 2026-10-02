@@ -9,13 +9,11 @@ Builds segment-level multimodal analysis from:
 - Multimodal fusion
 
 Also provides:
-- Emotional trend detection (legacy, first-vs-last delta)
-- Emotional escalation detection (strict AND tolerant modes — Phase 4)
-- A single unified conversation verdict (Phase 4: escalating /
-  de-escalating / stable / fluctuating / insufficient_data)
-- Segment-level emotional intensity (legacy v1 confidence-based formula,
-  and Phase 4's v2 prosody-based formula, selectable via
-  config.INTENSITY_FORMULA_VERSION)
+- Emotional trend detection (first-vs-last delta)
+- Emotional escalation detection (strict and tolerant modes)
+- A single unified conversation verdict (escalating / de-escalating /
+  stable / fluctuating / insufficient_data)
+- Segment-level emotional intensity (v1 confidence-based, v2 prosody-based)
 - Speaker diarization (Speaker A / Speaker B labels)
 - Modality consistency trajectory (voice vs. text direction agreement)
 - Explainable review-priority attention score (heuristic only)
@@ -35,7 +33,13 @@ from app.sentiment_analyzer import SentimentAnalyzer
 from app.fusion import MultimodalFusion
 from app.diarization import SpeakerDiarizer
 from app.voice_calibration import VoiceCalibrator, compute_widened_window
-from app.prosody import compute_prosodic_arousal, compute_voice_arousal, compute_text_negativity
+from app.prosody import (
+    compute_prosodic_arousal,
+    compute_voice_arousal,
+    compute_text_negativity,
+    compute_recording_loudness_percentiles,
+    compute_recording_f0,
+)
 from app.consistency_analysis import (
     compute_consistency_trajectory,
     compute_attention_score,
@@ -63,49 +67,25 @@ class ConversationAnalyzer:
         whisper_model_size: Optional[str] = None,
         whisper_language: Optional[str] = None,
     ):
-        logger.info(
-            "Initializing conversation analysis pipeline..."
+        logger.info("Initializing conversation analysis pipeline...")
+
+        self.emotion_analyzer = emotion_analyzer or VoiceEmotionAnalyzer()
+
+        self.speech_to_text = speech_to_text or SpeechToText(
+            model_size=whisper_model_size, language=whisper_language
         )
 
-        self.emotion_analyzer = (
-            emotion_analyzer
-            or VoiceEmotionAnalyzer()
-        )
+        self.sentiment_analyzer = sentiment_analyzer or SentimentAnalyzer()
 
-        self.speech_to_text = (
-            speech_to_text
-            or SpeechToText(model_size=whisper_model_size, language=whisper_language)
-        )
+        self.fusion = fusion or MultimodalFusion()
 
-        self.sentiment_analyzer = (
-            sentiment_analyzer
-            or SentimentAnalyzer()
-        )
+        # Lazy-loads the pyannote pipeline on first .diarize() call.
+        self.diarizer = diarizer or SpeakerDiarizer()
 
-        self.fusion = (
-            fusion
-            or MultimodalFusion()
-        )
+        # Voice emotion calibration (prosody sanity rule + temperature scaling).
+        self.voice_calibrator = voice_calibrator or VoiceCalibrator()
 
-        # Lazy-loads the pyannote pipeline on first .diarize() call, so
-        # construction here is cheap even if diarization never runs.
-        self.diarizer = (
-            diarizer
-            or SpeakerDiarizer()
-        )
-
-        # Phase 3: voice emotion calibration (prosody sanity rule +
-        # temperature scaling). Inert (identity behavior) until enough
-        # labeled samples exist to fit temperature scaling; the prosody
-        # rule can still apply from very small N since it is data-free.
-        self.voice_calibrator = (
-            voice_calibrator
-            or VoiceCalibrator()
-        )
-
-        logger.info(
-            "Conversation analysis pipeline initialized."
-        )
+        logger.info("Conversation analysis pipeline initialized.")
 
     # ---------------------------------------------------------
     # Progress helper
@@ -118,85 +98,77 @@ class ConversationAnalyzer:
         current: int,
         total: int,
     ) -> None:
-        """Call the progress callback if provided, never let it break the pipeline."""
-
+        """Call the progress callback if provided; never let it break the pipeline."""
         if callback is None:
             return
 
         try:
             callback(stage, current, total)
         except Exception:
-            logger.exception(
-                "Progress callback raised an exception; ignoring."
-            )
+            logger.exception("Progress callback raised an exception; ignoring.")
+
+    # ---------------------------------------------------------
+    # Voice reliability from class-probability margin
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def _margin_reliability(scores: Dict[str, float]) -> float:
+        """Reliability factor in [floor, 1.0] from the top-1 vs top-2
+        probability margin. A near-tie between classes (e.g. 37% vs 33%)
+        lowers reliability, so a coin-flip voice label no longer counts as
+        fully reliable in fusion."""
+        if not getattr(config, "VOICE_MARGIN_RELIABILITY_ENABLED", True):
+            return 1.0
+
+        try:
+            probs = sorted((float(v) for v in (scores or {}).values()), reverse=True)
+        except (TypeError, ValueError):
+            return 1.0
+
+        if len(probs) < 2:
+            return 1.0
+
+        floor = getattr(config, "VOICE_MARGIN_RELIABILITY_FLOOR", 0.50)
+        full_credit = getattr(config, "VOICE_MARGIN_FULL_CREDIT", 0.30)
+        if full_credit <= 0:
+            return 1.0
+
+        margin = probs[0] - probs[1]
+        return floor + (1.0 - floor) * min(1.0, margin / full_credit)
 
     # ---------------------------------------------------------
     # Intensity — v1 (legacy, confidence-based)
     # ---------------------------------------------------------
 
     @staticmethod
-    def _calculate_intensity(
-        segment: Dict[str, Any]
-    ) -> float:
+    def _calculate_intensity(segment: Dict[str, Any]) -> float:
         """
         LEGACY (v1) intensity formula: pure fusion-confidence based.
 
-        Kept unchanged and still directly unit-tested — this is the
-        pre-Phase-4 formula. Used when config.INTENSITY_FORMULA_VERSION
-        == 'v1', and always available for the ablation comparison against
-        the new v2 (prosody-based) formula in _calculate_intensity_v2.
-
-        Agreement between voice and text increases confidence.
-        Strong disagreement reduces the influence of the combined
-        confidence so that one unreliable modality does not dominate
-        the final intensity.
+        Agreement between voice and text increases confidence. Strong
+        disagreement reduces the influence of the combined confidence so
+        that one unreliable modality does not dominate.
 
         Returns:
             Float between 0.0 and 1.0.
         """
-
         fusion = segment["fusion"]
 
-        confidence = float(
-            fusion.get(
-                "combined_confidence",
-                0.0
-            )
-        )
-
-        agreement = bool(
-            fusion.get(
-                "agreement",
-                False
-            )
-        )
-
-        mismatch = bool(
-            fusion.get(
-                "mismatch",
-                False
-            )
-        )
+        confidence = float(fusion.get("combined_confidence", 0.0))
+        agreement = bool(fusion.get("agreement", False))
+        mismatch = bool(fusion.get("mismatch", False))
 
         if agreement:
-            # Agreement provides stronger multimodal evidence.
             intensity = confidence + 0.10
-
         elif mismatch:
-            # Reduce intensity when modalities disagree.
             intensity = confidence * 0.85
-
         else:
-            # Low-confidence disagreement.
             intensity = confidence * 0.90
 
-        return round(
-            min(1.0, max(0.0, intensity)),
-            4
-        )
+        return round(min(1.0, max(0.0, intensity)), 4)
 
     # ---------------------------------------------------------
-    # Intensity — v2 (Phase 4, prosody-based)
+    # Intensity — v2 (prosody-based)
     # ---------------------------------------------------------
 
     @staticmethod
@@ -213,25 +185,11 @@ class ConversationAnalyzer:
         word_timestamps: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[float, Dict[str, Any]]:
         """
-        Phase 4 intensity formula: weighted combination of
+        v2 intensity: weighted combination of prosodic arousal, expected
+        voice arousal from class probabilities, and text negativity.
 
-          1. prosodic_arousal   — this segment's own loudness, pitch
-                                   movement, and speech rate (app/prosody.py)
-          2. voice_arousal      — expected arousal from the voice-emotion
-                                   class probabilities (angry/happy = high,
-                                   sad/neutral = low), not just top-class
-                                   confidence
-          3. text_negativity    — probability mass on the 'negative' text
-                                   sentiment class
-
-        Unlike v1, this is NOT purely a function of model confidence — a
-        confidently-classified "sad" segment does not automatically read
-        as more intense than an unsure one; actual vocal energy and
-        linguistic negativity now drive the score.
-
-        Returns (intensity, components) where components is a dict
-        breaking down every sub-score, for the "why is this 0.62?"
-        transparency requirement.
+        Returns (intensity, components) where components breaks down every
+        sub-score for transparency.
         """
         prosody_result = compute_prosodic_arousal(
             audio_segment=audio_segment,
@@ -269,65 +227,40 @@ class ConversationAnalyzer:
         return intensity, components
 
     # ---------------------------------------------------------
-    # Emotional trend (legacy — first-vs-last delta)
+    # Emotional trend (first-vs-last delta)
     # ---------------------------------------------------------
 
     @staticmethod
-    def detect_emotional_trend(
-        segments: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def detect_emotional_trend(segments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Detect the overall emotional intensity trend (first-vs-last
-        delta only — kept unchanged from pre-Phase-4 for backward
-        compatibility and direct unit-test coverage). See
-        compute_unified_verdict() for the new Phase 4 slope-based signal
-        that is now the primary user-facing indicator.
+        Detect the overall emotional intensity trend (first-vs-last delta).
 
-        Rules:
+        Increasing: last intensity at least 0.10 higher than the first.
+        Decreasing: last intensity at least 0.10 lower than the first.
+        Stable:     change smaller than 0.10.
 
-        Increasing:
-            Last intensity is at least 0.10 higher than the first.
-
-        Decreasing:
-            Last intensity is at least 0.10 lower than the first.
-
-        Stable:
-            Change is smaller than 0.10.
+        Returns both "change" (original key) and "delta" (alias read by
+        streamlit_app.py — previously the UI read "delta" while this
+        function only returned "change", so the delta always showed 0.0).
         """
-
         if len(segments) < 2:
             return {
                 "trend": "insufficient_data",
                 "intensity_scores": [],
                 "change": 0.0,
+                "delta": 0.0,
             }
 
-        intensities = [
-            float(
-                segment.get(
-                    "intensity",
-                    0.0
-                )
-            )
-            for segment in segments
-        ]
+        intensities = [float(segment.get("intensity", 0.0)) for segment in segments]
 
-        first = intensities[0]
-        last = intensities[-1]
-
-        change = round(
-            last - first,
-            4
-        )
+        change = round(intensities[-1] - intensities[0], 4)
 
         threshold = 0.10
 
         if change >= threshold:
             trend = "increasing"
-
         elif change <= -threshold:
             trend = "decreasing"
-
         else:
             trend = "stable"
 
@@ -335,42 +268,21 @@ class ConversationAnalyzer:
             "trend": trend,
             "intensity_scores": intensities,
             "change": change,
+            "delta": change,
         }
 
     # ---------------------------------------------------------
-    # Escalation — strict (legacy, unchanged, still unit-tested)
+    # Escalation — strict (legacy)
     # ---------------------------------------------------------
 
     @staticmethod
-    def detect_escalation(
-        segments: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def detect_escalation(segments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        LEGACY strict escalation rule. Kept byte-for-byte unchanged from
-        pre-Phase-4 so existing unit tests keep passing, and so it remains
-        available as config.ESCALATION_MODE == 'strict' / the ablation
-        baseline against the new tolerant rule below.
+        LEGACY strict escalation rule.
 
-        Escalation requires:
-
-        1. At least three segments.
-        2. Intensity continuously increases (every consecutive step, no
-           exceptions).
-        3. Total increase is at least 0.20.
-
-        Example:
-            0.40 → 0.65 → 0.90
-        triggers escalation.
-
-        Example:
-            0.75 → 0.67 → 0.97
-        does NOT trigger escalation because the increase is not
-        continuous — a single dip breaks the strict rule even though the
-        overall trend and net rise are both upward. (This is exactly the
-        "Trend: Increasing / Escalation: Not Detected" contradiction that
-        Phase 4's tolerant mode below addresses.)
+        Requires at least three segments, every consecutive step
+        increasing, and a total increase of at least 0.20.
         """
-
         if len(segments) < 3:
             return {
                 "escalation_detected": False,
@@ -378,37 +290,21 @@ class ConversationAnalyzer:
                 "intensity_change": 0.0,
             }
 
-        intensities = [
-            float(
-                segment.get(
-                    "intensity",
-                    0.0
-                )
-            )
-            for segment in segments
-        ]
+        intensities = [float(segment.get("intensity", 0.0)) for segment in segments]
 
         consecutive_increase = all(
-            intensities[i] > intensities[i - 1]
-            for i in range(1, len(intensities))
+            intensities[i] > intensities[i - 1] for i in range(1, len(intensities))
         )
 
-        total_change = round(
-            intensities[-1] - intensities[0],
-            4
-        )
+        total_change = round(intensities[-1] - intensities[0], 4)
 
-        escalation_detected = (
-            consecutive_increase
-            and total_change >= 0.20
-        )
+        escalation_detected = consecutive_increase and total_change >= 0.20
 
         if escalation_detected:
             reason = (
                 "Emotional intensity increased continuously "
                 "and exceeded the escalation threshold."
             )
-
         else:
             reason = (
                 "Emotional intensity did not show a sufficient "
@@ -422,19 +318,17 @@ class ConversationAnalyzer:
         }
 
     # ---------------------------------------------------------
-    # Escalation — tolerant (Phase 4, robust-slope based)
+    # Escalation — tolerant (robust-slope based)
     # ---------------------------------------------------------
 
     @staticmethod
     def _ols_slope(values: List[float]) -> float:
-        """Ordinary-least-squares slope of values against their index
-        (0, 1, 2, ...). Returns 0.0 for fewer than 2 points."""
+        """OLS slope of values against their index. 0.0 for fewer than 2 points."""
         n = len(values)
         if n < 2:
             return 0.0
         x = np.arange(n, dtype=float)
         y = np.array(values, dtype=float)
-        # np.polyfit(x, y, 1) returns [slope, intercept]
         slope, _intercept = np.polyfit(x, y, 1)
         return float(slope)
 
@@ -444,31 +338,15 @@ class ConversationAnalyzer:
         mode: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Phase 4 escalation detection with two selectable modes:
+        Escalation detection with two selectable modes:
 
-          'strict'    — delegates to the legacy detect_escalation() rule
-                        above (every consecutive step must increase).
-
-          'tolerant'  — (default, config.ESCALATION_MODE) fits a robust
-                        linear slope across all segment intensities and
-                        allows individual dips up to
-                        config.ESCALATION_DIP_TOLERANCE without breaking
-                        the trend. Requires ALL of:
-                          1. at least config.ESCALATION_MIN_SEGMENTS segments
-                          2. slope >= config.ESCALATION_MIN_SLOPE
-                          3. net rise (last - first) >= config.ESCALATION_MIN_NET_RISE
-                          4. no single-step drop exceeds config.ESCALATION_DIP_TOLERANCE
-
-        This directly resolves the contradiction where Trend said
-        "Increasing" but Escalation said "Not Detected" for the same
-        conversation — a conversation with one small dip within
-        tolerance can now be correctly flagged as escalating.
-
-        Returns a dict with: escalation_detected, reason, intensity_change
-        (net rise — same field name as the legacy rule, so
-        recommendation_engine.py's existing .get("intensity_change", ...)
-        read continues to work unchanged), mode, slope, dip_violations
-        (list of {index, drop} for any step that broke tolerance).
+          'strict'   — delegates to the legacy rule.
+          'tolerant' — (default, config.ESCALATION_MODE) fits a linear
+                       slope and allows single dips up to
+                       config.ESCALATION_DIP_TOLERANCE. Requires ALL of:
+                       enough segments, slope >= ESCALATION_MIN_SLOPE,
+                       net rise >= ESCALATION_MIN_NET_RISE, and no
+                       single-step drop above the tolerance.
         """
         mode = mode or config.ESCALATION_MODE
 
@@ -479,7 +357,6 @@ class ConversationAnalyzer:
             legacy["dip_violations"] = []
             return legacy
 
-        # --- tolerant mode ---
         if len(segments) < config.ESCALATION_MIN_SEGMENTS:
             return {
                 "escalation_detected": False,
@@ -490,9 +367,7 @@ class ConversationAnalyzer:
                 "dip_violations": [],
             }
 
-        intensities = [
-            float(segment.get("intensity", 0.0)) for segment in segments
-        ]
+        intensities = [float(segment.get("intensity", 0.0)) for segment in segments]
 
         slope = ConversationAnalyzer._ols_slope(intensities)
         net_rise = round(intensities[-1] - intensities[0], 4)
@@ -543,47 +418,33 @@ class ConversationAnalyzer:
         }
 
     # ---------------------------------------------------------
-    # Unified verdict (Phase 4)
+    # Unified verdict
     # ---------------------------------------------------------
 
     @staticmethod
-    def compute_unified_verdict(
-        segments: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+    def compute_unified_verdict(segments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Phase 4: a single conversation-level verdict replacing the
-        separate (and sometimes contradictory) Trend + Escalation
-        display. One of:
+        A single conversation-level verdict: escalating / de-escalating /
+        fluctuating / stable / insufficient_data.
 
-          'escalating'     — clear sustained upward slope, no large dips
-          'de-escalating'  — clear sustained downward slope, no large
-                              upward spikes
-          'fluctuating'    — notable back-and-forth movement without a
-                              clear net direction
-          'stable'         — small overall movement, no notable spikes
-          'insufficient_data' — fewer than 2 segments
-
-        This uses the same slope/dip-tolerance machinery as
-        detect_escalation_advanced('tolerant') but is INDEPENDENT of
-        config.ESCALATION_MODE — the verdict is always computed the
-        tolerant way, since it is meant to be a softer, always-available
-        descriptive signal. escalation_detected (used for the "HIGH
-        ESCALATION" critical recommendation) remains gated by
-        config.ESCALATION_MIN_SEGMENTS and whichever mode is configured;
-        the verdict may say "escalating" even for a 2-segment rise that
-        would not by itself trigger a HIGH ESCALATION recommendation.
+        Fewer than config.VERDICT_MIN_SEGMENTS (default 3) turns yields
+        'insufficient_data' — a slope or "Stable" claim from only two
+        turns is not meaningful.
         """
-        if len(segments) < 2:
+        min_turns = getattr(config, "VERDICT_MIN_SEGMENTS", 3)
+        if len(segments) < min_turns:
             return {
                 "verdict": "insufficient_data",
-                "reason": "At least 2 segments are required to assess a trend.",
+                "reason": (
+                    f"At least {min_turns} turns are needed to assess a trend "
+                    f"(found {len(segments)})."
+                ),
                 "slope": 0.0,
                 "net_change": 0.0,
+                "counterfactuals": [],
             }
 
-        intensities = [
-            float(segment.get("intensity", 0.0)) for segment in segments
-        ]
+        intensities = [float(segment.get("intensity", 0.0)) for segment in segments]
 
         slope = ConversationAnalyzer._ols_slope(intensities)
         net_change = round(intensities[-1] - intensities[0], 4)
@@ -607,9 +468,6 @@ class ConversationAnalyzer:
             and net_change <= -config.ESCALATION_MIN_NET_RISE
             and max_rise <= config.ESCALATION_DIP_TOLERANCE
         )
-        # Fluctuating: notable single-step movement in either direction
-        # (beyond a relaxed 1.5x tolerance) without qualifying as a clean
-        # escalating/de-escalating trend.
         has_notable_swing = (
             max_drop > config.ESCALATION_DIP_TOLERANCE * 1.5
             or max_rise > config.ESCALATION_DIP_TOLERANCE * 1.5
@@ -641,33 +499,36 @@ class ConversationAnalyzer:
                 f"(net change={net_change:+.2f}, slope={slope:+.3f}/turn)."
             )
 
-        # -----------------------------------------------------
-        # Counterfactual sensitivity for unified verdict (Prompt G)
-        # -----------------------------------------------------
+        # Counterfactual sensitivity for the verdict
         verdict_cfs: List[str] = []
         if is_escalating:
             if max_drop > 0:
                 verdict_cfs.append(
-                    f"Verdict flips from escalating if dip tolerance falls below {max_drop:.2f} (current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
+                    f"Verdict flips from escalating if dip tolerance falls below {max_drop:.2f} "
+                    f"(current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
                 )
             if (net_change - config.ESCALATION_MIN_NET_RISE) < 0.10:
                 verdict_cfs.append(
-                    f"If net intensity rise fell below {config.ESCALATION_MIN_NET_RISE:.2f} (currently {net_change:+.2f}), verdict would become stable."
+                    f"If net intensity rise fell below {config.ESCALATION_MIN_NET_RISE:.2f} "
+                    f"(currently {net_change:+.2f}), verdict would become stable."
                 )
         elif is_deescalating:
             if max_rise > 0:
                 verdict_cfs.append(
-                    f"Verdict flips from de-escalating if upward spike tolerance falls below {max_rise:.2f} (current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
+                    f"Verdict flips from de-escalating if upward spike tolerance falls below {max_rise:.2f} "
+                    f"(current tolerance: {config.ESCALATION_DIP_TOLERANCE:.2f})."
                 )
         elif verdict == "fluctuating":
             verdict_cfs.append(
-                f"Verdict would become stable if largest swing ({max(max_rise, max_drop):.2f}) fell within tolerance ({config.ESCALATION_DIP_TOLERANCE * 1.5:.2f})."
+                f"Verdict would become stable if largest swing ({max(max_rise, max_drop):.2f}) "
+                f"fell within tolerance ({config.ESCALATION_DIP_TOLERANCE * 1.5:.2f})."
             )
         else:
             diff_slope = config.ESCALATION_MIN_SLOPE - slope
             if diff_slope > 0:
                 verdict_cfs.append(
-                    f"Verdict would become escalating if per-turn slope increased by +{diff_slope:.3f} and net rise reached +{config.ESCALATION_MIN_NET_RISE:.2f}."
+                    f"Verdict would become escalating if per-turn slope increased by +{diff_slope:.3f} "
+                    f"and net rise reached +{config.ESCALATION_MIN_NET_RISE:.2f}."
                 )
 
         return {
@@ -686,28 +547,21 @@ class ConversationAnalyzer:
         self,
         audio_path: str,
         segments: List[Dict[str, Any]],
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """
         Attach speaker labels to transcript segments using pyannote.
 
         Diarization is an enhancement, so a failure does not abort the
-        complete multimodal analysis. The error is returned separately
-        so the Streamlit dashboard can explain why labels are Unknown.
+        analysis. The error is returned separately so the dashboard can
+        explain why labels are Unknown.
         """
-
         try:
             turns = self.diarizer.diarize(audio_path)
 
-            logger.info(
-                "Speaker diarization returned %d turns.",
-                len(turns),
-            )
+            logger.info("Speaker diarization returned %d turns.", len(turns))
             logger.info("Diarization turns: %s", turns)
 
-            labeled_segments = self.diarizer.assign_speakers(
-                segments,
-                turns,
-            )
+            labeled_segments = self.diarizer.assign_speakers(segments, turns)
 
             logger.info(
                 "Speaker assignments: %s",
@@ -750,21 +604,16 @@ class ConversationAnalyzer:
         """
         Analyze a single transcript segment.
 
-        Returns None (and logs a warning) if the segment is
-        malformed or if any stage of the pipeline fails for
-        this segment specifically. A failure here does not
-        abort analysis of the remaining segments.
+        Returns None (and logs) if the segment is malformed or any stage
+        fails for this segment. A failure here does not abort analysis of
+        the remaining segments.
         """
-
         start = float(raw_segment.get("start", 0.0) or 0.0)
         end = float(raw_segment.get("end", 0.0) or 0.0)
         text = str(raw_segment.get("text", "") or "").strip()
 
         if not text:
-            logger.info(
-                "Skipping segment %d: empty transcript.",
-                index + 1,
-            )
+            logger.info("Skipping segment %d: empty transcript.", index + 1)
             return None
 
         if end < start:
@@ -776,12 +625,7 @@ class ConversationAnalyzer:
             )
             return None
 
-        logger.info(
-            "Analyzing conversation segment %d: %.2f-%.2fs",
-            index + 1,
-            start,
-            end,
-        )
+        logger.info("Analyzing conversation segment %d: %.2f-%.2fs", index + 1, start, end)
 
         hop_len = getattr(config, "HOP_LENGTH", 512)
         f0_seg = None
@@ -793,24 +637,14 @@ class ConversationAnalyzer:
             if rec_voiced_flags is not None and len(rec_voiced_flags) == len(rec_f0):
                 voiced_seg = rec_voiced_flags[idx_start:idx_end]
 
-        # Raw (unwidened) audio slice for this segment's transcript
-        # window — used by both voice calibration and Phase 4's v2
-        # intensity formula (prosodic arousal). Computed once here,
-        # unconditionally, regardless of which downstream features are
-        # enabled.
+        # Raw (unwidened) audio slice for this segment's transcript window,
+        # used by voice calibration and the v2 intensity formula.
         start_sample = max(0, int(start * sr))
         end_sample = min(len(audio), int(end * sr))
         segment_audio = audio[start_sample:end_sample]
 
-        # -----------------------------------------------------
-        # Phase 3: widen the acoustic window for short segments
-        # so the emotion model has enough signal. The transcript
-        # window (start/end used everywhere else) is unchanged;
-        # only the audio slice passed to analyze_segment below is
-        # widened. Wrapped defensively: a failure here must never
-        # abort the whole pipeline, it should just fall back to
-        # the original (unwidened) window.
-        # -----------------------------------------------------
+        # Widen the acoustic window for short segments so the emotion model
+        # has enough signal. Falls back to the original window on failure.
         acoustic_start, acoustic_end, was_widened = start, end, False
         try:
             acoustic_start, acoustic_end, was_widened = compute_widened_window(
@@ -843,23 +677,8 @@ class ConversationAnalyzer:
         )
         voice_result["acoustic_window_widened"] = was_widened
 
-        # -----------------------------------------------------
-        # Phase 3: voice calibration (prosody sanity rule +
-        # temperature scaling, when fitted). Runs on the raw
-        # scores returned above; raw values are preserved
-        # alongside the calibrated ones for transparency.
-        #
-        # FIX: sentiment analysis was previously nested INSIDE this
-        # block's `except` clause, with a stray unconditional
-        # `return None` at the end of the whole `if` block. That meant
-        # sentiment analysis only ran when calibration FAILED, and the
-        # segment was dropped unconditionally regardless of outcome —
-        # so every segment silently vanished whenever calibration
-        # succeeded (the normal case), producing a generic "no valid
-        # segments" error with no exception ever logged. Sentiment
-        # analysis is now its own independent step below, always run
-        # after calibration, whether calibration succeeded or failed.
-        # -----------------------------------------------------
+        # Voice calibration (prosody sanity rule + temperature scaling).
+        # Raw values are preserved alongside calibrated ones.
         if config.VOICE_CALIBRATION_ENABLED:
             try:
                 calibration = self.voice_calibrator.calibrate_segment(
@@ -884,6 +703,14 @@ class ConversationAnalyzer:
                     index + 1,
                 )
 
+        # Margin-based reliability: a near-tie between the top two voice
+        # classes lowers voice reliability (applied to final scores).
+        margin_factor = self._margin_reliability(voice_result.get("scores", {}))
+        voice_result["voice_margin_reliability"] = round(margin_factor, 4)
+        voice_result["voice_reliability"] = round(
+            voice_result.get("voice_reliability", 1.0) * margin_factor, 4
+        )
+
         try:
             sentiment_result = self.sentiment_analyzer.analyze(text)
         except Exception:
@@ -893,13 +720,8 @@ class ConversationAnalyzer:
             )
             return None
 
-        # -----------------------------------------------------
-        # Phase 5: attach text reliability from Phase 3's ASR
-        # confidence flag (raw_segment["is_low_confidence"]), so
-        # fusion can down-weight a segment whose transcript itself
-        # was uncertain. Defaults to 1.0 (fully reliable) when the
-        # flag is absent — identical to pre-Phase-5 behavior.
-        # -----------------------------------------------------
+        # Text reliability from the ASR confidence flag, so fusion can
+        # down-weight a segment whose transcript itself was uncertain.
         if "text_reliability" in raw_segment:
             sentiment_result["text_reliability"] = float(raw_segment["text_reliability"])
         else:
@@ -909,10 +731,7 @@ class ConversationAnalyzer:
             )
 
         try:
-            fusion_result = self.fusion.fuse(
-                voice_result,
-                sentiment_result,
-            )
+            fusion_result = self.fusion.fuse(voice_result, sentiment_result)
         except Exception:
             logger.exception(
                 "Multimodal fusion failed for segment %d; skipping.",
@@ -932,12 +751,7 @@ class ConversationAnalyzer:
             "is_low_confidence": bool(raw_segment.get("is_low_confidence", False)),
         }
 
-        # -----------------------------------------------------
-        # Phase 4: intensity — v2 (prosody-based) by default, with
-        # a defensive fallback to v1 (legacy, confidence-based) if
-        # anything in the new formula fails, so a bug here degrades
-        # gracefully rather than aborting analysis of this segment.
-        # -----------------------------------------------------
+        # Intensity — v2 by default, with a defensive fallback to v1.
         try:
             if config.INTENSITY_FORMULA_VERSION == "v2":
                 word_count = len(text.split())
@@ -993,67 +807,38 @@ class ConversationAnalyzer:
         Args:
             audio_path: Path to the audio file to analyze.
             progress_callback: Optional callable invoked as
-                callback(stage, current, total) at each pipeline
-                stage, so a caller (e.g. a UI) can show progress.
-                Exceptions raised inside the callback are logged
-                and otherwise ignored.
+                callback(stage, current, total) at each pipeline stage.
+                Exceptions raised inside it are logged and ignored.
 
         Raises:
-            ValueError: If the audio is empty/degenerate, or if
-                no usable segments could be produced.
+            ValueError: If the audio is empty/degenerate, or if no usable
+                segments could be produced.
         """
-
-        logger.info(
-            "Starting conversation analysis: %s",
-            audio_path
-        )
+        logger.info("Starting conversation analysis: %s", audio_path)
 
         t_total_start = time.perf_counter()
 
-        # -----------------------------------------------------
-        # Load audio once
-        # -----------------------------------------------------
-
-        self._report_progress(
-            progress_callback, "Loading audio", 0, 1
-        )
+        # ---- Load audio once ----
+        self._report_progress(progress_callback, "Loading audio", 0, 1)
 
         t_load_start = time.perf_counter()
-        audio, sr, duration = (
-            load_and_preprocess_audio(
-                audio_path
-            )
-        )
+        audio, sr, duration = load_and_preprocess_audio(audio_path)
         t_load_elapsed = time.perf_counter() - t_load_start
 
         if duration is None or duration <= 0 or audio is None or len(audio) == 0:
-            raise ValueError(
-                "The audio file appears to be empty or could not be decoded."
-            )
+            raise ValueError("The audio file appears to be empty or could not be decoded.")
 
-        # -----------------------------------------------------
-        # Speech-to-text
-        # -----------------------------------------------------
-
-        self._report_progress(
-            progress_callback, "Transcribing speech", 0, 1
-        )
+        # ---- Speech-to-text ----
+        self._report_progress(progress_callback, "Transcribing speech", 0, 1)
 
         t_transcribe_start = time.perf_counter()
-        transcription = (
-            self.speech_to_text.transcribe(
-                audio_path
-            )
-        )
+        transcription = self.speech_to_text.transcribe(audio_path)
         t_transcribe_elapsed = time.perf_counter() - t_transcribe_start
 
-        raw_segments = transcription.get(
-            "segments",
-            []
-        )
+        raw_segments = transcription.get("segments", [])
 
         if not raw_segments:
-            logger.info("No speech detected by STT (VAD removed all frames). Returning friendly non-speech result.")
+            logger.info("No speech detected by STT (VAD removed all frames).")
             t_total_elapsed = time.perf_counter() - t_total_start
             return {
                 "audio_path": audio_path,
@@ -1065,7 +850,7 @@ class ConversationAnalyzer:
                 "segments": [],
                 "no_speech_detected": True,
                 "no_speech_message": "No speech detected in this audio file. The recording appears to be silence or non-speech audio.",
-                "emotional_trend": {"trend": "stable", "delta": 0.0},
+                "emotional_trend": {"trend": "stable", "delta": 0.0, "change": 0.0},
                 "escalation": {"escalation_detected": False, "reason": "No speech detected in recording."},
                 "escalation_legacy_strict": {"escalation_detected": False, "reason": "No speech detected."},
                 "verdict": {"verdict": "insufficient_data", "reason": "No speech detected."},
@@ -1092,26 +877,23 @@ class ConversationAnalyzer:
         analyzed_segments: List[Dict[str, Any]] = []
         total = len(raw_segments)
 
-        # -----------------------------------------------------
-        # Analyze each transcript segment
-        # -----------------------------------------------------
-
-        # Pre-compute all segment bounds once so each segment's short-
-        # segment widening can see its neighbors without re-scanning.
+        # Pre-compute all segment bounds so short-segment widening can see neighbors.
         all_segment_bounds: List[Tuple[float, float]] = [
             (float(s.get("start", 0.0) or 0.0), float(s.get("end", 0.0) or 0.0))
             for s in raw_segments
         ]
 
-        from app.prosody import compute_recording_loudness_percentiles, compute_recording_f0
         try:
             recording_percentiles = compute_recording_loudness_percentiles(audio, sr)
             rec_f0, rec_voiced_flags = compute_recording_f0(audio, sr)
         except Exception:
-            logger.exception("Failed to compute recording prosody baseline; falling back to segment defaults.")
+            logger.exception(
+                "Failed to compute recording prosody baseline; falling back to segment defaults."
+            )
             recording_percentiles = None
             rec_f0, rec_voiced_flags = None, None
 
+        # ---- Analyze each transcript segment ----
         t_segments_start = time.perf_counter()
         for index, raw_segment in enumerate(raw_segments):
 
@@ -1139,15 +921,10 @@ class ConversationAnalyzer:
         t_segments_elapsed = time.perf_counter() - t_segments_start
 
         if not analyzed_segments:
-            raise ValueError(
-                "No valid conversation segments were produced."
-            )
+            raise ValueError("No valid conversation segments were produced.")
 
-        # -----------------------------------------------------
-        # Collapse Detector: flags low voice-model discrimination
-        # and down-weights voice reliability in multimodal fusion
-        # -----------------------------------------------------
-        voice_collapse = {"detected": False}
+        # ---- Collapse detector: low voice-model discrimination ----
+        voice_collapse: Dict[str, Any] = {"detected": False}
         voice_emotions = [
             s.get("voice_emotion", {}).get("emotion")
             for s in analyzed_segments
@@ -1173,7 +950,7 @@ class ConversationAnalyzer:
                 logger.warning(
                     "Voice collapse detected: dominant '%s' occupies %.1f%% of segments (>= %.0f%%). "
                     "Down-weighting voice reliability by factor %.2f.",
-                    dom_emotion, dom_share * 100, collapse_thresh * 100, penalty
+                    dom_emotion, dom_share * 100, collapse_thresh * 100, penalty,
                 )
                 for seg in analyzed_segments:
                     if "voice_emotion" in seg:
@@ -1188,15 +965,13 @@ class ConversationAnalyzer:
                                     seg["text_sentiment"],
                                 )
                             except Exception:
-                                pass
+                                logger.exception(
+                                    "Re-fusion after collapse penalty failed for segment %s.",
+                                    seg.get("segment_index"),
+                                )
 
-        # -----------------------------------------------------
-        # Speaker diarization
-        # -----------------------------------------------------
-
-        self._report_progress(
-            progress_callback, "Identifying speakers", 0, 1
-        )
+        # ---- Speaker diarization ----
+        self._report_progress(progress_callback, "Identifying speakers", 0, 1)
 
         t_diarize_start = time.perf_counter()
         analyzed_segments, diarization_error = self._apply_diarization(
@@ -1204,72 +979,37 @@ class ConversationAnalyzer:
         )
         t_diarize_elapsed = time.perf_counter() - t_diarize_start
 
-        # -----------------------------------------------------
-        # Emotional trend (legacy, first-vs-last delta)
-        # -----------------------------------------------------
-
-        self._report_progress(
-            progress_callback, "Computing emotional trend", 0, 1
-        )
+        # ---- Emotional trend ----
+        self._report_progress(progress_callback, "Computing emotional trend", 0, 1)
 
         t_analytics_start = time.perf_counter()
-        trend_result = (
-            self.detect_emotional_trend(
-                analyzed_segments
-            )
-        )
+        trend_result = self.detect_emotional_trend(analyzed_segments)
 
-        # -----------------------------------------------------
-        # Escalation — legacy strict (kept for ablation/transparency)
-        # and Phase 4 advanced (mode-selectable; this is now the
-        # primary user-facing escalation result under result["escalation"])
-        # -----------------------------------------------------
-
+        # ---- Escalation (legacy strict + advanced) ----
         escalation_legacy_strict = self.detect_escalation(analyzed_segments)
         escalation_result = self.detect_escalation_advanced(analyzed_segments)
 
-        # -----------------------------------------------------
-        # Phase 4: single unified verdict (always computed the
-        # tolerant way, independent of config.ESCALATION_MODE — see
-        # compute_unified_verdict's docstring)
-        # -----------------------------------------------------
-
+        # ---- Unified verdict ----
         verdict_result = self.compute_unified_verdict(analyzed_segments)
 
-        # -----------------------------------------------------
-        # Modality consistency trajectory
-        # -----------------------------------------------------
+        # ---- Modality consistency trajectory ----
+        self._report_progress(progress_callback, "Computing consistency trajectory", 0, 1)
 
-        self._report_progress(
-            progress_callback, "Computing consistency trajectory", 0, 1
-        )
+        consistency_trajectory = compute_consistency_trajectory(analyzed_segments)
 
-        consistency_trajectory = compute_consistency_trajectory(
-            analyzed_segments
-        )
-
-        # -----------------------------------------------------
-        # Review-priority attention score (heuristic only)
-        # -----------------------------------------------------
-
+        # ---- Review-priority attention score (heuristic only) ----
         attention_score = compute_attention_score(
             segments=analyzed_segments,
             escalation_result=escalation_result,
             trajectory=consistency_trajectory,
         )
 
-        # -----------------------------------------------------
-        # Modality incongruence & conflict analysis
-        # -----------------------------------------------------
-
-        incongruence_result = analyze_conversation_incongruence(
-            analyzed_segments
-        )
+        # ---- Modality incongruence & conflict analysis ----
+        incongruence_result = analyze_conversation_incongruence(analyzed_segments)
         t_analytics_elapsed = time.perf_counter() - t_analytics_start
 
         t_total_elapsed = time.perf_counter() - t_total_start
 
-        # Timing breakdown in seconds
         processing_time = {
             "audio_preprocessing_seconds": round(t_load_elapsed, 3),
             "transcription_whisper_seconds": round(t_transcribe_elapsed, 3),
@@ -1279,70 +1019,35 @@ class ConversationAnalyzer:
             "total_processing_seconds": round(t_total_elapsed, 3),
         }
 
-        # -----------------------------------------------------
-        # Final result assembly & recommendation
-        # -----------------------------------------------------
-
+        # ---- Final result assembly & recommendation ----
         result = {
             "audio_path": audio_path,
-
             "duration_seconds": duration,
-
             "sample_rate": sr,
-
-            "language": transcription.get(
-                "language",
-                "unknown"
-            ),
-
-            "language_probability": float(
-                transcription.get(
-                    "language_probability",
-                    0.0
-                )
-            ),
-
-            "full_transcript": transcription.get(
-                "text",
-                ""
-            ),
-
+            "language": transcription.get("language", "unknown"),
+            "language_probability": float(transcription.get("language_probability", 0.0)),
+            "full_transcript": transcription.get("text", ""),
             "segments": analyzed_segments,
-
             "emotional_trend": trend_result,
-
-            # Phase 4: "escalation" now holds the ADVANCED result
-            # (strict or tolerant per config.ESCALATION_MODE — default
-            # tolerant). This is the key both streamlit_app.py and
-            # recommendation_engine.py read. The original strict-only
-            # result is preserved separately for transparency/ablation.
+            # "escalation" holds the ADVANCED result (strict or tolerant per
+            # config.ESCALATION_MODE). The strict-only result is kept
+            # separately for transparency/ablation.
             "escalation": escalation_result,
             "escalation_legacy_strict": escalation_legacy_strict,
-
-            # Phase 4: single unified verdict — the new primary
-            # conversation-level signal (see compute_unified_verdict).
             "verdict": verdict_result,
-
             "consistency_trajectory": consistency_trajectory.to_dict(),
-
             "attention_score": attention_score.to_dict(),
-
             "modality_incongruence": incongruence_result,
-
             "processing_time": processing_time,
-
             "skipped_segments": total - len(analyzed_segments),
             "diarization_error": diarization_error,
             "voice_collapse": voice_collapse,
         }
 
-        # Synthesize actionable recommendation
         recommendation = generate_recommendation(result)
         result["recommendation"] = recommendation.to_dict()
 
-        self._report_progress(
-            progress_callback, "Done", total, total
-        )
+        self._report_progress(progress_callback, "Done", total, total)
 
         logger.info(
             "Conversation analysis completed: %d/%d segments analyzed in %.2fs",

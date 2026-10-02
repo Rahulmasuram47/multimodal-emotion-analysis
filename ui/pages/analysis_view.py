@@ -21,7 +21,7 @@ from ui.charts.dynamics import (
 from ui.components.modality_cards import render_modality_cards
 from ui.components.segment_timeline import render_segment_timeline
 from ui.components.speaker_analytics_card import render_speaker_analytics_card
-from ui.components.transparency_panels import render_multimodal_validation_section
+from ui.pages.validation_view import render_multimodal_validation_section
 from ui.components.verdict_card import build_key_finding, render_verdict_hero
 from ui.components.waveform_player import render_wavesurfer_player
 from ui.pages.acoustic_view import render_acoustic_page

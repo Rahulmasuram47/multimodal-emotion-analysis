@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from ui.utils import safe_float
+from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens
 
 
 def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
@@ -159,29 +160,19 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         )
     )
 
+    theme_tokens = get_chart_theme_tokens()
     # Reference quadrant lines (X=0, Y=0.5)
-    fig.add_hline(y=0.5, line_width=1, line_dash="dash", line_color="rgba(255, 255, 255, 0.15)")
-    fig.add_vline(x=0.0, line_width=1, line_dash="dash", line_color="rgba(255, 255, 255, 0.15)")
+    fig.add_hline(y=0.5, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
+    fig.add_vline(x=0.0, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
 
-    fig.update_layout(
-        height=360,
-        margin=dict(l=40, r=40, t=30, b=40),
-        paper_bgcolor="#101318",
-        plot_bgcolor="#181D24",
-        font=dict(family="IBM Plex Mono", color="#8E97A6", size=11),
-        xaxis=dict(
-            title="Valence (Negative ← Neutral → Positive)",
-            range=[-1.05, 1.05],
-            gridcolor="rgba(255, 255, 255, 0.05)",
-            zerolinecolor="rgba(255, 255, 255, 0.15)",
-        ),
-        yaxis=dict(
-            title="Arousal / Activation (Calm → Excited)",
-            range=[0.0, 1.05],
-            gridcolor="rgba(255, 255, 255, 0.05)",
-            zerolinecolor="rgba(255, 255, 255, 0.15)",
-        ),
-        showlegend=False,
+    apply_chart_theme(fig, height=360, margin=dict(l=40, r=40, t=30, b=40), show_legend=False)
+    fig.update_xaxes(
+        title="Valence (Negative ← Neutral → Positive)",
+        range=[-1.05, 1.05],
+    )
+    fig.update_yaxes(
+        title="Arousal / Activation (Calm → Excited)",
+        range=[0.0, 1.05],
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -262,23 +253,17 @@ def render_intensity_trajectory_chart(
         )
     )
 
+    apply_chart_theme(fig, height=340, margin=dict(l=40, r=20, t=30, b=40), show_legend=True)
+    fig.update_xaxes(
+        title="Conversation Turn",
+        tickvals=list(x),
+        ticktext=turn_names,
+    )
+    fig.update_yaxes(
+        title="Emotional Intensity",
+        range=[0.0, 1.05],
+    )
     fig.update_layout(
-        height=340,
-        margin=dict(l=40, r=20, t=30, b=40),
-        paper_bgcolor="#101318",
-        plot_bgcolor="#181D24",
-        font=dict(family="IBM Plex Mono", color="#8E97A6", size=11),
-        xaxis=dict(
-            title="Conversation Turn",
-            tickvals=list(x),
-            ticktext=turn_names,
-            gridcolor="rgba(255, 255, 255, 0.05)",
-        ),
-        yaxis=dict(
-            title="Emotional Intensity",
-            range=[0.0, 1.05],
-            gridcolor="rgba(255, 255, 255, 0.05)",
-        ),
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -329,15 +314,10 @@ def render_speaker_comparison_chart(speaker_analytics: List[Dict[str, Any]]) -> 
         )
     )
 
+    apply_chart_theme(fig, height=280, margin=dict(l=40, r=20, t=30, b=40), show_legend=True)
     fig.update_layout(
         barmode="group",
-        height=280,
-        margin=dict(l=40, r=20, t=30, b=40),
-        paper_bgcolor="#101318",
-        plot_bgcolor="#181D24",
-        font=dict(family="IBM Plex Mono", color="#8E97A6", size=11),
-        xaxis=dict(gridcolor="rgba(255, 255, 255, 0.05)"),
-        yaxis=dict(title="Percentage (%)", gridcolor="rgba(255, 255, 255, 0.05)", range=[0, 100]),
+        yaxis=dict(title="Percentage (%)", range=[0, 100]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 

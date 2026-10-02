@@ -112,6 +112,20 @@ def render_sidebar() -> None:
             unsafe_allow_html=True,
         )
 
+        st.markdown('<div class="sidebar-heading">Appearance</div>', unsafe_allow_html=True)
+        current_theme = st.session_state.get("theme", "dark")
+        selected_theme = st.radio(
+            "Interface Theme",
+            ["Dark", "Light"],
+            index=0 if current_theme == "dark" else 1,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="theme_radio_selector",
+        )
+        if selected_theme.lower() != current_theme:
+            st.session_state["theme"] = selected_theme.lower()
+            st.rerun()
+
         st.markdown('<div class="sidebar-heading">Models & Architecture</div>', unsafe_allow_html=True)
 
         st.markdown(
@@ -145,11 +159,8 @@ def render_sidebar() -> None:
         )
 
         # -----------------------------------------------------
-        # Phase 6: live diarization status — reflects whether a real
-        # HF_TOKEN is actually configured right now, not a static claim.
-        # This is separate from per-run success/failure, which is shown
-        # in the Speaker Analysis section after an analysis completes
-        # (see ui/components/metric_cards.py::render_speaker_metrics).
+        # Diarization status: reflects configured / not configured / error
+        # without exposing tokens, previews, or credentials.
         # -----------------------------------------------------
         diar_status = get_diarization_status()
         diar_error = st.session_state.get("diarization_error", "")
@@ -160,23 +171,23 @@ def render_sidebar() -> None:
                 f"""
                 <div class="sidebar-spec-row">
                     <span class="sidebar-spec-key">Diarization</span>
-                    <span class="sidebar-spec-val" style="color: var(--negative);">✗ Error</span>
+                    <span class="sidebar-spec-val" style="color: var(--critical);">✗ Error ({html.escape(str(diar_error))})</span>
                 </div>
-                <div style="font-size: 0.68rem; color: var(--negative); margin-top: 0.3rem; margin-bottom: 1rem; line-height: 1.3;">
-                    {diar_error}
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.3rem; margin-bottom: 1rem; line-height: 1.3;">
+                    Diarization pipeline encountered an error.
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        elif diar_status["token_present"]:
+        elif diar_status.get("token_present", False):
             st.markdown(
-                f"""
+                """
                 <div class="sidebar-spec-row">
-                    <span class="sidebar-spec-key">HF_TOKEN</span>
-                    <span class="sidebar-spec-val" style="color: var(--positive);">✓ Configured ({diar_status['token_preview']})</span>
+                    <span class="sidebar-spec-key">Diarization</span>
+                    <span class="sidebar-spec-val" style="color: var(--positive);">✓ Configured</span>
                 </div>
-                <div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; margin-bottom: 1rem;">
-                    A token is set. Diarization will attempt to run on each analysis — check the Speaker Analysis section after a run to confirm it actually succeeded.
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.3rem; margin-bottom: 1rem;">
+                    Hugging Face credentials found. Diarization will attempt to run on each analysis.
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -185,11 +196,11 @@ def render_sidebar() -> None:
             st.markdown(
                 """
                 <div class="sidebar-spec-row">
-                    <span class="sidebar-spec-key">HF_TOKEN</span>
-                    <span class="sidebar-spec-val" style="color: var(--muted);">✗ Not configured</span>
+                    <span class="sidebar-spec-key">Diarization</span>
+                    <span class="sidebar-spec-val" style="color: var(--text-muted);">✗ Not configured</span>
                 </div>
-                <div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; margin-bottom: 1rem;">
-                    No token found. Speakers will show as "Unknown". See docs/DIARIZATION_SETUP.md to enable real speaker separation.
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.3rem; margin-bottom: 1rem;">
+                    No token found. Speakers will show as "Unknown". See docs/DIARIZATION_SETUP.md to enable speaker separation.
                 </div>
                 """,
                 unsafe_allow_html=True,

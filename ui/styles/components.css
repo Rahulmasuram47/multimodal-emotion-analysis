@@ -3,12 +3,12 @@
    ===================================================== */
 
 .brand-container {
-    background: linear-gradient(180deg, rgba(24, 29, 36, 0.95), rgba(20, 24, 30, 0.85));
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--card-radius);
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.25rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .brand-top-row {
@@ -55,8 +55,8 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted);
-    background: var(--panel-2);
+    color: var(--text-muted);
+    background: var(--surface-raised);
     padding: 0.25rem 0.6rem;
     border-radius: 4px;
     border: 1px solid var(--border);
@@ -64,8 +64,9 @@
 
 .subtitle {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.82rem;
-    color: var(--muted);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
     letter-spacing: 0.02em;
     margin: 0.4rem 0 0.65rem 1.4rem;
 }
@@ -81,13 +82,13 @@
 
 .header-chip {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.68rem;
+    font-size: 0.70rem;
     letter-spacing: 0.03em;
-    color: var(--muted);
-    background: rgba(255, 255, 255, 0.03);
-    padding: 0.2rem 0.55rem;
+    color: var(--text-muted);
+    background: var(--surface-raised);
+    padding: 0.25rem 0.6rem;
     border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
 }
 
 .header-chip strong {
@@ -147,38 +148,92 @@
    ===================================================== */
 
 .upload-wrapper {
-    background: var(--panel);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--card-radius);
     padding: 1.25rem;
     margin-bottom: 1.25rem;
 }
 
-[data-testid="stFileUploader"] *,
-[data-testid="stFileUploader"] *::before,
-[data-testid="stFileUploader"] *::after {
-    background-color: transparent !important;
-    color: var(--text) !important;
+/* =====================================================
+   ACCESSIBLE TABS (High Contrast Active & Inactive)
+   ===================================================== */
+div[data-testid="stTabs"] {
+    margin-top: 0.5rem;
+    margin-bottom: 1.0rem;
 }
 
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    border-bottom: 1px solid var(--border) !important;
+    gap: 0.5rem;
+    background: transparent !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+    color: var(--text-muted) !important;
+    background-color: transparent !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.84rem !important;
+    font-weight: 500 !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    padding: 0.55rem 0.9rem !important;
+    border-radius: 4px 4px 0 0 !important;
+    opacity: 1 !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"]:hover {
+    color: var(--text) !important;
+    background-color: var(--panel-hover) !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom: 2px solid var(--accent) !important;
+    background-color: transparent !important;
+    font-weight: 700 !important;
+}
+
+/* BaseWeb fallback tab selectors */
+button[data-baseweb="tab"] {
+    color: var(--text-muted) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.84rem !important;
+    opacity: 1 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--accent) !important;
+    font-weight: 700 !important;
+}
+
+/* =====================================================
+   FILE UPLOADER & TOOLTIP FIX
+   ===================================================== */
+
 [data-testid="stFileUploader"] section {
-    background-color: var(--panel-2) !important;
+    background-color: var(--surface-raised) !important;
     border: 1px dashed var(--border-strong) !important;
     border-radius: 6px;
     padding: 1.5rem 1rem !important;
 }
 
+[data-testid="stFileUploader"] section * {
+    color: var(--text) !important;
+}
+
 [data-testid="stFileUploader"] section:hover {
-    border-color: var(--voice) !important;
-    background-color: rgba(232, 163, 61, 0.03) !important;
+    border-color: var(--accent) !important;
+    background-color: var(--panel-hover) !important;
 }
 
 [data-testid="stFileUploader"] small {
-    color: var(--muted) !important;
+    color: var(--text-muted) !important;
 }
 
 [data-testid="stFileUploader"] button {
-    background-color: var(--panel) !important;
+    background-color: var(--surface) !important;
     color: var(--text) !important;
     border: 1px solid var(--border-strong) !important;
     font-family: 'IBM Plex Mono', monospace !important;
@@ -186,25 +241,48 @@
     border-radius: 4px !important;
 }
 
+[data-testid="stFileUploader"] button:hover {
+    background-color: var(--surface-raised) !important;
+    border-color: var(--accent) !important;
+}
+
 [data-testid="stFileUploaderFile"] {
-    background-color: var(--panel) !important;
+    background-color: var(--surface) !important;
     border: 1px solid var(--border-strong) !important;
     border-radius: 6px !important;
     padding: 0.5rem 0.7rem !important;
 }
 
 [data-testid="stFileUploaderFile"] small {
-    color: var(--muted) !important;
+    color: var(--text-muted) !important;
 }
 
 [data-testid="stFileUploaderFileIcon"] {
-    background-color: var(--panel-2) !important;
+    background-color: var(--surface-raised) !important;
     border-radius: 4px;
 }
 
 [data-testid="stFileUploaderDeleteBtn"] svg,
 [data-testid="stFileUploaderFileIcon"] svg {
-    fill: var(--muted) !important;
+    fill: var(--text-muted) !important;
+}
+
+/* Tooltip and Help Icon */
+[data-testid="stTooltipHoverTarget"],
+[data-testid="stHelp"] {
+    color: var(--text-muted) !important;
+}
+
+div[data-testid="stTooltipContent"],
+div[role="tooltip"] {
+    background-color: var(--surface-raised) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.78rem !important;
+    padding: 0.5rem 0.75rem !important;
 }
 
 /* =====================================================
@@ -306,15 +384,15 @@ iframe {
     font-size: 0.64rem;
     padding: 0.18rem 0.45rem;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-raised);
     border: 1px solid var(--border);
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
 .format-pill.recommended {
-    border-color: rgba(232, 163, 61, 0.35);
+    border-color: var(--voice);
     color: var(--voice);
-    background: rgba(232, 163, 61, 0.08);
+    background: var(--voice-glow);
 }
 
 /* =====================================================
@@ -324,23 +402,24 @@ iframe {
 .stButton > button {
     width: 100%;
     min-height: 44px;
-    background: var(--voice);
-    color: #101318;
+    background: var(--accent);
+    color: #FFFFFF;
     font-family: 'IBM Plex Mono', monospace !important;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.06em;
-    border: none;
+    border: 1px solid var(--border-strong);
     border-radius: 6px;
     transition: all 0.15s ease-in-out;
-    box-shadow: 0 2px 10px rgba(232, 163, 61, 0.2);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
 .stButton > button:hover {
-    background: #F3B658;
-    color: #101318;
+    background: var(--accent);
+    filter: brightness(1.12);
+    color: #FFFFFF;
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(232, 163, 61, 0.35);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .stButton > button:active {
@@ -348,8 +427,9 @@ iframe {
 }
 
 .stButton > button:disabled {
-    background: rgba(232, 163, 61, 0.2);
-    color: rgba(241, 243, 245, 0.35);
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
     box-shadow: none;
     cursor: not-allowed;
 }
@@ -381,8 +461,8 @@ iframe {
     background: var(--panel-2) !important;
     background-color: var(--panel-2) !important;
     color: var(--text) !important;
-    border-color: var(--voice) !important;
-    box-shadow: 0 2px 10px rgba(232, 163, 61, 0.12) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15) !important;
 }
 
 [data-testid="stDownloadButton"] button:focus,
@@ -410,21 +490,21 @@ iframe {
    ===================================================== */
 
 [data-testid="stMetric"] {
-    background: linear-gradient(160deg, var(--panel), #14181F);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--card-radius);
     padding: 0.65rem 0.8rem;
     min-height: 85px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     overflow: hidden;
 }
 
 [data-testid="stMetricLabel"] {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.62rem !important;
+    font-size: 0.65rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.05em;
-    color: var(--muted) !important;
+    color: var(--text-muted) !important;
     text-transform: uppercase;
     white-space: normal !important;
     word-break: break-word !important;
@@ -509,17 +589,17 @@ iframe {
 }
 
 .modality-card.escalation-alert {
-    border: 1px solid var(--negative);
-    background: linear-gradient(160deg, var(--panel), rgba(228, 107, 107, 0.08));
+    border: 1px solid var(--critical);
+    background: var(--negative-bg);
 }
 
 .card-meta-label {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.62rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--text-muted);
     margin-bottom: 0.4rem;
 }
 
@@ -536,7 +616,7 @@ iframe {
 
 .card-subtext {
     font-size: 0.75rem;
-    color: var(--muted);
+    color: var(--text-muted);
     line-height: 1.4;
 }
 
@@ -557,25 +637,25 @@ iframe {
 .status-badge.ok {
     color: var(--positive);
     background: var(--positive-bg);
-    border: 1px solid rgba(88, 184, 137, 0.25);
+    border: 1px solid var(--positive);
 }
 
 .status-badge.warn {
     color: var(--voice);
     background: var(--voice-glow);
-    border: 1px solid rgba(232, 163, 61, 0.25);
+    border: 1px solid var(--voice);
 }
 
 .status-badge.danger {
-    color: var(--negative);
+    color: var(--critical);
     background: var(--negative-bg);
-    border: 1px solid rgba(228, 107, 107, 0.3);
+    border: 1px solid var(--critical);
 }
 
 .status-badge.info {
-    color: var(--neutral);
+    color: var(--text-muted);
     background: var(--neutral-bg);
-    border: 1px solid rgba(154, 163, 178, 0.2);
+    border: 1px solid var(--border-strong);
 }
 
 /* =====================================================
@@ -643,7 +723,8 @@ audio {
 .meter-bar-track {
     flex: 1;
     height: 7px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -782,7 +863,7 @@ audio {
    ===================================================== */
 
 .empty-state-card {
-    background: linear-gradient(180deg, var(--panel), #14181F);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--card-radius);
     padding: 2rem 1.5rem;
@@ -799,7 +880,7 @@ audio {
 }
 
 .empty-step-box {
-    background: var(--panel-2);
+    background: var(--surface-raised);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 1rem 1.15rem;
@@ -807,7 +888,7 @@ audio {
 
 .empty-step-num {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--voice);
     margin-bottom: 0.35rem;
@@ -815,14 +896,14 @@ audio {
 
 .empty-step-heading {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
     margin-bottom: 0.3rem;
 }
 
 .empty-step-desc {
-    font-size: 0.76rem;
-    color: var(--muted);
+    font-size: 0.78rem;
+    color: var(--text-muted);
     line-height: 1.45;
 }

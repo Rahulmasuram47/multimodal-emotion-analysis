@@ -12,6 +12,7 @@ import soundfile as sf
 import streamlit as st
 
 from ui.utils import safe_float
+from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens
 
 
 @st.cache_data(show_spinner=False)
@@ -172,25 +173,19 @@ def render_acoustic_inspection(
                         col=1,
                     )
 
-    fig.update_layout(
-        height=580,
-        margin=dict(l=40, r=20, t=40, b=30),
-        paper_bgcolor="#101318",
-        plot_bgcolor="#181D24",
-        font=dict(family="IBM Plex Mono", color="#8E97A6", size=10),
-        showlegend=False,
-    )
+    apply_chart_theme(fig, height=580, margin=dict(l=40, r=20, t=40, b=30), show_legend=False)
+    theme_tokens = get_chart_theme_tokens()
 
     for i in range(1, 4):
         fig.update_xaxes(
-            gridcolor="rgba(255, 255, 255, 0.05)",
-            zerolinecolor="rgba(255, 255, 255, 0.1)",
+            gridcolor=theme_tokens["gridcolor"],
+            zerolinecolor=theme_tokens["zerolinecolor"],
             row=i,
             col=1,
         )
         fig.update_yaxes(
-            gridcolor="rgba(255, 255, 255, 0.05)",
-            zerolinecolor="rgba(255, 255, 255, 0.1)",
+            gridcolor=theme_tokens["gridcolor"],
+            zerolinecolor=theme_tokens["zerolinecolor"],
             row=i,
             col=1,
         )
@@ -224,14 +219,6 @@ def render_acoustic_inspection(
                 name="Mean ± Std",
             )
         )
-        mfcc_fig.update_layout(
-            height=250,
-            margin=dict(l=40, r=20, t=20, b=30),
-            paper_bgcolor="#101318",
-            plot_bgcolor="#181D24",
-            font=dict(family="IBM Plex Mono", color="#8E97A6", size=10),
-            xaxis=dict(gridcolor="rgba(255, 255, 255, 0.05)"),
-            yaxis=dict(title="Coefficient Value", gridcolor="rgba(255, 255, 255, 0.05)"),
-            showlegend=False,
-        )
+        apply_chart_theme(mfcc_fig, height=250, margin=dict(l=40, r=20, t=20, b=30), show_legend=False)
+        mfcc_fig.update_yaxes(title="Coefficient Value")
         st.plotly_chart(mfcc_fig, use_container_width=True)

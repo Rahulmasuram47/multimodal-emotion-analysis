@@ -1,17 +1,20 @@
 """
 Multimodal Voice & Conversation Emotion Analysis System
-Thin Streamlit Orchestrator (< 250 lines).
+Thin Streamlit Orchestrator.
 """
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import io
+import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+
 import streamlit as st
 
-from app.audio_processor import AudioProcessingError, AudioValidationError
+from app.audio_processor import AudioProcessingError, AudioValidationError  # noqa: F401
 from app.conversation_analysis import ConversationAnalyzer
+from app.fusion import MultimodalFusion
 from app.microphone import (
     FALLBACK_MICROPHONE_MESSAGE,
     categorize_pipeline_error,
@@ -27,13 +30,22 @@ from ui.components.transparency_panels import (
     render_professional_limitations_section,
     render_system_notes,
 )
-from ui.pages.acoustic_view import render_acoustic_page
+from ui.pages.acoustic_view import render_acoustic_page  # noqa: F401
 from ui.pages.analysis_view import render_analysis_page
 from ui.pages.annotation_view import render_annotation_page
 from ui.pages.validation_view import render_multimodal_validation_section
-from ui.state import get_active_uploader_keys, init_session_state, reset_session, clear_results
+from ui.state import (
+    clear_results,
+    get_active_uploader_keys,
+    get_fusion_settings,
+    init_session_state,
+    reset_session,
+)
 from ui.styles_loader import load_css
 from ui.utils import derive_segment_summary, safe_float
+
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+SAMPLE_DIR = Path("sample_audio")
 
 # 1. PAGE CONFIGURATION & STYLES
 st.set_page_config(
@@ -46,7 +58,7 @@ load_css()
 init_session_state()
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner="Loading models (first run only, this can take a while)...")
 def load_analyzer(whisper_model_size: str = "base", whisper_language: str = "auto") -> ConversationAnalyzer:
     """Load and initialize the complete ML pipeline once per configuration."""
     return ConversationAnalyzer(whisper_model_size=whisper_model_size, whisper_language=whisper_language)
@@ -114,7 +126,6 @@ current_source = None
 
 if mic_audio is not None:
     active_audio = mic_audio
-    audio_format = "audio/wav"
     current_source = "mic"
 elif uploaded_file is not None:
     active_audio = uploaded_file
@@ -123,19 +134,22 @@ elif uploaded_file is not None:
     audio_format = format_map.get(suffix, "audio/wav")
     current_source = "upload"
 elif st.session_state.get("_selected_sample_clip") or st.query_params.get("sample"):
-    sample_name = str(st.session_state.get("_selected_sample_clip") or st.query_params.get("sample"))
-    candidate = Path("sample_audio") / (sample_name if sample_name.endswith(".wav") else f"{sample_name}.wav")
+    raw_name = str(st.session_state.get("_selected_sample_clip") or st.query_params.get("sample"))
+    # SECURITY FIX: strip any directory components so a crafted ?sample=../../x
+    # query parameter cannot read files outside sample_audio/.
+    safe_name = Path(raw_name).name
+    if not safe_name.endswith(".wav"):
+        safe_name += ".wav"
+    candidate = SAMPLE_DIR / safe_name
     if candidate.exists():
-        with open(candidate, "rb") as f:
-            sample_bytes = f.read()
-        active_audio = io.BytesIO(sample_bytes)
+        active_audio = io.BytesIO(candidate.read_bytes())
         active_audio.name = candidate.name
-        audio_format = "audio/wav"
         current_source = "sample"
         st.caption(f"Loaded demo sample: `{candidate.name}`")
 
 if current_source != st.session_state.get("_last_active_source"):
     st.session_state["_last_active_source"] = current_source
+    st.session_state["_auto_analyzed"] = False
     if active_audio is not None:
         clear_results()
 
@@ -143,7 +157,17 @@ if current_source != st.session_state.get("_last_active_source"):
 btn_col1, btn_col2, _ = st.columns([1.5, 1, 3])
 auto_analyze = st.query_params.get("auto_analyze") in ("true", "1")
 with btn_col1:
-    analyze_clicked = st.button("ANALYZE AUDIO ▶", type="primary", use_container_width=True, disabled=(active_audio is None)) or (auto_analyze and active_audio is not None and not st.session_state.get("analysis_result"))
+    clicked = st.button(
+        "ANALYZE AUDIO ▶", type="primary", use_container_width=True, disabled=(active_audio is None)
+    )
+    # Auto-analyze only once per source, so a failed run cannot loop forever.
+    auto_trigger = (
+        auto_analyze
+        and active_audio is not None
+        and not st.session_state.get("analysis_result")
+        and not st.session_state.get("_auto_analyzed", False)
+    )
+    analyze_clicked = clicked or auto_trigger
 with btn_col2:
     if st.button("RESET SESSION ⟲", use_container_width=True):
         reset_session()
@@ -151,49 +175,64 @@ with btn_col2:
 
 # 4. PIPELINE EXECUTION
 if analyze_clicked and active_audio is not None:
+    if auto_trigger:
+        st.session_state["_auto_analyzed"] = True
+
     audio_bytes = active_audio.read()
     if hasattr(active_audio, "seek"):
         active_audio.seek(0)
 
-    t_pipeline_start = time.perf_counter()
-    with st.status("Executing Multimodal Emotion Analysis Pipeline...", expanded=True) as status:
-        try:
-            whisper_size = st.session_state.get("whisper_model_size", "base")
-            whisper_lang = st.session_state.get("whisper_language", "auto")
-            status.write(f"[0.00s] Initializing ConversationAnalyzer (Whisper {whisper_size}, lang={whisper_lang})...")
-            analyzer = load_analyzer(whisper_model_size=whisper_size, whisper_language=whisper_lang)
-
-            from app.fusion import MultimodalFusion
-            from ui.state import get_fusion_settings
-            fusion_settings = get_fusion_settings()
-            analyzer.fusion = MultimodalFusion(
-                audio_weight=fusion_settings["audio_weight"],
-                text_weight=fusion_settings["text_weight"],
-                confidence_threshold=fusion_settings["confidence_threshold"],
-            )
-            temp_path = save_audio_buffer(audio_bytes, suffix=Path(getattr(active_audio, "name", "record.wav")).suffix or ".wav")
-
-            def progress_cb(msg: str, current: int, total: int) -> None:
-                elapsed = time.perf_counter() - t_pipeline_start
-                status.write(f"[{elapsed:.2f}s] {msg} ({current}/{total})")
-
-            status.write(f"[{time.perf_counter() - t_pipeline_start:.2f}s] Executing acoustic Wav2Vec2, Whisper STT & RoBERTa models...")
-            result = analyzer.analyze(temp_path, progress_callback=progress_cb)
+    if not audio_bytes:
+        st.error("The selected audio is empty. Please upload or record again.")
+    elif len(audio_bytes) > MAX_UPLOAD_BYTES:
+        st.error("Audio file exceeds the 50 MB limit.")
+    else:
+        t_pipeline_start = time.perf_counter()
+        temp_path = None
+        with st.status("Executing Multimodal Emotion Analysis Pipeline...", expanded=True) as status:
             try:
-                Path(temp_path).unlink(missing_ok=True)
-            except Exception:
-                pass
+                whisper_size = st.session_state.get("whisper_model_size", "base")
+                whisper_lang = st.session_state.get("whisper_language", "auto")
+                status.write(f"[0.00s] Initializing ConversationAnalyzer (Whisper {whisper_size}, lang={whisper_lang})...")
+                analyzer = load_analyzer(whisper_model_size=whisper_size, whisper_language=whisper_lang)
 
-            st.session_state["analysis_result"] = result
-            st.session_state["audio_bytes"] = audio_bytes
-            st.session_state["audio_format"] = audio_format
-            t_total = time.perf_counter() - t_pipeline_start
-            status.update(label=f"Analysis Completed Successfully in {t_total:.2f}s!", state="complete", expanded=False)
-        except Exception as exc:
-            title, guidance = categorize_pipeline_error(exc)
-            st.error(f"**{title}**\n\n{guidance}")
-            st.session_state["analysis_result"] = None
-            status.update(label="Analysis Failed", state="error", expanded=True)
+                fusion_settings = get_fusion_settings()
+                analyzer.fusion = MultimodalFusion(
+                    audio_weight=fusion_settings["audio_weight"],
+                    text_weight=fusion_settings["text_weight"],
+                    confidence_threshold=fusion_settings["confidence_threshold"],
+                )
+                temp_path = save_audio_buffer(
+                    audio_bytes,
+                    suffix=Path(getattr(active_audio, "name", "record.wav")).suffix or ".wav",
+                )
+
+                def progress_cb(msg: str, current: int, total: int) -> None:
+                    elapsed = time.perf_counter() - t_pipeline_start
+                    status.write(f"[{elapsed:.2f}s] {msg} ({current}/{total})")
+
+                status.write(
+                    f"[{time.perf_counter() - t_pipeline_start:.2f}s] "
+                    "Executing acoustic Wav2Vec2, Whisper STT & RoBERTa models..."
+                )
+                result = analyzer.analyze(temp_path, progress_callback=progress_cb)
+
+                st.session_state["analysis_result"] = result
+                st.session_state["audio_bytes"] = audio_bytes
+                st.session_state["audio_format"] = audio_format
+                t_total = time.perf_counter() - t_pipeline_start
+                status.update(label=f"Analysis Completed Successfully in {t_total:.2f}s!", state="complete", expanded=False)
+            except Exception as exc:
+                title, guidance = categorize_pipeline_error(exc)
+                st.error(f"**{title}**\n\n{guidance}")
+                st.session_state["analysis_result"] = None
+                status.update(label="Analysis Failed", state="error", expanded=True)
+            finally:
+                if temp_path:
+                    try:
+                        Path(temp_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
 
 # 5. DASHBOARD VIEWS (ACTIVE OR EMPTY STATE)
 result = st.session_state.get("analysis_result")
@@ -201,36 +240,19 @@ audio_bytes = st.session_state.get("audio_bytes")
 audio_format = st.session_state.get("audio_format", "audio/wav")
 
 if result:
-    overall = result.get("overall", {}) or {}
     segments = result.get("segments", []) or []
-    # FIX: ConversationAnalyzer.analyze() puts duration_seconds, sample_rate,
-    # language, and language_probability directly on the top-level result
-    # dict — there is no nested "audio_metadata" or "transcript_language"
-    # key. Reading from those non-existent keys silently defaulted duration
-    # to 0.0 and language confidence to 100% regardless of the real values.
+    # ConversationAnalyzer.analyze() puts duration_seconds, language and
+    # language_probability at the top level of the result dict.
     audio_meta = result
-    transcript_info = {
-        "language": result.get("language", "en"),
-        "probability": result.get("language_probability", 1.0),
-    }
     trend = result.get("emotional_trend", {}) or {}
-    # BUG FIX (Phase 4): this previously read "escalation_analysis", a
-    # key that ConversationAnalyzer.analyze() never produces (the real
-    # key is "escalation") — escalation_detected/escalation_reason below
-    # were always silently False/"" regardless of the actual computed
-    # result, so the ESCALATION STATUS card never reflected reality.
     escalation = result.get("escalation", {}) or {}
-    # Phase 4: the new unified verdict (escalating/de-escalating/
-    # stable/fluctuating/insufficient_data), independent of the raw
-    # escalation flag above. Optional — .get() default keeps this safe
-    # even if an older cached result dict lacks the key.
     verdict = result.get("verdict", {}) or {}
 
     duration = safe_float(audio_meta.get("duration_seconds", 0.0))
-    language = transcript_info.get("language", "en").upper()
-    language_prob = safe_float(transcript_info.get("probability", 1.0))
-    skipped_segments = int(result.get("skipped_segments", 0))
-    trend_label = trend.get("trend", "stable").lower()
+    language = str(result.get("language") or "en").upper()
+    language_prob = safe_float(result.get("language_probability", 1.0))
+    skipped_segments = int(result.get("skipped_segments", 0) or 0)
+    trend_label = str(trend.get("trend") or "stable").lower()
     trend_delta = safe_float(trend.get("delta", 0.0))
     escalation_detected = bool(escalation.get("escalation_detected", False))
     escalation_reason = str(escalation.get("reason", "")).strip()

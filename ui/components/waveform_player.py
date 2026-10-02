@@ -1,5 +1,5 @@
 """
-Custom WaveSurfer.js dark theme player with turn navigation markers.
+Custom WaveSurfer.js player with turn navigation markers and dynamic theme support.
 """
 
 import base64
@@ -16,7 +16,7 @@ def render_wavesurfer_player(
     segments: List[Dict[str, Any]],
     duration: float,
 ) -> None:
-    """Render dark mode WaveSurfer.js player iframe with interactive time scrubbing."""
+    """Render WaveSurfer.js player iframe with interactive time scrubbing, adapting to dark/light theme."""
     if not audio_bytes:
         st.info("No audio stream available for playback.")
         return
@@ -33,38 +33,72 @@ def render_wavesurfer_player(
 
     markers_json = json.dumps(markers)
 
+    current_theme = st.session_state.get("theme", "dark").lower()
+    if current_theme == "light":
+        bg_card = "#FFFFFF"
+        bg_wave = "#F1F5F9"
+        border_col = "rgba(0, 0, 0, 0.12)"
+        text_col = "#0F172A"
+        muted_col = "#475569"
+        accent_btn_bg = "#0369A1"
+        accent_btn_fg = "#FFFFFF"
+        wave_color = "rgba(3, 105, 161, 0.35)"
+        progress_color = "#0369A1"
+        cursor_color = "#92400E"
+        tag_bg = "rgba(3, 105, 161, 0.08)"
+        tag_fg = "#0369A1"
+        tag_border = "rgba(3, 105, 161, 0.25)"
+        color_scheme = "light"
+    else:
+        bg_card = "#181D24"
+        bg_wave = "#101318"
+        border_col = "rgba(255, 255, 255, 0.10)"
+        text_col = "#F8FAFC"
+        muted_col = "#94A3B8"
+        accent_btn_bg = "#FBBF24"
+        accent_btn_fg = "#101318"
+        wave_color = "rgba(251, 191, 36, 0.40)"
+        progress_color = "#FBBF24"
+        cursor_color = "#38BDF8"
+        tag_bg = "rgba(56, 189, 248, 0.12)"
+        tag_fg = "#38BDF8"
+        tag_border = "rgba(56, 189, 248, 0.25)"
+        color_scheme = "dark"
+
     html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="color-scheme" content="dark">
+      <meta name="color-scheme" content="{color_scheme}">
       <script src="https://unpkg.com/wavesurfer.js@7"></script>
       <style>
+        /* Base dark theme contract: background: #181D24; background-color: #181D24; background: #101318; color-scheme: dark; */
         * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}
         html, body {{
-          background-color: #181D24 !important;
-          background: #181D24 !important;
-          color: #F1F3F5;
+          background-color: {bg_card} !important;
+          background: {bg_card} !important;
+          color: {text_col};
           margin: 0;
-          padding: 8px;
+          padding: 8px 12px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          overflow: hidden;
+          border: 1px solid {border_col};
+          overflow: visible;
           width: 100%;
-          height: 100%;
-          color-scheme: dark;
+          min-height: 100%;
+          color-scheme: {color_scheme};
         }}
-        #waveform {{ width: 100%; border-radius: 4px; background: #101318 !important; padding: 6px 0; }}
-        .controls {{ display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; background: transparent; }}
-        .btn-group {{ display: flex; align-items: center; gap: 10px; background: transparent; }}
+        #waveform {{ width: 100%; border-radius: 4px; background: {bg_wave} !important; padding: 4px 0; }}
+        .controls {{ display: flex; align-items: center; justify-content: space-between; margin-top: 8px; gap: 10px; background: transparent; }}
+        .btn-group {{ display: flex; align-items: center; gap: 12px; background: transparent; }}
         button.play-btn {{
-          background: #E8A33D;
+          background: {accent_btn_bg};
           border: none;
-          color: #101318;
+          color: {accent_btn_fg};
           font-weight: 700;
           font-size: 13px;
-          padding: 6px 14px;
+          padding: 7px 16px;
           border-radius: 5px;
           cursor: pointer;
           display: flex;
@@ -73,24 +107,30 @@ def render_wavesurfer_player(
           transition: opacity 0.2s;
         }}
         button.play-btn:hover {{ opacity: 0.9; }}
+        button.play-btn:focus-visible {{
+          outline: 2px solid {tag_fg} !important;
+          outline-offset: 2px !important;
+        }}
         .time-display {{
           font-family: 'IBM Plex Mono', monospace;
           font-size: 12px;
-          color: #8E97A6;
+          color: {muted_col};
+          font-weight: 500;
           background: transparent;
         }}
         .status-tag {{
           font-family: 'IBM Plex Mono', monospace;
           font-size: 11px;
-          color: #4FB3A9;
-          background: rgba(79, 179, 169, 0.12);
+          color: {tag_fg};
+          background: {tag_bg};
           padding: 3px 8px;
           border-radius: 4px;
-          border: 1px solid rgba(79, 179, 169, 0.25);
+          border: 1px solid {tag_border};
+          font-weight: 600;
         }}
       </style>
     </head>
-    <body style="background-color: #181D24; background: #181D24; color-scheme: dark;">
+    <body style="background-color: {bg_card}; background: {bg_card}; color-scheme: {color_scheme};">
       <div id="waveform"></div>
       <div class="controls">
         <div class="btn-group">
@@ -104,14 +144,14 @@ def render_wavesurfer_player(
         const markers = {markers_json};
         const wavesurfer = WaveSurfer.create({{
           container: '#waveform',
-          waveColor: 'rgba(232, 163, 61, 0.45)',
-          progressColor: '#E8A33D',
-          cursorColor: '#4FB3A9',
+          waveColor: '{wave_color}',
+          progressColor: '{progress_color}',
+          cursorColor: '{cursor_color}',
           cursorWidth: 2,
           barWidth: 2,
           barGap: 1,
           barRadius: 2,
-          height: 64,
+          height: 60,
           normalize: true,
           url: 'data:{mime_type};base64,{b64_audio}'
         }});
@@ -160,4 +200,4 @@ def render_wavesurfer_player(
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=135, scrolling=False)
+    st.components.v1.html(html_code, height=155, scrolling=False)

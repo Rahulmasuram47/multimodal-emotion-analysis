@@ -46,7 +46,7 @@ Create a file named exactly `.env` in the project root (same folder as
 never be committed.
 
 Contents of `.env`:
-HF_TOKEN=YOUR_HUGGINGFACE_TOKEN
+HF_TOKEN=hf_your_token_here
 
 No quotes, no spaces around the `=`.
 
@@ -120,15 +120,3 @@ immediately revoke the token at
 https://huggingface.co/settings/tokens and generate a new one — do not
 just remove it from a future commit, since it would already be in git
 history.
-
----
-
-## 8. Manual Verification Checklist
-
-Before tagging Phase 6 complete or sharing recordings:
-- [ ] Confirm `.env` is ignored by git: `git check-ignore -v .env` returns `.gitignore:4:.env`.
-- [ ] Confirm no token appears in terminal logs or UI displays: check that only sanitized preview `(hf_...xxxx)` is shown.
-- [ ] Confirm single-speaker clips report `Unknown` or `Speaker A` without crashing.
-- [ ] Confirm segments with low overlap ratio (<0.35) are marked `"Uncertain Speaker"`.
-- [ ] Run a real two-speaker conversation recording and confirm multi-speaker analytics appear (per-speaker talk time, intensity, trend, and escalation initiator).
-- [ ] Verify Phase 6 remains untagged until an actual two-speaker recording succeeds with pyannote.

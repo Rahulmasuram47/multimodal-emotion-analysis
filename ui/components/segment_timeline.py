@@ -277,7 +277,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <span><strong>Intensity v2:</strong></span>
 <span title="Loudness, pitch variation, voiced ratio, speech rate">Prosody (w={w_p:.0%}): <strong style="color:var(--text);">{p_arousal:.1%}</strong></span>
 <span>·</span>
-<span title="Expected-value voice-emotion arousal from class probabilities">Voice Arousal (w={w_v:.0%}, expected): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
+<span title="Expected-value voice-emotion arousal from class probabilities">Expected Arousal (Intensity v2, w={w_v:.0%}): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
 <span>·</span>
 <span title="RoBERTa negative sentiment class probability">Text Negativity (w={w_t:.0%}): <strong style="color:var(--critical);">{t_neg:.1%}</strong></span>
 </div>
@@ -386,6 +386,7 @@ INTENSITY: {intensity:.1%}
 </div>
 <div style="font-size: 0.72rem; color: var(--muted);" title="Reliability-weighted average of acoustic and text confidences">
 Evidence Strength: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
+<div style="font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.3;">Weighted average of the two modality confidences; not confidence in a single label when voice and text disagree.</div>
 </div>
 </div>
 """),
@@ -453,9 +454,9 @@ Text Dir: <strong style="color: var(--text);">{html.escape(text_dir)}</strong>
 
             # Item 14: incongruence card called WITHOUT repeating disclaimer
             render_incongruence_card(
-                acoustic_label=v_emotion_raw,
+                acoustic_label=v_emotion_display,
                 acoustic_confidence=v_conf,
-                text_label=t_sentiment_raw,
+                text_label=t_sentiment_display,
                 text_confidence=t_conf,
                 title=f"{title_prefix} MODALITY INCONGRUENCE",
                 show_disclaimer=False,  # already shown at page level

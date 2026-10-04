@@ -106,7 +106,7 @@ class TestItem22IntensityV2:
         src = _src("ui/components/segment_timeline.py")
         assert "Intensity v2:" in src
         assert "Prosody (w=" in src
-        assert "Voice Arousal (w=" in src
+        assert "Expected Arousal (Intensity v2, w=" in src
         assert "Text Negativity (w=" in src
 
 

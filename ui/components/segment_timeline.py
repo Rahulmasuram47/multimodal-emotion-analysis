@@ -8,7 +8,7 @@ import streamlit as st
 
 from ui.components.incongruence_card import render_incongruence_card
 from ui.components.modality_cards import render_channel_meters_html
-from ui.utils import direction_label, emotion_code_label, emotion_icon, html_block, safe_float
+from ui.utils import direction_label, emotion_code_label, emotion_icon, format_turn_label, html_block, safe_float
 
 
 import re
@@ -120,8 +120,8 @@ def _render_why_this_result(fusion: Dict[str, Any]) -> None:
         f'{html.escape(pattern_explanation)}</div>'
         f'{rule_ids_block}'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;">'
-        f'<div>Voice arousal: <strong style="color:var(--text);">{arousal_display}</strong></div>'
-        f'<div>Text arousal: <strong style="color:var(--text);">{html.escape(str(text_arousal))}</strong> (not modeled)</div>'
+        f'<div>Class arousal (Voice): <strong style="color:var(--text);">{arousal_display}</strong></div>'
+        f'<div>Text arousal: <strong style="color:var(--text);">{html.escape(str(text_arousal))}</strong> (not modeled — sentiment carries no arousal metric)</div>'
         f'</div>'
         f'<div style="font-size:0.75rem;color:var(--muted);">'
         f'<div style="margin-bottom:0.2rem;">Base weights: audio {base_audio_w:.2f} / text {base_text_w:.2f}</div>'
@@ -186,8 +186,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
         audio_dir = direction_label(fusion.get("audio_direction", "unknown"))
         text_dir = direction_label(fusion.get("text_direction", "unknown"))
 
-        # Item 8 (also applied here): segment_index is 0-based
-        title_prefix = f"Turn {int(idx)+1:02d}" if isinstance(idx, int) else f"Turn {idx}"
+        title_prefix = format_turn_label(idx, one_based=False)
         speaker_tag = f" · {speaker}" if speaker and speaker != "Unknown" else ""
 
         expander_title = (
@@ -278,7 +277,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <span><strong>Intensity v2:</strong></span>
 <span title="Loudness, pitch variation, voiced ratio, speech rate">Prosody (w={w_p:.0%}): <strong style="color:var(--text);">{p_arousal:.1%}</strong></span>
 <span>·</span>
-<span title="Expected-value voice-emotion arousal from class probabilities">Voice Arousal (w={w_v:.0%}): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
+<span title="Expected-value voice-emotion arousal from class probabilities">Voice Arousal (w={w_v:.0%}, expected): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
 <span>·</span>
 <span title="RoBERTa negative sentiment class probability">Text Negativity (w={w_t:.0%}): <strong style="color:var(--critical);">{t_neg:.1%}</strong></span>
 </div>
@@ -321,9 +320,18 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                     unsafe_allow_html=True,
                 )
 
-            # Tier 4 (Item 32): Low voice reliability warning callout
+            # Low voice reliability warning callout
             if is_low_voice_rel:
-                collapse_reason = "Acoustic domain shift (class collapse detected)" if segment.get("voice_collapse_detected") or voice.get("voice_collapse_detected") else f"Voice confidence ({v_conf:.0%}) < {low_v_conf_thresh:.0%}"
+                reasons = []
+                if segment.get("voice_collapse_detected") or voice.get("voice_collapse_detected"):
+                    reasons.append("acoustic domain shift (class collapse detected)")
+                if v_conf < low_v_conf_thresh:
+                    reasons.append(f"voice confidence ({v_conf:.0%}) < threshold ({low_v_conf_thresh:.0%})")
+                if v_rel < low_v_rel_disp_thresh:
+                    reasons.append(f"voice reliability ({v_rel:.0%}) < threshold ({low_v_rel_disp_thresh:.0%})")
+                if not reasons:
+                    reasons.append("reduced acoustic clarity")
+                collapse_reason = "; ".join(reasons)
                 st.markdown(
                     html_block(f"""
 <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--text);">
@@ -376,8 +384,8 @@ Confidence: <strong style="color: var(--text-accent);">{t_conf:.1%}</strong>
 <div style="font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">
 INTENSITY: {intensity:.1%}
 </div>
-<div style="font-size: 0.72rem; color: var(--muted);">
-Combined Conf: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
+<div style="font-size: 0.72rem; color: var(--muted);" title="Reliability-weighted average of acoustic and text confidences">
+Evidence Strength: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
 </div>
 </div>
 """),

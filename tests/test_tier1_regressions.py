@@ -113,7 +113,8 @@ def test_mixed_rule_below_sixty_percent():
     # 2 turns: 1 sad, 1 happy -> 50% < 60%
     is_pred, top, mixed = predominantly_label({"sad": 1, "happy": 1})
     assert is_pred is False
-    assert "in turn" in mixed
+    # format_turn_label now produces "Turn 01" (capital T, zero-padded)
+    assert "in Turn" in mixed
 
 
 def test_build_key_finding_uses_mixed_description():

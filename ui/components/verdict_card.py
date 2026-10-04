@@ -44,9 +44,19 @@ def build_key_finding(
         text_per_turn[t_label] = text_per_turn.get(t_label, 0) + 1
 
 
+    # Chronological turn sequences
+    v_seq = [
+        str((seg.get("voice_emotion") or {}).get("emotion") or dominant_voice).lower()
+        for seg in segments
+    ]
+    t_seq = [
+        str((seg.get("text_sentiment") or {}).get("sentiment") or dominant_text).lower()
+        for seg in segments
+    ]
+
     # Voice description
     if segments:
-        v_is_pred, v_top, v_mixed = predominantly_label(voice_per_turn)
+        v_is_pred, v_top, v_mixed = predominantly_label(voice_per_turn, turn_sequence=v_seq)
         if v_is_pred:
             voice_desc = f"Voice is predominantly {v_top}"
         else:
@@ -57,7 +67,7 @@ def build_key_finding(
 
     # Text description
     if segments:
-        t_is_pred, t_top, t_mixed = predominantly_label(text_per_turn)
+        t_is_pred, t_top, t_mixed = predominantly_label(text_per_turn, turn_sequence=t_seq)
         if t_is_pred:
             text_desc = f"text sentiment is predominantly {t_top}"
         else:
@@ -136,10 +146,15 @@ def render_verdict_hero(
         net_text = f"{v_net:+.2f}"
 
     att_score = attention_score or {}
-    att_val = safe_float(att_score.get("score", 0.0))
+    att_val = safe_float(att_score.get("attention_score", att_score.get("score", 0.0)))
     att_pct = max(0.0, min(1.0, att_val)) * 100
-    att_level = str(att_score.get("level", "low")).upper()
-    att_notice = str(att_score.get("notice", "Analytical review priority metric only."))
+    att_level = str(att_score.get("priority_band", att_score.get("level", "low"))).upper()
+    att_notice = str(att_score.get("notice", "Computational review-priority heuristic only."))
+
+    # Extract component contributions
+    mismatch_contrib = safe_float(att_score.get("mismatch_contribution", 0.0))
+    intensity_contrib = safe_float(att_score.get("intensity_contribution", 0.0))
+    escalation_contrib = safe_float(att_score.get("escalation_contribution", 0.0))
 
     if att_level == "HIGH":
         gauge_color = "var(--negative)"
@@ -151,7 +166,6 @@ def render_verdict_hero(
         gauge_color = "var(--positive)"
         gauge_bg = "rgba(74, 222, 128, 0.15)"
 
-    # Item 12: derive action text from the same level/score (single SSOT)
     if att_level == "HIGH" or att_pct >= 66:
         action_text = "REVIEW RECOMMENDED"
         action_color = "var(--negative)"
@@ -219,13 +233,17 @@ slope: {slope_text} · net: {net_text}
 {att_level} PRIORITY
 </span>
 </div>
-<div style="background:rgba(255,255,255,0.08); height:8px; border-radius:4px; overflow:hidden; margin-bottom:0.5rem;">
+<div style="background:rgba(255,255,255,0.08); height:8px; border-radius:4px; overflow:hidden; margin-bottom:0.4rem;">
 <div style="background:{gauge_color}; width:{att_pct:.1f}%; height:100%; border-radius:4px;"></div>
 </div>
 <div style="font-size:0.75rem; color:var(--text); margin-bottom:0.3rem;">
 <strong>Action:</strong> <span style="color:{action_color}; font-weight:600;">{_html.escape(action_text)}</span>
 </div>
-<div style="font-size:0.75rem; color:var(--muted-dark); line-height:1.35;">
+<div style="font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--muted); margin-bottom:0.3rem; border-top:1px dashed var(--border); padding-top:0.3rem;">
+<div>Formula: 0.40·Mismatch + 0.35·Intensity + 0.25·Escalation</div>
+<div>Components: Mis={mismatch_contrib:.2f} · Int={intensity_contrib:.2f} · Esc={escalation_contrib:.2f}</div>
+</div>
+<div style="font-size:0.70rem; color:var(--muted); line-height:1.3;">
 ⚠️ {_html.escape(att_notice)}
 </div>
 </div>

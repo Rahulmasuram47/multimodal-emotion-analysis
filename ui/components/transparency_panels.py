@@ -49,11 +49,19 @@ def render_fusion_explainer() -> None:
                - Text sentiments map directly: *Positive* → `positive`, *Negative* → `negative`, *Neutral* → `neutral`.
             4. **Reliability-Aware Dynamic Weighting**:
                - Effective weights adapt to acoustic quality / duration / probability margin ($r_{\text{audio}}$) and speech-to-text reliability ($r_{\text{text}}$):
-                 $$w_{\text{eff, audio}} = \frac{w_{\text{base, audio}} \cdot r_{\text{audio}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}$$
-                 $$w_{\text{eff, text}} = \frac{w_{\text{base, text}} \cdot r_{\text{text}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}$$
-            5. **Combined Confidence**:
+            """
+        )
+        st.latex(r"w_{\text{eff, audio}} = \frac{w_{\text{base, audio}} \cdot r_{\text{audio}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}")
+        st.latex(r"w_{\text{eff, text}} = \frac{w_{\text{base, text}} \cdot r_{\text{text}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}")
+        st.markdown(
+            r"""
+            5. **Combined Confidence (Evidence Strength)**:
                - Strictly a reliability-weighted convex combination:
-                 $$c_{\text{combined}} = w_{\text{eff, audio}} \cdot c_{\text{audio}} + w_{\text{eff, text}} \cdot c_{\text{text}}$$
+            """
+        )
+        st.latex(r"c_{\text{combined}} = w_{\text{eff, audio}} \cdot c_{\text{audio}} + w_{\text{eff, text}} \cdot c_{\text{text}}")
+        st.markdown(
+            r"""
                - Bounded in $[\min(c_{\text{audio}}, c_{\text{text}}), \max(c_{\text{audio}}, c_{\text{text}})]$. Modality disagreement (weak or strong) receives **no artificial boost**; uncertainty in either modality directly attenuates the combined confidence.
             6. **Declarative Pattern Rules** (derived strictly from `app/fusion.py` rule IDs):
                - `agreement_negative_high_arousal`: Voice and text both negative with high acoustic arousal ($A_{\text{audio}} \ge 0.60$).

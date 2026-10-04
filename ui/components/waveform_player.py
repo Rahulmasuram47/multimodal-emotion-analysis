@@ -7,7 +7,7 @@ import json
 from typing import Any, Dict, List
 import streamlit as st
 
-from ui.utils import safe_float
+from ui.utils import emotion_code_label, format_turn_label, safe_float
 
 
 def render_wavesurfer_player(
@@ -29,7 +29,9 @@ def render_wavesurfer_player(
         start_sec = safe_float(s.get("start_seconds", 0.0))
         idx = s.get("segment_index", 0)
         voice = (s.get("voice_emotion") or {}).get("emotion", "")
-        markers.append({"time": start_sec, "label": f"T{idx}: {voice}"})
+        turn_str = format_turn_label(idx, one_based=False)
+        voice_str = emotion_code_label(voice)
+        markers.append({"time": start_sec, "label": f"{turn_str}: {voice_str}"})
 
     markers_json = json.dumps(markers)
 

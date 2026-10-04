@@ -3,7 +3,10 @@ Synchronized 3-tier acoustic feature inspection (Spectrogram, F0 Pitch, RMS Ener
 """
 
 import hashlib
+import io
+import textwrap
 from typing import Any, Dict, List
+
 import librosa
 import numpy as np
 import plotly.graph_objects as go
@@ -11,15 +14,23 @@ from plotly.subplots import make_subplots
 import soundfile as sf
 import streamlit as st
 
-from ui.utils import safe_float
-from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens
+from ui.utils import safe_float  # noqa: F401
+from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens, show_chart
+
+# html_block returns a cleaned HTML string (used as st.markdown(html_block(...), unsafe_allow_html=True)).
+# Use the shared one from ui.utils if it exists, otherwise fall back to a local version.
+try:
+    from ui.utils import html_block
+except ImportError:
+    def html_block(html: str) -> str:
+        """Dedent and strip so Markdown doesn't treat indented HTML as a code block."""
+        return textwrap.dedent(html).strip()
 
 
 @st.cache_data(show_spinner=False)
 def extract_acoustic_features(audio_bytes: bytes, audio_hash: str) -> Dict[str, Any]:
     """Extract spectrogram, F0 pitch, and RMS energy contour curves."""
     try:
-        import io
         y, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
         if y.ndim > 1:
             y = np.mean(y, axis=1)
@@ -83,6 +94,8 @@ def render_acoustic_inspection(
     with st.spinner("Extracting synchronized acoustic feature contours..."):
         features = extract_acoustic_features(audio_bytes, audio_hash)
 
+    tokens = get_chart_theme_tokens()
+
     times_spec = np.array(features["times_spec"])
     freqs = np.array(features["freqs"])
     spectrogram_db = np.array(features["spectrogram_db"])
@@ -115,8 +128,8 @@ def render_acoustic_inspection(
             y=sub_freqs,
             colorscale="Viridis",
             colorbar=dict(
-                title=dict(text="dB", font=dict(family="IBM Plex Mono", size=10, color="#8E97A6")),
-                tickfont=dict(family="IBM Plex Mono", size=9, color="#8E97A6"),
+                title=dict(text="dB", font=dict(family="IBM Plex Mono", size=10, color=tokens["font_color"])),
+                tickfont=dict(family="IBM Plex Mono", size=9, color=tokens["font_color"]),
                 len=0.45,
                 y=0.78,
                 thickness=12,
@@ -168,31 +181,18 @@ def render_acoustic_inspection(
                         x=t_sec,
                         line_width=1,
                         line_dash="dash",
-                        line_color="rgba(255, 255, 255, 0.25)",
+                        line_color=tokens["vline_color"],  # visible in both themes
                         row=row_idx,
                         col=1,
                     )
 
-    apply_chart_theme(fig, height=580, margin=dict(l=40, r=20, t=40, b=30), show_legend=False)
-    theme_tokens = get_chart_theme_tokens()
-
-    for i in range(1, 4):
-        fig.update_xaxes(
-            gridcolor=theme_tokens["gridcolor"],
-            zerolinecolor=theme_tokens["zerolinecolor"],
-            row=i,
-            col=1,
-        )
-        fig.update_yaxes(
-            gridcolor=theme_tokens["gridcolor"],
-            zerolinecolor=theme_tokens["zerolinecolor"],
-            row=i,
-            col=1,
-        )
+    apply_chart_theme(fig, height=580, margin=dict(l=65, r=25, t=40, b=35), show_legend=False)
 
     fig.update_xaxes(title_text="Time (seconds)", row=3, col=1)
-    fig.update_yaxes(title_text="Hz", row=1, col=1)
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_yaxes(title_text="Freq (Hz)", title_standoff=12, row=1, col=1)
+    fig.update_yaxes(title_text="F0 (Hz)", title_standoff=12, row=2, col=1)
+    fig.update_yaxes(title_text="RMS", title_standoff=12, row=3, col=1)
+    show_chart(fig)
 
     # MFCC Summary (Prompt G / Item 27)
     mfcc_mean = features.get("mfcc_mean", [])
@@ -214,7 +214,6 @@ def render_acoustic_inspection(
             "not discrete emotional categories directly."
         )
 
-        tokens = get_chart_theme_tokens()
         # Item 27: Plot MFCC 2–13 to avoid MFCC 1 energy dominance
         mfcc_labels = [f"MFCC {i+1}" for i in range(1, len(mfcc_mean))]
         mfcc_y = mfcc_mean[1:]
@@ -240,5 +239,4 @@ def render_acoustic_inspection(
             ),
         )
         mfcc_fig.update_yaxes(title="Coefficient Value (mean ± std across frames)")
-        st.plotly_chart(mfcc_fig, use_container_width=True)
-
+        show_chart(mfcc_fig)

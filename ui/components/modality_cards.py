@@ -6,7 +6,7 @@ import html
 from typing import Any, Dict, List, Optional
 import streamlit as st
 
-from ui.utils import emotion_icon, safe_float
+from ui.utils import emotion_code_label, emotion_icon, safe_float
 
 
 def render_channel_meters_html(
@@ -43,7 +43,7 @@ def render_channel_meters_html(
         </div>
         <div>
             <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
-                <span>⚡ MULTIMODAL FUSED CONFIDENCE</span>
+                <span title="Reliability-weighted average of acoustic and text confidences">⚡ MULTIMODAL EVIDENCE STRENGTH</span>
                 <span style="color: var(--fused); font-weight: 700;">{fused_pct:.1f}%</span>
             </div>
             <div class="meter-bar-bg">
@@ -109,7 +109,7 @@ def render_modality_cards(
                 </div>
                 <div class="card-highlight-value" style="color: var(--voice);">
                     <span>{emotion_icon(dominant_voice)}</span>
-                    <span>{html.escape(dominant_voice.title())}</span>
+                    <span>{html.escape(emotion_code_label(dominant_voice))}</span>
                 </div>
                 <div class="card-subtext">
                     Dominant acoustic emotion extracted via Wav2Vec2-SUPERB acoustic classification.
@@ -131,7 +131,7 @@ def render_modality_cards(
                 </div>
                 <div class="card-highlight-value" style="color: var(--text-accent);">
                     <span>{emotion_icon(dominant_text)}</span>
-                    <span>{html.escape(dominant_text.title())}</span>
+                    <span>{html.escape(emotion_code_label(dominant_text))}</span>
                 </div>
                 <div class="card-subtext">
                     Dominant textual sentiment classified via CardiffNLP RoBERTa transformer embeddings.

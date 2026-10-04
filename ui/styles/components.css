@@ -907,3 +907,76 @@ audio {
     color: var(--text-muted);
     line-height: 1.45;
 }
+
+/* =====================================================
+   NATIVE STREAMLIT WIDGETS: FOLLOW THEME TOKENS
+   (fixes faded/invisible text in light mode)
+   ===================================================== */
+
+/* Tabs: force children (p, span, emoji) to inherit the button color, no dimming */
+div[data-testid="stTabs"] button[role="tab"] *,
+button[data-baseweb="tab"] * {
+    color: inherit !important;
+    opacity: 1 !important;
+}
+
+/* Widget labels (sliders, selectboxes, radio, uploader) */
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] label *,
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] label * {
+    color: var(--text) !important;
+    opacity: 1 !important;
+}
+
+/* Hints, captions, sidebar helper text */
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] small,
+[data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stFileUploaderDropzoneInstructions"] * {
+    color: var(--text-muted) !important;
+    opacity: 1 !important;
+}
+
+/* Slider min/max numbers */
+[data-testid="stSliderTickBarMin"],
+[data-testid="stSliderTickBarMax"] {
+    color: var(--text-muted) !important;
+    opacity: 1 !important;
+}
+
+/* Selectbox (Whisper model size, language) */
+[data-baseweb="select"] > div {
+    background-color: var(--surface-raised) !important;
+    border: 1px solid var(--border-strong) !important;
+}
+[data-baseweb="select"] * {
+    color: var(--text) !important;
+}
+[data-baseweb="select"] svg {
+    fill: var(--text-muted) !important;
+}
+
+/* Selectbox dropdown list */
+[data-baseweb="popover"] ul,
+[data-baseweb="popover"] li,
+[data-baseweb="menu"] {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+}
+[data-baseweb="popover"] li:hover {
+    background-color: var(--panel-hover) !important;
+}
+
+/* Uploaded file chip (was black with unreadable file name) */
+[data-testid="stFileUploaderFile"],
+[data-testid="stFileUploaderFile"] > div {
+    background-color: var(--surface) !important;
+}
+[data-testid="stFileUploaderFile"] * {
+    color: var(--text) !important;
+}

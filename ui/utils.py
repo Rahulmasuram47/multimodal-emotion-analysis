@@ -182,24 +182,36 @@ def derive_weak_count(segments: List[Dict[str, Any]]) -> int:
     return weak
 
 
+def format_turn_label(index: int, one_based: bool = True) -> str:
+    """Standardized turn identifier formatted as 'Turn 01', 'Turn 02', ...
+    
+    If one_based is False (i.e. input is a 0-based index), 1 is added.
+    """
+    idx = int(index) if one_based else (int(index) + 1)
+    return f"Turn {idx:02d}"
+
+
 # ---------------------------------------------------------------------------
-# Item 10: "predominantly" vs "mixed" key-finding helper
+# "predominantly" vs "mixed" key-finding helper
 # ---------------------------------------------------------------------------
 
 def predominantly_label(
     label_counts: Dict[str, int],
     threshold: Optional[float] = None,
+    turn_sequence: Optional[List[str]] = None,
 ) -> Tuple[bool, str, str]:
     """Return (is_predominantly, dominant_label, mixed_description).
 
     ``label_counts`` maps emotion/sentiment labels to how many turns they appear in.
     ``threshold`` defaults to config.PREDOMINANTLY_THRESHOLD (0.60).
+    ``turn_sequence`` is an optional chronological list of labels per turn.
 
     If one class has >= threshold fraction of turns → is_predominantly=True,
     dominant_label = that class (display form), mixed_description = "".
 
     Otherwise is_predominantly=False, dominant_label = the top class (display form),
-    mixed_description = "X in turn N, Y in turn M" listing per-turn labels.
+    mixed_description = "X in Turn 01, Y in Turn 02" listing per-turn labels in
+    actual chronological order.
     """
     import config as _config
 
@@ -221,13 +233,19 @@ def predominantly_label(
     if top_fraction >= threshold:
         return True, display_top, ""
 
-    # Build per-turn listing: "Sad in turn 1, Happy in turn 2"
+    # Build per-turn listing in actual turn order: "Happy in Turn 01, Sad in Turn 02"
     parts: List[str] = []
-    turn_num = 1
-    for label, count in sorted_labels:
-        display = emotion_code_label(label)
-        for _ in range(count):
-            parts.append(f"{display} in turn {turn_num}")
-            turn_num += 1
+    if turn_sequence:
+        for idx, lbl in enumerate(turn_sequence, 1):
+            disp = emotion_code_label(lbl)
+            parts.append(f"{disp} in {format_turn_label(idx, one_based=True)}")
+    else:
+        turn_num = 1
+        for label, count in sorted_labels:
+            display = emotion_code_label(label)
+            for _ in range(count):
+                parts.append(f"{display} in {format_turn_label(turn_num, one_based=True)}")
+                turn_num += 1
+
     mixed_desc = ", ".join(parts)
     return False, display_top, mixed_desc

@@ -116,7 +116,7 @@ def generate_recommendation(analysis_result: Dict[str, Any]) -> ActionableRecomm
     verdict_label = str(verdict_info.get("verdict", "")).lower()
 
     attention_info = analysis_result.get("attention_score", {}) or {}
-    attention_score = float(attention_info.get("score", 0.0) or 0.0)
+    attention_score = float(attention_info.get("attention_score", attention_info.get("score", 0.0)) or 0.0)
 
     incongruence_info = analysis_result.get("modality_incongruence", {}) or {}
     high_conflict_count = int(incongruence_info.get("high_conflict_count", 0) or 0)

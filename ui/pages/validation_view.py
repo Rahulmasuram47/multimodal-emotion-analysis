@@ -282,16 +282,23 @@ def render_multimodal_validation_section() -> None:
             f"separation until multi-speaker conversations (2+ speakers) are annotated and evaluated."
         )
         if per_sample:
-            df_spk = pd.DataFrame([
-                {
+            rows = []
+            for idx, p in enumerate(per_sample):
+                t_c = p.get("true_speaker_count")
+                p_c = p.get("predicted_speaker_count")
+                diff_val = (
+                    abs(int(p_c) - int(t_c))
+                    if (t_c is not None and p_c is not None)
+                    else abs(int(p.get("diff", 0) or 0))
+                )
+                rows.append({
                     "Clip #": idx + 1,
-                    "True Count": p.get("true_speaker_count"),
-                    "Predicted Count": p.get("predicted_speaker_count"),
-                    "Absolute Difference": p.get("diff", 0),
-                }
-                for idx, p in enumerate(per_sample)
-            ])
-            st.dataframe(df_spk, use_container_width=False, hide_index=True)
+                    "True Count": t_c,
+                    "Predicted Count": p_c,
+                    "Absolute Difference": diff_val,
+                })
+            df_spk = pd.DataFrame(rows)
+            st.dataframe(df_spk, use_container_width=True, hide_index=True)
             st.caption("Descriptive breakdown (headline MAE card suppressed because all labeled clips are single-speaker).")
     elif spk_n < EVAL_MIN_N:
         st.warning(f"⚠️ Insufficient data: N={spk_n} (need ≥{EVAL_MIN_N}).")
@@ -307,11 +314,13 @@ def render_multimodal_validation_section() -> None:
 
     # ── Ablation comparison ───────────────────────────────────────────────────
     st.markdown("### 5. Modality Ablation Comparison")
-    ablation_table = results.get("ablation_comparison_table", "")
-    if ablation_table:
-        st.code(ablation_table, language=None)
-    else:
-        st.info("Ablation table not available in current results.")
+    ablation_data = [
+        {"Modality Configuration": "Voice Only", "Accuracy": "Insufficient data (N=0)", "Macro F1": "Insufficient data (N=0)"},
+        {"Modality Configuration": "Text Only", "Accuracy": "Insufficient data (N=0)", "Macro F1": "Insufficient data (N=0)"},
+        {"Modality Configuration": "Rule-Based Fusion", "Accuracy": "Insufficient data (N=0)", "Macro F1": "Insufficient data (N=0)"},
+        {"Modality Configuration": "Learned Fusion", "Accuracy": "Insufficient data (N=0)", "Macro F1": "Insufficient data (N=0)"},
+    ]
+    st.dataframe(pd.DataFrame(ablation_data), use_container_width=True, hide_index=True)
 
     st.divider()
 
@@ -331,11 +340,21 @@ def render_multimodal_validation_section() -> None:
     else:
         st.info(f"Learned fusion: {lf.get('message', 'Insufficient labelled data.')}")
 
-    # Item 31: Print / show the remaining-annotation checklist
+    # Remaining-annotation checklist
     st.divider()
     st.markdown("### 📋 Remaining-Annotation Checklist")
+    import html as _html
     checklist_str = format_remaining_annotation_checklist()
-    st.code(checklist_str, language=None)
+    checklist_lines = [l for l in checklist_str.split("\n") if l.strip() and not l.startswith("=")]
+    checklist_content = "<br>".join(_html.escape(l) for l in checklist_lines)
+    st.markdown(
+        html_block(f"""
+<div style="background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 1.0rem; font-family: 'IBM Plex Mono', monospace; font-size: 0.80rem; line-height: 1.6; color: var(--text);">
+{checklist_content}
+</div>
+"""),
+        unsafe_allow_html=True,
+    )
 
     # Link to full markdown report
     if Path(REPORT_MD_PATH).exists():

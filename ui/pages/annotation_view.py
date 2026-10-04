@@ -46,6 +46,7 @@ from evaluation.dataset import (
 
 from scripts.merge_annotations import load_annotator_csvs, analyze_agreement, write_consensus_dataset
 import wave
+from ui.utils import html_block
 
 
 def _get_audio_duration_seconds(file_path: str) -> float:
@@ -196,7 +197,15 @@ def render_annotation_page() -> None:
         dataset: EvaluationDataset = _load_dataset(csv_path)
 
         # ── File browser ──────────────────────────────────────────────────────────
-        st.markdown("### 📁 Select Audio File")
+        st.markdown(
+            html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">📁 Select Audio File</div>
+<div class="section-badge">DATASET BROWSER</div>
+</div>
+"""),
+            unsafe_allow_html=True,
+        )
 
         if not audio_files:
             st.info(
@@ -257,7 +266,15 @@ def render_annotation_page() -> None:
                 st.divider()
 
                 # Playback
-                st.markdown("### ▶️ Playback")
+                st.markdown(
+                    html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">▶️ Playback</div>
+<div class="section-badge">AUDIO STREAM</div>
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
                 try:
                     with open(selected_file, "rb") as f:
                         audio_bytes = f.read()
@@ -268,7 +285,15 @@ def render_annotation_page() -> None:
                 st.divider()
 
                 # Whisper draft
-                st.markdown("### 📝 Whisper Draft Transcript")
+                st.markdown(
+                    html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">📝 Whisper Draft Transcript</div>
+<div class="section-badge">AUTOMATED ASR REFERENCE ONLY</div>
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
                 st.caption(
                     "Machine-generated draft for convenience only. It is **never** automatically saved as ground truth."
                 )
@@ -290,7 +315,15 @@ def render_annotation_page() -> None:
                 st.divider()
 
                 # Annotation form
-                st.markdown("### 🏷️ Ground-Truth Labels")
+                st.markdown(
+                    html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">🏷️ Ground-Truth Labels</div>
+<div class="section-badge">ANNOTATOR CONSENSUS INPUT</div>
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
                 pre = existing_row
 
                 with st.form(key=f"annotation_form_{Path(selected_file).stem}", clear_on_submit=False):

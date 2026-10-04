@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import pandas as pd
 import streamlit as st
 
-from ui.utils import html_block, safe_float
+from ui.utils import format_turn_label, html_block, safe_float
 
 
 def render_why_result_page(
@@ -112,7 +112,7 @@ Current Verdict: <strong>{html.escape(v_label)}</strong>
 
         table_rows.append(
             {
-                "Turn": f"Turn {idx:02d}",
+                "Turn": format_turn_label(idx, one_based=True),
                 "Time Window": f"[{start:.2f}s → {end:.2f}s]",
                 "Rule Fired": rule_str,
                 "Pattern Label": pat_label,
@@ -127,4 +127,11 @@ Current Verdict: <strong>{html.escape(v_label)}</strong>
         df,
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "Counterfactual Sensitivity": st.column_config.TextColumn(
+                "Counterfactual Sensitivity",
+                width="large",
+                help="Perturbation tests showing what shifts would alter the arbitration decision",
+            )
+        },
     )

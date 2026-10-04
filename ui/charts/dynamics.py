@@ -9,7 +9,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from ui.utils import compute_ols_slope, html_block, safe_float
+from ui.utils import compute_ols_slope, format_turn_label, html_block, safe_float
 from ui.charts.theme import apply_chart_theme, get_chart_theme_tokens
 
 
@@ -30,9 +30,8 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
 
     blocks_html = []
     for s in segments:
-        # Item 8: segment_index is 0-based → display as Turn 01, Turn 02, ...
         raw_idx = s.get("segment_index", 0)
-        display_idx = int(raw_idx) + 1  # 1-based
+        turn_label = format_turn_label(raw_idx, one_based=False)
         fusion = s.get("fusion", {}) or {}
         is_agree = bool(fusion.get("agreement", False))
         is_mismatch = bool(fusion.get("mismatch", False))
@@ -62,13 +61,12 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
             status = "WEAK"
             status_color = "var(--warning)"
 
-        # Item 7: each block built without indented leading whitespace
         block = (
             f'<div style="flex: 1 1 80px; min-width: 80px; max-width: 140px;'
             f' background: {bg}; border: 1px solid {border}; border-radius: 6px;'
             f' padding: 6px 8px; text-align: center;">'
             f'<div style="font-family: \'IBM Plex Mono\', monospace; font-size: 0.75rem;'
-            f' color: var(--muted); font-weight: 600;">Turn {display_idx:02d}</div>'
+            f' color: var(--muted); font-weight: 600;">{turn_label}</div>'
             f'<div style="font-family: \'IBM Plex Mono\', monospace; font-size: 0.75rem;'
             f' font-weight: 700; color: {status_color}; margin: 2px 0;">{status}</div>'
             f'<div style="font-size: 0.75rem; color: var(--text); overflow: hidden;'
@@ -165,9 +163,9 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
             arousal = intensity
         arousal_scores.append(round(safe_float(arousal), 3))
 
-        turn_labels.append(f"T{idx+1}")
+        turn_labels.append(format_turn_label(idx, one_based=False))
         hover_texts.append(
-            f"<b>Turn {idx+1}</b><br>"
+            f"<b>{format_turn_label(idx, one_based=False)}</b><br>"
             f"Fused Valence: {fused_v:+.2f} (Voice: {v_voice:+.2f} [w={w_audio:.2f}], Text: {v_text:+.2f} [w={w_text:.2f}])<br>"
             f"Voice: {voice_label.title()} ({voice_conf:.0%}) | Text: {sent_label.title()} ({sent_conf:.0%})<br>"
             f"Arousal: {arousal:.2f}<br>"
@@ -186,7 +184,6 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
             font=dict(size=11, color=theme_tokens["font_color"]),
         )
     else:
-        # Item 20: connecting trajectory with non-overlapping label positions
         text_positions = [label_positions[i % len(label_positions)] for i in range(len(segments))]
         fig.add_trace(
             go.Scatter(
@@ -213,7 +210,7 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
     fig.add_hline(y=0.5, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
     fig.add_vline(x=0.0, line_width=1, line_dash="dash", line_color=theme_tokens["zerolinecolor"])
 
-    apply_chart_theme(fig, height=360, margin=dict(l=40, r=40, t=40, b=40), show_legend=False)
+    apply_chart_theme(fig, height=360, margin=dict(l=50, r=50, t=50, b=50), show_legend=False)
     fig.update_layout(
         title=dict(
             text="Valence-Arousal Emotional Trajectory",
@@ -222,12 +219,12 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         ),
     )
     fig.update_xaxes(
-        title="Valence (Negative ← Neutral → Positive)",
-        range=[-1.05, 1.05],
+        title="Valence",
+        range=[-1.20, 1.20],
     )
     fig.update_yaxes(
-        title="Arousal / Activation (Calm → Excited)",
-        range=[0.0, 1.05],
+        title="Arousal",
+        range=[-0.10, 1.20],
     )
 
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -310,7 +307,7 @@ def render_intensity_trajectory_chart(
     _trend_color = _tokens["accent"]     # consistent: trend/OLS=blue accent
 
     # Actual intensity line (voice-derived, use voice color)
-    turn_names = [f"Turn {i}" for i in x]
+    turn_names = [format_turn_label(i, one_based=True) for i in x]
     fig.add_trace(
         go.Scatter(
             x=x,
@@ -336,7 +333,6 @@ def render_intensity_trajectory_chart(
             )
         )
     else:
-        # Item 11: fewer than min_turns — no slope claim, clear notice
         fig.add_annotation(
             text=f"Too few turns to assess a trend (need ≥ {min_turns_for_slope})",
             xref="paper", yref="paper",
@@ -345,7 +341,7 @@ def render_intensity_trajectory_chart(
             font=dict(size=11, color=_tokens["font_color"]),
         )
 
-    apply_chart_theme(fig, height=340, margin=dict(l=40, r=20, t=40, b=40), show_legend=True)
+    apply_chart_theme(fig, height=340, margin=dict(l=45, r=20, t=40, b=40), show_legend=True)
     fig.update_layout(
         title=dict(
             text="Emotional Intensity Trajectory",
@@ -367,7 +363,7 @@ def render_intensity_trajectory_chart(
         ticktext=turn_names,
     )
     fig.update_yaxes(
-        title="Emotional Intensity",
+        title="Intensity",
         range=[0.0, 1.05],
     )
 

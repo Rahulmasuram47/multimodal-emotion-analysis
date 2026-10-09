@@ -28,3 +28,5 @@ Thumbs.db
 .agents/
 .claude/
 diagnostic_output.txt
+
+evaluation/results/cache/

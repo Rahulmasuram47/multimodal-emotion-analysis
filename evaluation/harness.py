@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from config import AUDIO_EMOTION_CLASSES, TEXT_SENTIMENT_CLASSES
-from evaluation.dataset import EvaluationDataset, EvaluationSample, load_evaluation_dataset
+from evaluation.dataset import (
+    EvaluationDataset,
+    EvaluationSample,
+    load_evaluation_dataset,
+    normalize_voice_emotion_label,
+)
 from evaluation.metrics import (
     compute_classification_metrics,
     compute_word_error_rate,
@@ -227,6 +232,8 @@ class EvaluationHarness:
                 "filename": sample.filename,
                 "true_voice_emotion": sample.true_voice_emotion,
                 "pred_voice_emotion": pred.pred_voice_emotion,
+                "clip_level_prediction": pred.extra.get("clip_level_prediction", pred.pred_voice_emotion),
+                "per_segment_predictions": pred.extra.get("per_segment_predictions", "N/A"),
                 "true_text_sentiment": sample.true_text_sentiment,
                 "pred_text_sentiment": pred.pred_text_sentiment,
                 "true_speaker_count": sample.true_speaker_count,
@@ -243,8 +250,8 @@ class EvaluationHarness:
             if sample.true_voice_emotion is not None:
                 has_any_gt = True
                 if pred.pred_voice_emotion:
-                    ve_true.append(sample.true_voice_emotion)
-                    ve_pred.append(pred.pred_voice_emotion)
+                    ve_true.append(normalize_voice_emotion_label(sample.true_voice_emotion))
+                    ve_pred.append(normalize_voice_emotion_label(pred.pred_voice_emotion))
 
             # 2. Text sentiment
             if sample.true_text_sentiment is not None:

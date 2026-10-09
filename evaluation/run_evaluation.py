@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import csv
+import hashlib
 import json
 import logging
 import os
@@ -22,6 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import config
 from app.emotion_analyzer import VoiceEmotionAnalyzer
 from app.speech_to_text import SpeechToText
 from app.sentiment_analyzer import SentimentAnalyzer
@@ -32,12 +34,14 @@ from evaluation.dataset import (
     EvaluationSample,
     format_remaining_annotation_checklist,
     load_evaluation_dataset,
+    normalize_voice_emotion_label,
 )
 
 from evaluation.harness import EvaluationHarness, SamplePrediction, EvaluationResult
 from evaluation.ablation import AblationEvaluator, AblationResult
 from evaluation.diarization_validation import validate_diarization_cases, DiarizationValidationResult
 from evaluation.learned_fusion import LearnedFusionBaseline, LearnedFusionResult
+from ui.utils import derive_segment_summary, format_turn_label, emotion_code_label, safe_float
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +54,34 @@ from config import EVAL_DATASET_PATH as _DEFAULT_DATASET
 
 DEFAULT_DATASET_PATH = _DEFAULT_DATASET
 DEFAULT_RESULTS_DIR = "evaluation/results"
+CACHE_DIR = os.path.join(DEFAULT_RESULTS_DIR, "cache")
+
+
+def compute_sample_cache_key(filepath: str) -> str:
+    """
+    Compute sha256 of file content + hash of relevant config values and model IDs.
+    Any change to the file content, weights, or model config invalidates the cache.
+    """
+    hasher = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+
+    cfg_dict = {
+        "audio_model": getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er"),
+        "text_model": getattr(config, "TEXT_SENTIMENT_MODEL_NAME", "cardiffnlp/twitter-roberta-base-sentiment-latest"),
+        "whisper_size": getattr(config, "STT_MODEL_SIZE", "base"),
+        "target_sr": getattr(config, "TARGET_SAMPLE_RATE", 16000),
+        "calibration_audio": getattr(config, "CALIBRATION_TEMPERATURE_AUDIO", 1.0),
+        "calibration_text": getattr(config, "CALIBRATION_TEMPERATURE_TEXT", 1.0),
+        "default_audio_weight": getattr(config, "DEFAULT_AUDIO_WEIGHT", 0.5),
+        "default_text_weight": getattr(config, "DEFAULT_TEXT_WEIGHT", 0.5),
+        "voice_collapse_threshold": getattr(config, "VOICE_COLLAPSE_THRESHOLD", 0.70),
+        "voice_collapse_min_conf": getattr(config, "VOICE_COLLAPSE_MIN_CONFIDENCE", 0.50),
+        "pipeline": "live_conversation_analyzer_aggregation_v1",
+    }
+    hasher.update(json.dumps(cfg_dict, sort_keys=True).encode("utf-8"))
+    return hasher.hexdigest()
 
 
 def _fmt_float(val: Any, decimals: int = 4) -> str:
@@ -177,10 +209,13 @@ def run_pipeline_on_sample(
     sa: SentimentAnalyzer,
     fusion: MultimodalFusion,
     ca: Optional[ConversationAnalyzer] = None,
+    cache_dir: str = CACHE_DIR,
+    use_cache: bool = True,
 ) -> Dict[str, Any]:
     """
-    Run production inference pipeline on a single audio file.
-    Does NOT alter production thresholds, weights, or decision rules.
+    Run production inference pipeline on a single audio file matching live app.
+    Runs ConversationAnalyzer once per clip and derives voice prediction, text sentiment,
+    speaker count, and transcript from that single result using live segment aggregation.
     """
     filepath = sample.filename
     if not os.path.exists(filepath):
@@ -190,27 +225,68 @@ def run_pipeline_on_sample(
             "filename": filepath,
         }
 
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_key = compute_sample_cache_key(filepath)
+    cache_path = os.path.join(cache_dir, f"{cache_key}.json")
+
+    if use_cache and os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached_data = json.load(f)
+            logger.info("Loaded cached evaluation result for %s (key=%s...)", filepath, cache_key[:12])
+            return cached_data
+        except Exception as e:
+            logger.warning("Failed to read cache for %s: %s; recomputing", filepath, e)
+
     try:
-        # 1. Voice emotion (whole-audio acoustic)
-        v_res = vea.analyze(filepath)
-        pred_voice = v_res.get("emotion")
-        v_conf = float(v_res.get("confidence", 0.0))
+        # Run live pipeline via ConversationAnalyzer
+        if ca is None:
+            ca = ConversationAnalyzer(
+                emotion_analyzer=vea,
+                speech_to_text=stt,
+                sentiment_analyzer=sa,
+                fusion=fusion,
+            )
 
-        # 2. Speech-to-text
-        t_res = stt.transcribe(filepath)
-        transcript = str(t_res.get("text", "") or "").strip()
-        segments = t_res.get("segments", [])
+        conv_res = ca.analyze(filepath)
+        segments = conv_res.get("segments", []) or []
+        transcript = str(conv_res.get("full_transcript", "") or "").strip()
 
-        # 3. Text sentiment
-        if transcript:
-            s_res = sa.analyze(transcript)
-            pred_sentiment = s_res.get("sentiment")
-            s_conf = float(s_res.get("confidence", 0.0))
-            f_res = fusion.fuse(v_res, s_res)
+        if segments:
+            dom_voice, dom_text, agree_count, mismatch_count = derive_segment_summary(segments)
+            pred_voice = dom_voice
+            pred_sentiment = dom_text
+
+            v_confs = [safe_float(s.get("voice_emotion", {}).get("confidence", 0.0)) for s in segments if s.get("voice_emotion")]
+            v_conf = float(sum(v_confs) / len(v_confs)) if v_confs else 0.0
+
+            s_confs = [safe_float(s.get("text_sentiment", {}).get("confidence", 0.0)) for s in segments if s.get("text_sentiment")]
+            s_conf = float(sum(s_confs) / len(s_confs)) if s_confs else 0.0
+
+            per_segment_predictions = ", ".join([
+                f"{format_turn_label(i, one_based=False)} {emotion_code_label(s.get('voice_emotion', {}).get('emotion', ''))}"
+                for i, s in enumerate(segments)
+            ])
+            unique_speakers = {
+                s.get("speaker")
+                for s in segments
+                if s.get("speaker") and s.get("speaker") != "Unknown"
+            }
+            pred_speaker_count = len(unique_speakers) if unique_speakers else 1
+
+            v_res = {"emotion": pred_voice, "confidence": v_conf, "scores": {}}
+            s_res = {"sentiment": pred_sentiment, "confidence": s_conf, "scores": {}}
+            f_res = segments[0].get("fusion", {}) if segments else {}
         else:
-            s_res = {"sentiment": None, "confidence": 0.0, "probabilities": {}}
+            # Fallback for empty/non-speech audio
+            v_res = vea.analyze(filepath)
+            pred_voice = v_res.get("emotion")
+            v_conf = float(v_res.get("confidence", 0.0))
             pred_sentiment = None
             s_conf = 0.0
+            per_segment_predictions = "N/A (no segments)"
+            pred_speaker_count = 1
+            s_res = {"sentiment": None, "confidence": 0.0, "probabilities": {}}
             f_res = {
                 "combined_confidence": v_conf,
                 "agreement": False,
@@ -219,27 +295,18 @@ def run_pipeline_on_sample(
                 "text_direction": "neutral",
             }
 
-        # 4. Conversation analysis (if usable segments exist)
-        conv_res: Optional[Dict[str, Any]] = None
-        pred_speaker_count = 1  # Default baseline for single audio clip
-        if ca is not None and len(segments) > 0:
-            try:
-                conv_res = ca.analyze(filepath)
-                # Count distinct speakers if diarization identified them
-                unique_speakers = {
-                    s.get("speaker")
-                    for s in conv_res.get("segments", [])
-                    if s.get("speaker") and s.get("speaker") != "Unknown"
-                }
-                if unique_speakers:
-                    pred_speaker_count = len(unique_speakers)
-            except Exception as e:
-                logger.warning(f"Conversation analysis skipped for {filepath}: {e}")
+        aggregation_rule = (
+            "dominant_voice_emotion = argmax of confidence-weighted segment votes "
+            "(sum(conf+1e-6) per label, ties broken alphabetically)"
+        )
 
-        return {
+        result = {
             "status": "EVALUATED",
             "filename": filepath,
             "pred_voice_emotion": pred_voice,
+            "clip_level_prediction": pred_voice,
+            "per_segment_predictions": per_segment_predictions,
+            "aggregation_rule": aggregation_rule,
             "voice_confidence": v_conf,
             "pred_text_sentiment": pred_sentiment,
             "text_confidence": s_conf,
@@ -249,15 +316,28 @@ def run_pipeline_on_sample(
             "text_result": s_res,
             "fusion_result": f_res,
             "conversation_result": conv_res,
+            "cache_key": cache_key,
             "extra": {
                 "segment_count": len(segments),
                 "conversation_analyzed": conv_res is not None,
+                "clip_level_prediction": pred_voice,
+                "per_segment_predictions": per_segment_predictions,
+                "aggregation_rule": aggregation_rule,
                 "audio_scores": v_res.get("scores", {}),
                 "text_scores": s_res.get("scores", {}),
                 "full_transcript": transcript,
                 "escalation_detected": conv_res.get("escalation", {}).get("escalation_detected", False) if conv_res else False,
             },
         }
+
+        # Cache valid evaluation result
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2, default=str)
+        except Exception as e:
+            logger.warning("Could not write cache file %s: %s", cache_path, e)
+
+        return result
     except Exception as e:
         logger.exception(f"Inference failed for {filepath}: {e}")
         return {
@@ -270,6 +350,7 @@ def run_pipeline_on_sample(
 def execute_evaluation(
     dataset_path: str = DEFAULT_DATASET_PATH,
     results_dir: str = DEFAULT_RESULTS_DIR,
+    use_cache: bool = True,
 ) -> Dict[str, Any]:
     """
     Complete automated evaluation workflow.
@@ -301,7 +382,7 @@ def execute_evaluation(
 
     for idx, sample in enumerate(dataset):
         logger.info(f"[{idx+1}/{len(dataset)}] Evaluating sample: {sample.filename}")
-        res = run_pipeline_on_sample(sample, vea, stt, sa, fusion, ca)
+        res = run_pipeline_on_sample(sample, vea, stt, sa, fusion, ca, use_cache=use_cache)
 
         if res["status"] == "FAILED":
             failed_samples.append(res)
@@ -593,6 +674,9 @@ def execute_evaluation(
             "filename",
             "true_voice_emotion",
             "pred_voice_emotion",
+            "clip_level_prediction",
+            "per_segment_predictions",
+            "aggregation_rule",
             "voice_match",
             "true_text_sentiment",
             "pred_text_sentiment",
@@ -611,6 +695,8 @@ def execute_evaluation(
             t_v = rec.get("true_voice_emotion")
             p_v = rec.get("pred_voice_emotion")
             v_match = (t_v == p_v) if t_v and p_v else "N/A"
+            clip_pred = rec.get("clip_level_prediction") or (rec.get("extra") or {}).get("clip_level_prediction") or p_v
+            seg_preds = rec.get("per_segment_predictions") or (rec.get("extra") or {}).get("per_segment_predictions") or "N/A"
 
             t_s = rec.get("true_text_sentiment")
             p_s = rec.get("pred_text_sentiment")
@@ -624,6 +710,9 @@ def execute_evaluation(
                 "filename": rec.get("filename"),
                 "true_voice_emotion": t_v or "N/A",
                 "pred_voice_emotion": p_v or "N/A",
+                "clip_level_prediction": clip_pred or "N/A",
+                "per_segment_predictions": seg_preds or "N/A",
+                "aggregation_rule": rec.get("aggregation_rule") or (rec.get("extra") or {}).get("aggregation_rule", "derive_segment_summary"),
                 "voice_match": v_match,
                 "true_text_sentiment": t_s or "N/A",
                 "pred_text_sentiment": p_s or "N/A",
@@ -714,7 +803,14 @@ def execute_evaluation(
         t_e = rec.get("true_escalation")
         p_e = (rec.get("extra") or {}).get("escalation_detected")
 
-        has_voice_err = (t_v is not None and p_v is not None and t_v != p_v)
+        normalized_t_v = normalize_voice_emotion_label(t_v)
+        normalized_p_v = normalize_voice_emotion_label(p_v)
+
+        has_voice_err = (
+             normalized_t_v is not None
+             and normalized_p_v is not None
+             and normalized_t_v != normalized_p_v
+       )
         has_text_err = (t_s is not None and p_s is not None and t_s != p_s)
         has_esc_err = (t_e is not None and p_e is not None and str(t_e).lower() != ("yes" if p_e else "no"))
 
@@ -795,7 +891,11 @@ def execute_evaluation(
     print(f"\nDiarization Assessment: {diarization_res.honest_assessment}")
 
     # Item 31: Print remaining-annotation checklist
-    print("\n" + format_remaining_annotation_checklist(dataset))
+    try:
+        print("\n" + format_remaining_annotation_checklist(dataset))
+    except Exception:
+        checklist_str = format_remaining_annotation_checklist(dataset)
+        print("\n" + checklist_str.encode("ascii", errors="replace").decode("ascii"))
 
     # Honest Sample Size Warning (if N < 30)
 
@@ -814,9 +914,10 @@ def main():
     parser = argparse.ArgumentParser(description="Run Phase 3 Automated Evaluation")
     parser.add_argument("--dataset", default=DEFAULT_DATASET_PATH, help="Path to evaluation dataset CSV")
     parser.add_argument("--output-dir", default=DEFAULT_RESULTS_DIR, help="Path to output results directory")
+    parser.add_argument("--no-cache", action="store_true", help="Bypass the per-sample result cache and recompute all samples")
     args = parser.parse_args()
 
-    execute_evaluation(dataset_path=args.dataset, results_dir=args.output_dir)
+    execute_evaluation(dataset_path=args.dataset, results_dir=args.output_dir, use_cache=not args.no_cache)
 
 
 if __name__ == "__main__":

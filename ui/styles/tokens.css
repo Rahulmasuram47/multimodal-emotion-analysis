@@ -105,3 +105,22 @@ textarea:focus-visible,
         scroll-behavior: auto !important;
     }
 }
+
+/* Native st.audio Player Styling with Theme Tokens */
+audio {
+    width: 100%;
+    height: 40px;
+    border-radius: var(--card-radius-sm);
+    color-scheme: dark;
+    background-color: var(--surface-raised);
+    accent-color: var(--accent);
+}
+
+:root[data-theme="light"] audio,
+body.light-theme audio,
+[data-theme="light"] audio {
+    color-scheme: light;
+    background-color: var(--surface-raised);
+    accent-color: var(--accent);
+}
+

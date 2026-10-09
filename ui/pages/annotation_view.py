@@ -461,7 +461,15 @@ def render_annotation_page() -> None:
 
     # ── TAB 2: DATASET DASHBOARD ─────────────────────────────────────────────
     with subtab_dashboard:
-        st.markdown("### 📊 Dataset Overview & Health Dashboard")
+        st.markdown(
+            html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">📊 Dataset Overview & Health Dashboard</div>
+<div class="section-badge">OVERVIEW</div>
+</div>
+"""),
+            unsafe_allow_html=True,
+        )
         consensus_dataset: EvaluationDataset = _load_dataset(str(Path(EVAL_DATASET_PATH)))
 
         total_clips = len(audio_files)
@@ -478,7 +486,7 @@ def render_annotation_page() -> None:
         d_col3.metric("Annotated Clips", inv.annotated_records_count)
         d_col4.metric(f"Min N Target ({EVAL_MIN_N})", f"{inv.annotated_records_count}/{EVAL_MIN_N}")
 
-        with st.expander("ℹ️ Dataset Inventory & Gap Explanation (Item 28)", expanded=False):
+        with st.expander("ℹ️ Dataset Inventory & Gap Explanation", expanded=False):
             st.markdown(inv.gap_explanation)
 
         st.divider()
@@ -536,9 +544,16 @@ def render_annotation_page() -> None:
             })
         st.dataframe(checklist_data, use_container_width=True)
 
-    # ── TAB 3: MULTI-ANNOTATOR RESOLVER ──────────────────────────────────────
     with subtab_resolve:
-        st.markdown("### 🤝 Multi-Annotator Agreement & Disagreement Resolver")
+        st.markdown(
+            html_block("""
+<div class="section-header-bar" style="margin-top: 0.8rem;">
+<div class="section-title">🤝 Multi-Annotator Agreement & Resolver</div>
+<div class="section-badge">RESOLVER</div>
+</div>
+"""),
+            unsafe_allow_html=True,
+        )
         st.caption(
             "Load multiple annotators' CSV files (`data/annotations/annotator_*.csv`), calculate Cohen's Kappa, "
             "and resolve conflicts to build a consensus dataset."

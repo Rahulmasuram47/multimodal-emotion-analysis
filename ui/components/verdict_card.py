@@ -156,23 +156,22 @@ def render_verdict_hero(
     intensity_contrib = safe_float(att_score.get("intensity_contribution", 0.0))
     escalation_contrib = safe_float(att_score.get("escalation_contribution", 0.0))
 
-    if att_level == "HIGH":
+    if att_level == "HIGH" or att_pct >= 66:
+        display_level = "HIGH"
         gauge_color = "var(--negative)"
         gauge_bg = "rgba(248, 113, 113, 0.15)"
-    elif att_level == "MEDIUM":
-        gauge_color = "var(--warning)"
-        gauge_bg = "rgba(251, 191, 36, 0.15)"
-    else:
-        gauge_color = "var(--positive)"
-        gauge_bg = "rgba(74, 222, 128, 0.15)"
-
-    if att_level == "HIGH" or att_pct >= 66:
         action_text = "REVIEW RECOMMENDED"
         action_color = "var(--negative)"
     elif att_level == "MEDIUM" or att_pct >= 33:
+        display_level = "MEDIUM"
+        gauge_color = "var(--warning)"
+        gauge_bg = "rgba(251, 191, 36, 0.15)"
         action_text = "MONITOR"
         action_color = "var(--warning)"
     else:
+        display_level = "LOW"
+        gauge_color = "var(--positive)"
+        gauge_bg = "rgba(74, 222, 128, 0.15)"
         action_text = "LOW PRIORITY"
         action_color = "var(--positive)"
 
@@ -230,7 +229,7 @@ slope: {slope_text} · net: {net_text}
 {att_pct:.0f}%
 </span>
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; font-weight:700; background:{gauge_bg}; color:{gauge_color}; padding:2px 8px; border-radius:4px;">
-{att_level} PRIORITY
+{display_level} PRIORITY
 </span>
 </div>
 <div style="background:rgba(255,255,255,0.08); height:8px; border-radius:4px; overflow:hidden; margin-bottom:0.4rem;">

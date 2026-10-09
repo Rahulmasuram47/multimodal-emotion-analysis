@@ -160,8 +160,8 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
     # Item 14: single disclaimer at page level
     st.caption(_INCONGRUENCE_PAGE_DISCLAIMER)
 
-    for segment in segments:
-        idx = segment.get("segment_index", "?")
+    for idx, segment in enumerate(segments):
+        
         start = safe_float(segment.get("start_seconds", 0.0))
         end = safe_float(segment.get("end_seconds", 0.0))
         # Item 13: store raw transcript text (no speaker prefix)

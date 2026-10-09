@@ -25,9 +25,9 @@ def render_wavesurfer_player(
     mime_type = audio_format or "audio/wav"
 
     markers = []
-    for s in segments:
+    for idx, s in enumerate(segments):
         start_sec = safe_float(s.get("start_seconds", 0.0))
-        idx = s.get("segment_index", 0)
+        
         voice = (s.get("voice_emotion") or {}).get("emotion", "")
         turn_str = format_turn_label(idx, one_based=False)
         voice_str = emotion_code_label(voice)

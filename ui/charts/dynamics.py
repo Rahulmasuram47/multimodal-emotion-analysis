@@ -29,8 +29,8 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
     )
 
     blocks_html = []
-    for s in segments:
-        raw_idx = s.get("segment_index", 0)
+    for raw_idx, s in enumerate(segments):
+        
         turn_label = format_turn_label(raw_idx, one_based=False)
         fusion = s.get("fusion", {}) or {}
         is_agree = bool(fusion.get("agreement", False))

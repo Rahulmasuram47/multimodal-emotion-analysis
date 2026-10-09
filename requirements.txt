@@ -43,3 +43,4 @@ plotly==7.0.0
 # Testing
 # ==============================
 pytest==9.1.1
+python-dotenv

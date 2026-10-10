@@ -27,6 +27,10 @@ def build_key_finding(
     Item 10: uses "predominantly X" only when >= PREDOMINANTLY_THRESHOLD of
     turns share the same label; otherwise describes the mixed distribution.
     Item 9: maps raw codes (hap/neu) to display labels via emotion_code_label().
+
+    The transition sentence reports VOICE direction and TEXT direction
+    separately, because the fused verdict can differ from the voice-only
+    direction (e.g. voice turns negative while confident text stays positive).
     """
     # Build per-turn voice and text label counts for the "predominantly" test
     voice_per_turn: Dict[str, int] = {}
@@ -42,7 +46,6 @@ def build_key_finding(
         t_label = str(t_raw).lower()
         voice_per_turn[v_label] = voice_per_turn.get(v_label, 0) + 1
         text_per_turn[t_label] = text_per_turn.get(t_label, 0) + 1
-
 
     # Chronological turn sequences
     v_seq = [
@@ -85,11 +88,29 @@ def build_key_finding(
     else:
         dynamic = "Overall emotional intensity remained relatively stable."
 
+    # Direction transition: voice and text are reported separately.
     if segments:
-        first = str((segments[0].get("fusion") or {}).get("audio_direction", "")).lower()
-        last = str((segments[-1].get("fusion") or {}).get("audio_direction", "")).lower()
-        if first and last and first != last:
-            transition = f"The dominant multimodal direction moved from {first} toward {last}."
+        def _dir(seg: Dict[str, Any], key: str) -> str:
+            return str((seg.get("fusion") or {}).get(key, "")).lower()
+
+        v_first = _dir(segments[0], "audio_direction")
+        v_last = _dir(segments[-1], "audio_direction")
+        t_first = _dir(segments[0], "text_direction")
+        t_last = _dir(segments[-1], "text_direction")
+        v_changed = bool(v_first and v_last and v_first != v_last)
+        t_changed = bool(t_first and t_last and t_first != t_last)
+
+        if v_changed and t_changed:
+            transition = (
+                f"Voice direction moved from {v_first} toward {v_last}, "
+                f"and text direction moved from {t_first} toward {t_last}."
+            )
+        elif v_changed:
+            stayed = f", while text direction stayed {t_last}" if t_last else ""
+            transition = f"Voice direction moved from {v_first} toward {v_last}{stayed}."
+        elif t_changed:
+            stayed = f", while voice direction stayed {v_last}" if v_last else ""
+            transition = f"Text direction moved from {t_first} toward {t_last}{stayed}."
         else:
             transition = "The multimodal emotional direction was broadly consistent across the conversation."
     else:
@@ -155,6 +176,13 @@ def render_verdict_hero(
     mismatch_contrib = safe_float(att_score.get("mismatch_contribution", 0.0))
     intensity_contrib = safe_float(att_score.get("intensity_contribution", 0.0))
     escalation_contrib = safe_float(att_score.get("escalation_contribution", 0.0))
+
+    # The contributions are already weight x component. Show both so the
+    # numbers visibly add up to the gauge percentage.
+    _W_MIS, _W_INT, _W_ESC = 0.40, 0.35, 0.25
+    mismatch_raw = mismatch_contrib / _W_MIS
+    intensity_raw = intensity_contrib / _W_INT
+    escalation_raw = escalation_contrib / _W_ESC
 
     if att_level == "HIGH" or att_pct >= 66:
         display_level = "HIGH"
@@ -240,7 +268,10 @@ slope: {slope_text} · net: {net_text}
 </div>
 <div style="font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--muted); margin-bottom:0.3rem; border-top:1px dashed var(--border); padding-top:0.3rem;">
 <div>Formula: 0.40·Mismatch + 0.35·Intensity + 0.25·Escalation</div>
-<div>Components: Mis={mismatch_contrib:.2f} · Int={intensity_contrib:.2f} · Esc={escalation_contrib:.2f}</div>
+<div>Mismatch: {_W_MIS:.2f} × {mismatch_raw:.2f} = {mismatch_contrib:.2f}</div>
+<div>Intensity: {_W_INT:.2f} × {intensity_raw:.2f} = {intensity_contrib:.2f}</div>
+<div>Escalation: {_W_ESC:.2f} × {escalation_raw:.2f} = {escalation_contrib:.2f}</div>
+<div>Total: {att_val:.2f}</div>
 </div>
 <div style="font-size:0.70rem; color:var(--muted); line-height:1.3;">
 ⚠️ {_html.escape(att_notice)}

@@ -257,9 +257,11 @@ class MultimodalFusion:
     ) -> List[str]:
         """Compute counterfactual sensitivity: what perturbation would
         change this result? Tests small perturbations against the rules:
-          1. Text confidence threshold crossing.
-          2. Voice/text direction shift.
-          3. Reliability abstention threshold.
+          1.  Text confidence threshold crossing.
+          1b. Voice confidence threshold crossing (a confident mismatch
+              needs BOTH modalities above the threshold).
+          2.  Voice/text direction shift.
+          3.  Reliability abstention threshold.
         """
         cfs: List[str] = []
 
@@ -296,6 +298,31 @@ class MultimodalFusion:
                         f"If text confidence fell below {self.confidence_threshold:.2f} (currently {text_confidence:.2f}), "
                         f"pattern would soften to '{new_pat}'."
                     )
+
+        # 1b. Voice confidence perturbation (mirror of the text case above).
+        # A confident mismatch hinges on BOTH modalities clearing the
+        # threshold, so report how close the voice side is to dropping out.
+        # Skipped when the system is abstaining, because the current pattern
+        # is then the abstention label and a "soften" statement would be wrong.
+        if (
+            not agreement
+            and high_audio
+            and text_confidence >= self.confidence_threshold
+            and combined_reliability >= self.abstention_threshold
+        ):
+            new_pat, _, _ = self._evaluate_pattern_rules(
+                audio_direction=audio_dir,
+                text_direction=text_dir,
+                audio_arousal=audio_arousal,
+                agreement=False,
+                mismatch=False,
+            )
+            if new_pat != current_pattern:
+                cfs.append(
+                    f"If voice confidence fell below {self.confidence_threshold:.2f} "
+                    f"(currently {audio_confidence:.2f}), "
+                    f"pattern would soften to '{new_pat}'."
+                )
 
         # 2. Direction shift
         if not agreement:

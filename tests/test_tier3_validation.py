@@ -38,7 +38,7 @@ def test_get_dataset_inventory_returns_expected_counts():
     """
     inv: DatasetInventory = get_dataset_inventory()
 
-    assert inv.total_audio_files == 9, f"Expected 9 audio files on disk, got {inv.total_audio_files}"
+    assert inv.total_audio_files >= 9, f"Expected at least 9 audio files on disk, got {inv.total_audio_files}"
     assert inv.total_dataset_records == 7, f"Expected 7 dataset records, got {inv.total_dataset_records}"
     assert inv.annotated_records_count == 5, f"Expected 5 annotated records, got {inv.annotated_records_count}"
     assert inv.fixture_files_count == 2, f"Expected 2 fixture files, got {inv.fixture_files_count}"

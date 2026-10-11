@@ -25,6 +25,11 @@ STT_MODEL_SIZE = 'base'  # faster-whisper model size ('base' or 'small')
 TEXT_SENTIMENT_MODEL_NAME = 'cardiffnlp/twitter-roberta-base-sentiment-latest'
 TEXT_SENTIMENT_FALLBACK_MODEL = 'distilbert-base-uncased-finetuned-sst-2-english'
 
+# Voice backend selector: "superb" (default, production) or "emotion2vec"
+VOICE_BACKEND: str = "superb"
+# emotion2vec model id (benchmark / experimental only)
+EMOTION2VEC_MODEL_NAME: str = "emotion2vec/emotion2vec_plus_base"
+
 # Emotion & Sentiment Categories
 AUDIO_EMOTION_CLASSES = ['neutral', 'happy', 'angry', 'sad']
 TEXT_SENTIMENT_CLASSES = ['negative', 'neutral', 'positive']

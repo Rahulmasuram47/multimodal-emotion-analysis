@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class VoiceEmotionAnalyzer:
     """Analyze speech emotion using a pretrained Wav2Vec2 model."""
 
-    def __init__(self, model_id: Optional[str] = None):
+    def __init__(self, model_id: Optional[str] = None, backend: Optional[str] = None):
         # Falls back to the locked-in production model from config.py when
         # no model_id is given, so existing callers (ConversationAnalyzer,
         # etc.) keep using the same model as before with zero code changes.
@@ -32,19 +32,24 @@ class VoiceEmotionAnalyzer:
         # production config.
         self.model_id = model_id or config.AUDIO_EMOTION_MODEL_NAME
 
-        logger.info("Loading Wav2Vec2 emotion model: %s", self.model_id)
+        # Determine which backend to use
+        backend_name = backend or config.VOICE_BACKEND
 
-        self.extractor = Wav2Vec2FeatureExtractor.from_pretrained(
-            self.model_id
-        )
-
-        self.model = Wav2Vec2ForSequenceClassification.from_pretrained(
-            self.model_id
-        )
-
-        self.model.eval()
-
-        logger.info("Wav2Vec2 emotion model loaded successfully.")
+        if backend_name == "emotion2vec":
+            from app.voice_backends.emotion2vec import Emotion2VecBackend
+            self._backend = Emotion2VecBackend(model_id=model_id)
+            # Stub model/extractor attributes so existing code that reads them
+            # directly still finds something (avoids AttributeError).
+            self.model = None
+            self.extractor = None
+        else:
+            # Default: superb/wav2vec2 — load exactly as before
+            logger.info("Loading Wav2Vec2 emotion model: %s", self.model_id)
+            self.extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_id)
+            self.model = Wav2Vec2ForSequenceClassification.from_pretrained(self.model_id)
+            self.model.eval()
+            logger.info("Wav2Vec2 emotion model loaded successfully.")
+            self._backend = None  # use legacy path directly
 
     def _analyze_audio_array(
         self,
@@ -60,6 +65,10 @@ class VoiceEmotionAnalyzer:
 
         if len(audio) == 0:
             raise ValueError("Audio segment is empty.")
+
+        # Delegate to pluggable backend when one is active
+        if self._backend is not None:
+            return self._backend.predict(audio, sr)
 
         inputs = self.extractor(
             audio,
@@ -89,6 +98,7 @@ class VoiceEmotionAnalyzer:
             "confidence": confidence,
             "scores": scores,
         }
+
 
     def analyze(self, audio_path: str) -> Dict[str, Any]:
         """

@@ -18,6 +18,12 @@ class VoiceBackend(ABC):
 
     CANONICAL = {"neutral", "happy", "sad", "angry", "other"}
 
+    display_name: str = "Unknown Voice Model"
+    model_id: str = "unknown"
+    family: str = "unknown"
+    training_note: str = "unknown"
+    confidence_informative: bool = True
+
     @abstractmethod
     def predict(self, waveform: np.ndarray, sr: int = 16000) -> Dict[str, Any]:
         """Run inference on a 1-D float32 waveform at *sr* Hz."""

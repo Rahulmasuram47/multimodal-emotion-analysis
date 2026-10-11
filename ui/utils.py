@@ -35,16 +35,20 @@ _EMOTION_CODE_MAP: Dict[str, str] = {
     "positive": "Positive",
     "negative": "Negative",
     "unknown": "Unknown",
+    "other": "Other",
 }
 
 
-def emotion_code_label(code: str) -> str:
+def emotion_code_label(code: str, raw_label: Optional[str] = None) -> str:
     """Map a raw model code (neu/hap/ang/sad) or full word to its display label.
 
     Used by UI chips, key-finding text, JSON/CSV exports — single source of truth.
     Falls back to title-cased input for codes not in the map.
+    If code is 'other' and raw_label is provided, returns 'Other (<raw_label>)'.
     """
     key = str(code).strip().lower()
+    if key == "other" and raw_label:
+        return f"Other ({raw_label})"
     return _EMOTION_CODE_MAP.get(key, key.title())
 
 

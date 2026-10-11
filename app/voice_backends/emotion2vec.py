@@ -51,10 +51,16 @@ def _normalise(scores: Dict[str, float]) -> Dict[str, float]:
 class Emotion2VecBackend(VoiceBackend):
     """Lazy-loaded emotion2vec+ backend via FunASR."""
 
+    display_name: str = "emotion2vec+ base"
+    family: str = "emotion2vec"
+    training_note: str = "Bilingual (ZH/EN) Affective Speech Corpus"
+    confidence_informative: bool = False
+
     def __init__(self, model_id: Optional[str] = None):
         self._model_id = model_id or getattr(
             config, "EMOTION2VEC_MODEL_NAME", "emotion2vec/emotion2vec_plus_base"
         )
+        self.model_id = self._model_id
         self._model = None  # lazy
 
     def _load(self):

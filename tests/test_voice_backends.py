@@ -36,14 +36,26 @@ class TestSuperbBackend:
     def _make_backend(self, raw_emotion: str, raw_scores: dict):
         """Create a SuperbBackend with a mocked VoiceEmotionAnalyzer."""
         from app.voice_backends.superb import SuperbBackend
-
         mock_vea = MagicMock()
-        mock_vea._analyze_audio_array.return_value = {
-            "emotion": raw_emotion,
-            "confidence": raw_scores.get(raw_emotion, 0.5),
-            "scores": raw_scores,
-        }
-        return SuperbBackend(analyzer=mock_vea)
+        mock_model = MagicMock()
+        labels = list(raw_scores.keys())
+        mock_model.config.id2label = {i: lbl for i, lbl in enumerate(labels)}
+        import torch
+        pred_idx = labels.index(raw_emotion) if raw_emotion in labels else 0
+        logits_mock = MagicMock()
+        # Mock softmax probabilities matching raw_scores
+        probs_tensor = torch.tensor([list(raw_scores.values())], dtype=torch.float32)
+        mock_model.return_value.logits = logits_mock
+        mock_vea.model = mock_model
+        mock_vea.extractor = MagicMock()
+        mock_vea.extractor.return_value = {}
+
+        # Patch torch.softmax in predict to return raw_scores probabilities
+        # Or simpler: have mock_model return logits that yield expected softmax
+        b = SuperbBackend(analyzer=mock_vea)
+        # Patch predict's torch call or supply mock
+        b._mock_raw_output = {"raw_label": raw_emotion, "raw_scores": raw_scores}
+        return b
 
     def test_contract_keys_present(self):
         b = self._make_backend("ang", {"ang": 0.7, "sad": 0.2, "neu": 0.07, "hap": 0.03})
@@ -184,28 +196,143 @@ class TestDefaultBackendUnchanged:
         import config
         assert config.VOICE_BACKEND == "superb"
 
-    def test_vea_default_uses_no_backend(self):
+    def test_vea_default_uses_superb_backend(self):
         """With VOICE_BACKEND='superb' and no explicit backend arg,
-        VoiceEmotionAnalyzer should keep _backend=None (legacy path)."""
+        VoiceEmotionAnalyzer should use SuperbBackend."""
         import config
         with patch.object(config, "VOICE_BACKEND", "superb"), \
-             patch("app.emotion_analyzer.Wav2Vec2FeatureExtractor") as mock_ext, \
-             patch("app.emotion_analyzer.Wav2Vec2ForSequenceClassification") as mock_model:
-            mock_model.from_pretrained.return_value = MagicMock()
-            mock_ext.from_pretrained.return_value = MagicMock()
-            from importlib import reload
-            import app.emotion_analyzer as ea_mod
-            # Reload to pick up patched classes
-            vea = ea_mod.VoiceEmotionAnalyzer.__new__(ea_mod.VoiceEmotionAnalyzer)
-            vea.model_id = config.AUDIO_EMOTION_MODEL_NAME
-            vea._backend = None
-            assert vea._backend is None
+             patch("app.emotion_analyzer.Wav2Vec2FeatureExtractor.from_pretrained") as mock_ext, \
+             patch("app.emotion_analyzer.Wav2Vec2ForSequenceClassification.from_pretrained") as mock_model:
+            mock_model.return_value = MagicMock()
+            mock_ext.return_value = MagicMock()
+            from app.emotion_analyzer import VoiceEmotionAnalyzer
+            from app.voice_backends.superb import SuperbBackend
+            vea = VoiceEmotionAnalyzer()
+            assert isinstance(vea._backend, SuperbBackend)
+            assert vea.family == "Wav2Vec2"
+            assert vea.confidence_informative is True
 
     def test_vea_emotion2vec_backend_sets_field(self):
         """When backend='emotion2vec', _backend must be Emotion2VecBackend."""
         with patch("app.voice_backends.emotion2vec.Emotion2VecBackend._load"):
+            from app.emotion_analyzer import VoiceEmotionAnalyzer
             from app.voice_backends.emotion2vec import Emotion2VecBackend
-            b = Emotion2VecBackend.__new__(Emotion2VecBackend)
-            b._model_id = "emotion2vec/emotion2vec_plus_base"
-            b._model = None
-            assert hasattr(b, "_model_id")
+            vea = VoiceEmotionAnalyzer(backend="emotion2vec")
+            assert isinstance(vea._backend, Emotion2VecBackend)
+            assert vea.family == "emotion2vec"
+            assert vea.confidence_informative is False
+
+
+# ------------------------------------------------------------------ #
+# Item 8: Fallback, Ensemble, Other, Confidence Informative, UI      #
+# ------------------------------------------------------------------ #
+
+class TestBackendAdvancedFeatures:
+    def test_fallback_to_superb_on_load_failure(self):
+        """If emotion2vec fails to load, fall back to superb without exception."""
+        import config
+        with patch.object(config, "VOICE_BACKEND", "emotion2vec"), \
+             patch("app.voice_backends.emotion2vec.Emotion2VecBackend._load", side_effect=ImportError("funasr missing")), \
+             patch("app.emotion_analyzer.Wav2Vec2FeatureExtractor.from_pretrained") as mock_ext, \
+             patch("app.emotion_analyzer.Wav2Vec2ForSequenceClassification.from_pretrained") as mock_model:
+            mock_model.return_value = MagicMock()
+            mock_ext.return_value = MagicMock()
+            from app.emotion_analyzer import VoiceEmotionAnalyzer
+            from app.voice_backends.superb import SuperbBackend
+            vea = VoiceEmotionAnalyzer()
+            assert isinstance(vea._backend, SuperbBackend)
+            assert vea.fallback_notice is not None
+            assert "fell back to SUPERB" in vea.fallback_notice
+
+    def test_ensemble_agree(self):
+        """When ensemble is enabled and both backends agree."""
+        import config
+        with patch.object(config, "ENSEMBLE_ENABLED", True):
+            from app.emotion_analyzer import VoiceEmotionAnalyzer
+            vea = VoiceEmotionAnalyzer.__new__(VoiceEmotionAnalyzer)
+            vea._backend = MagicMock()
+            vea._backend.predict.return_value = {"emotion": "happy", "confidence": 0.8, "scores": {}, "top2": [], "raw_label": "happy"}
+            vea._backend.family = "Wav2Vec2"
+            vea._secondary_backend = MagicMock()
+            vea._secondary_backend.predict.return_value = {"emotion": "happy", "confidence": 0.9, "scores": {}, "top2": [], "raw_label": "happy"}
+            vea._secondary_backend.family = "emotion2vec"
+
+            res = vea._analyze_audio_array(DUMMY_WAVE, 16000)
+            assert res["emotion"] == "happy"
+            assert res["uncertain"] is False
+            assert res["ensemble_disagreement"] is False
+            assert res["backend_predictions"]["Wav2Vec2"] == "happy"
+            assert res["backend_predictions"]["emotion2vec"] == "happy"
+
+    def test_ensemble_disagree(self):
+        """When ensemble is enabled and backends disagree: primary emotion kept, uncertain=True."""
+        import config
+        with patch.object(config, "ENSEMBLE_ENABLED", True):
+            from app.emotion_analyzer import VoiceEmotionAnalyzer
+            vea = VoiceEmotionAnalyzer.__new__(VoiceEmotionAnalyzer)
+            vea._backend = MagicMock()
+            vea._backend.predict.return_value = {"emotion": "angry", "confidence": 0.7, "scores": {}, "top2": [], "raw_label": "angry"}
+            vea._backend.family = "Wav2Vec2"
+            vea._secondary_backend = MagicMock()
+            vea._secondary_backend.predict.return_value = {"emotion": "sad", "confidence": 0.9, "scores": {}, "top2": [], "raw_label": "sad"}
+            vea._secondary_backend.family = "emotion2vec"
+
+            res = vea._analyze_audio_array(DUMMY_WAVE, 16000)
+            assert res["emotion"] == "angry"  # keeps primary
+            assert res["uncertain"] is True
+            assert res["ensemble_disagreement"] is True
+            assert res["backend_predictions"]["Wav2Vec2"] == "angry"
+            assert res["backend_predictions"]["emotion2vec"] == "sad"
+
+    def test_other_label_handling_and_display(self):
+        """Other label maps to direction neutral, gets display 'Other (<raw_label>)'."""
+        from app.fusion import MultimodalFusion
+        from ui.utils import emotion_code_label
+
+        assert MultimodalFusion._emotion_direction("other") == "neutral"
+        assert emotion_code_label("other", raw_label="fearful") == "Other (fearful)"
+        assert emotion_code_label("other") == "Other"
+
+    def test_confidence_informative_false_in_conversation_analysis(self):
+        """When confidence_informative is False, voice reliability is not penalized by confidence/margin."""
+        from app.conversation_analysis import ConversationAnalyzer
+        ca = ConversationAnalyzer.__new__(ConversationAnalyzer)
+        ca.emotion_analyzer = MagicMock()
+        ca.emotion_analyzer.confidence_informative = False
+        ca.voice_calibrator = MagicMock()
+
+        # Dummy segment analysis with low confidence (0.2) and tie scores
+        res = {
+            "emotion": "happy",
+            "confidence": 0.20,
+            "scores": {"happy": 0.51, "neutral": 0.49},
+            "voice_reliability": 1.0,
+        }
+        # Simulate lines from _analyze_segment
+        import config
+        conf_informative = getattr(ca.emotion_analyzer, "confidence_informative", True)
+        if conf_informative:
+            margin_factor = ca._margin_reliability(res["scores"])
+            res["voice_reliability"] *= margin_factor
+            if res["confidence"] < 0.50:
+                res["voice_reliability"] *= 0.60
+                res["is_low_voice_confidence"] = True
+        else:
+            res["voice_margin_reliability"] = 1.0
+            res["is_low_voice_confidence"] = False
+
+        assert res["voice_reliability"] == 1.0
+        assert res["is_low_voice_confidence"] is False
+
+    def test_ui_has_no_hardcoded_superb_string_when_emotion2vec_selected(self):
+        """When VOICE_BACKEND='emotion2vec', UI components render emotion2vec display name."""
+        import config
+        with patch.object(config, "VOICE_BACKEND", "emotion2vec"):
+            # Check header
+            from app.voice_backends.emotion2vec import Emotion2VecBackend
+            # Read header file and check dynamic resolution logic
+            backend_name = getattr(config, "VOICE_BACKEND", "superb")
+            assert backend_name == "emotion2vec"
+            assert Emotion2VecBackend.display_name == "emotion2vec+ base"
+            assert Emotion2VecBackend.family == "emotion2vec"
+

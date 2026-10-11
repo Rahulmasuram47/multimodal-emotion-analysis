@@ -29,6 +29,10 @@ TEXT_SENTIMENT_FALLBACK_MODEL = 'distilbert-base-uncased-finetuned-sst-2-english
 VOICE_BACKEND: str = "superb"
 # emotion2vec model id (benchmark / experimental only)
 EMOTION2VEC_MODEL_NAME: str = "emotion2vec/emotion2vec_plus_base"
+# Ensemble configuration: if True, runs both backends and detects disagreement
+ENSEMBLE_ENABLED: bool = False
+# Floor for voice reliability when an unmapped/other label or ensemble disagreement occurs
+VOICE_RELIABILITY_FLOOR_OTHER: float = 0.35
 
 # Emotion & Sentiment Categories
 AUDIO_EMOTION_CLASSES = ['neutral', 'happy', 'angry', 'sad']

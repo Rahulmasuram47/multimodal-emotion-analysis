@@ -97,6 +97,16 @@ def render_modality_cards(
 
     snap_col1, snap_col2, snap_col3 = st.columns(3)
 
+    # Dynamic voice backend metadata
+    import config as _config
+    voice_backend_name = getattr(_config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        v_card_name = Emotion2VecBackend.display_name
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        v_card_name = SuperbBackend.display_name
+
     with snap_col1:
         st.markdown(
             f"""
@@ -112,7 +122,7 @@ def render_modality_cards(
                     <span>{html.escape(emotion_code_label(dominant_voice))}</span>
                 </div>
                 <div class="card-subtext">
-                    Dominant acoustic emotion extracted via Wav2Vec2-SUPERB acoustic classification.
+                    Dominant acoustic emotion extracted via {html.escape(v_card_name)} acoustic classification.
                 </div>
             </div>
             """,

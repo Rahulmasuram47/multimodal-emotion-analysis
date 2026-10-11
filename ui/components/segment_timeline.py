@@ -173,7 +173,8 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
         speaker = str(segment.get("speaker", "")).strip()
 
         v_emotion_raw = str(voice.get("emotion", "unknown")).lower()
-        v_emotion_display = emotion_code_label(v_emotion_raw)  # item 9
+        v_raw_label = voice.get("raw_label")
+        v_emotion_display = emotion_code_label(v_emotion_raw, raw_label=v_raw_label)  # item 4 & 9
         v_conf = safe_float(voice.get("confidence", 0.0))
         t_sentiment_raw = str(sentiment.get("sentiment", "unknown")).lower()
         t_sentiment_display = emotion_code_label(t_sentiment_raw)  # item 9
@@ -211,14 +212,15 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             low_v_conf_thresh = getattr(_config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
             low_v_rel_disp_thresh = getattr(_config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
             v_rel = safe_float(segment.get("voice_reliability", voice.get("voice_reliability", fusion.get("audio_reliability", 1.0))))
+            v_conf_info = voice.get("confidence_informative", True)
             is_low_voice_rel = bool(
                 segment.get("low_voice_reliability", False)
                 or voice.get("low_voice_reliability", False)
                 or segment.get("voice_collapse_detected", False)
                 or voice.get("voice_collapse_detected", False)
-                or voice.get("is_low_voice_confidence", False)
+                or (v_conf_info and voice.get("is_low_voice_confidence", False))
                 or v_rel < low_v_rel_disp_thresh
-                or v_conf < low_v_conf_thresh
+                or (v_conf_info and v_conf < low_v_conf_thresh)
             )
             low_voice_chip_html = (
                 f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
@@ -226,6 +228,15 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 f'⚠️ LOW VOICE RELIABILITY</span>'
                 if is_low_voice_rel else ""
             )
+
+            # Item 5: Voice models disagree chip
+            ensemble_disagree_chip_html = ""
+            if voice.get("ensemble_disagreement", False) or voice.get("uncertain", False):
+                ensemble_disagree_chip_html = (
+                    f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
+                    f'background:rgba(249,115,22,0.15); color:#fb923c; padding:2px 8px; border-radius:4px; border:1px solid rgba(249,115,22,0.3);">'
+                    f'Voice models disagree</span>'
+                )
 
             st.markdown(
                 html_block(f"""
@@ -242,6 +253,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 8px; border-radius:4px;">💬 {t_sentiment_display.upper()}</span>
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.12); color:var(--fused); padding:2px 8px; border-radius:4px;">⚡ {pat_label}</span>
 {low_voice_chip_html}
+{ensemble_disagree_chip_html}
 </div>
 </div>
 """),
@@ -325,10 +337,12 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 reasons = []
                 if segment.get("voice_collapse_detected") or voice.get("voice_collapse_detected"):
                     reasons.append("acoustic domain shift (class collapse detected)")
-                if v_conf < low_v_conf_thresh:
+                if v_conf_info and v_conf < low_v_conf_thresh:
                     reasons.append(f"voice confidence ({v_conf:.0%}) < threshold ({low_v_conf_thresh:.0%})")
                 if v_rel < low_v_rel_disp_thresh:
                     reasons.append(f"voice reliability ({v_rel:.0%}) < threshold ({low_v_rel_disp_thresh:.0%})")
+                if voice.get("ensemble_disagreement", False) or voice.get("uncertain", False):
+                    reasons.append("voice models disagree")
                 if not reasons:
                     reasons.append("reduced acoustic clarity")
                 collapse_reason = "; ".join(reasons)
@@ -345,6 +359,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             card_col1, card_col2, card_col3 = st.columns(3)
 
             with card_col1:
+                uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(raw model score (not calibrated))</span>' if not v_conf_info else ''
                 st.markdown(
                     html_block(f"""
 <div class="segment-card voice">
@@ -353,7 +368,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 {emotion_icon(v_emotion_raw)} {html.escape(v_emotion_display.upper())}
 </div>
 <div style="font-size: 0.72rem; color: var(--muted);">
-Confidence: <strong style="color: var(--voice);">{v_conf:.1%}</strong>
+Confidence: <strong style="color: var(--voice);">{v_conf:.1%}</strong>{uncal_tag}
 </div>
 </div>
 """),

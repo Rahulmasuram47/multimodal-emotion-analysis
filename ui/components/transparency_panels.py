@@ -36,19 +36,27 @@ SYSTEM_NOTICES_AND_LIMITATIONS: Dict[str, Any] = {
 
 def render_fusion_explainer() -> None:
     """Render explainable fusion architecture breakdown panel strictly reflecting app/fusion.py."""
+    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        v_model_id = Emotion2VecBackend.model_id
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        v_model_id = SuperbBackend.model_id
+
     with st.expander("⚡ Explainable Multimodal Fusion Architecture", expanded=False):
         st.markdown(
-            r"""
+            rf"""
             ### Dynamic Reliability-Weighted Rule Arbitration
             The system combines acoustic features and text sentiment vectors through **transparent, rule-based decision-level fusion**:
 
-            1. **Voice Emotion Prediction**: `superb/wav2vec2-base-superb-er` outputs discrete class probabilities (*neutral, happy, angry, sad*) with acoustic confidence $c_{\text{audio}}$ and acoustic arousal $A_{\text{audio}}$ (from `config.VOICE_EMOTION_AROUSAL_MAP`).
-            2. **Text Sentiment Analysis**: `cardiffnlp/twitter-roberta-base-sentiment-latest` classifies transcript semantics into (*positive, neutral, negative*) with text confidence $c_{\text{text}}$.
+            1. **Voice Emotion Prediction**: `{v_model_id}` outputs discrete class probabilities (*neutral, happy, angry, sad*) with acoustic confidence $c_{{\text{{audio}}}}$ and acoustic arousal $A_{{\text{{audio}}}}$ (from `config.VOICE_EMOTION_AROUSAL_MAP`).
+            2. **Text Sentiment Analysis**: `cardiffnlp/twitter-roberta-base-sentiment-latest` classifies transcript semantics into (*positive, neutral, negative*) with text confidence $c_{{\text{{text}}}}$.
             3. **Cross-Modal Directional Mapping**:
                - Voice categories map to broad directions: *Happy* → `positive`, *Angry/Sad* → `negative`, *Neutral* → `neutral`.
                - Text sentiments map directly: *Positive* → `positive`, *Negative* → `negative`, *Neutral* → `neutral`.
             4. **Reliability-Aware Dynamic Weighting**:
-               - Effective weights adapt to acoustic quality / duration / probability margin ($r_{\text{audio}}$) and speech-to-text reliability ($r_{\text{text}}$):
+               - Effective weights adapt to acoustic quality / duration / probability margin ($r_{{\text{{audio}}}}$) and speech-to-text reliability ($r_{{\text{{text}}}}$):
             """
         )
         st.latex(r"w_{\text{eff, audio}} = \frac{w_{\text{base, audio}} \cdot r_{\text{audio}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}")
@@ -80,12 +88,20 @@ def render_fusion_explainer() -> None:
 
 def render_system_notes() -> None:
     """Render operational deployment notes."""
+    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        v_family = Emotion2VecBackend.family
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        v_family = SuperbBackend.family
+
     with st.expander("📝 Engineering Notes & Hardware Optimization", expanded=False):
         st.markdown(
-            """
+            f"""
             - **CPU-First Execution**: Optimized for standard multi-core laptop CPU processors without CUDA hardware accelerators.
             - **INT8 Quantization**: Whisper Speech-to-Text inference runs in 8-bit integer quantization, minimizing working memory to under 2 GB.
-            - **WAV Ingestion**: Audio converted to standardized 16,000 Hz mono PCM channels to match Wav2Vec2 transformer receptive fields.
+            - **WAV Ingestion**: Audio converted to standardized 16,000 Hz mono PCM channels to match {v_family} transformer receptive fields.
             """
         )
 
@@ -93,7 +109,18 @@ def render_system_notes() -> None:
 def render_model_transparency_section() -> None:
     """Render neural model specifications and citation details derived from config."""
     whisper_size = st.session_state.get("whisper_model_size", getattr(config, "STT_MODEL_SIZE", "base"))
-    voice_model = getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
+    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        voice_arch = Emotion2VecBackend.display_name
+        voice_corpus = Emotion2VecBackend.training_note
+        voice_model = Emotion2VecBackend.model_id
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        voice_arch = SuperbBackend.display_name
+        voice_corpus = SuperbBackend.training_note
+        voice_model = getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
+
     text_model = getattr(config, "TEXT_SENTIMENT_MODEL_NAME", "cardiffnlp/twitter-roberta-base-sentiment-latest")
     diar_model = getattr(config, "DIARIZATION_MODEL_NAME", "pyannote/speaker-diarization-community-1")
 
@@ -102,7 +129,7 @@ def render_model_transparency_section() -> None:
             f"""
             | Pipeline Stage | Model Architecture | Training Corpus | Quantization / Compute | Source ID |
             |---|---|---|---|---|
-            | **Voice Emotion** | Wav2Vec2-Base-SUPERB | IEMOCAP Affective DB | PyTorch FP32 CPU | `{voice_model}` |
+            | **Voice Emotion** | {voice_arch} | {voice_corpus} | PyTorch FP32 CPU | `{voice_model}` |
             | **Speech-to-Text** | Faster-Whisper ({whisper_size}) | Multilingual Web Speech | CTranslate2 INT8 CPU | `openai/whisper-{whisper_size}` |
             | **Text Sentiment** | RoBERTa-Base | TweetEval Benchmark | PyTorch FP32 CPU | `{text_model}` |
             | **Diarization** | Pyannote Community-1 | VoxCeleb / DIHARD | PyTorch CPU | `{diar_model}` |

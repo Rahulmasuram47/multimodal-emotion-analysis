@@ -21,35 +21,73 @@ logger = logging.getLogger(__name__)
 
 
 class VoiceEmotionAnalyzer:
-    """Analyze speech emotion using a pretrained Wav2Vec2 model."""
+    """Analyze speech emotion using a pretrained Wav2Vec2 or pluggable backend model."""
 
     def __init__(self, model_id: Optional[str] = None, backend: Optional[str] = None):
-        # Falls back to the locked-in production model from config.py when
-        # no model_id is given, so existing callers (ConversationAnalyzer,
-        # etc.) keep using the same model as before with zero code changes.
-        # A caller (e.g. the Phase 3 benchmark script) can still pass a
-        # different model_id to compare candidates without touching
-        # production config.
         self.model_id = model_id or config.AUDIO_EMOTION_MODEL_NAME
+        self.fallback_notice: Optional[str] = None
+        self._secondary_backend = None
 
-        # Determine which backend to use
-        backend_name = backend or config.VOICE_BACKEND
+        backend_name = backend or getattr(config, "VOICE_BACKEND", "superb")
 
         if backend_name == "emotion2vec":
-            from app.voice_backends.emotion2vec import Emotion2VecBackend
-            self._backend = Emotion2VecBackend(model_id=model_id)
-            # Stub model/extractor attributes so existing code that reads them
-            # directly still finds something (avoids AttributeError).
-            self.model = None
-            self.extractor = None
-        else:
-            # Default: superb/wav2vec2 — load exactly as before
+            try:
+                from app.voice_backends.emotion2vec import Emotion2VecBackend
+                b_instance = Emotion2VecBackend(model_id=model_id)
+                # Verify loadability to catch missing funasr / network errors early
+                b_instance._load()
+                self._backend = b_instance
+                self.model = None
+                self.extractor = None
+            except Exception as e:
+                logger.warning("Failed to load emotion2vec backend (%s); falling back to superb.", e)
+                self.fallback_notice = f"Failed to load emotion2vec backend ({e}); fell back to SUPERB."
+                backend_name = "superb"
+                self._backend = None
+
+        if backend_name != "emotion2vec":
             logger.info("Loading Wav2Vec2 emotion model: %s", self.model_id)
             self.extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_id)
             self.model = Wav2Vec2ForSequenceClassification.from_pretrained(self.model_id)
             self.model.eval()
             logger.info("Wav2Vec2 emotion model loaded successfully.")
-            self._backend = None  # use legacy path directly
+            from app.voice_backends.superb import SuperbBackend
+            self._backend = SuperbBackend(analyzer=self)
+
+        # Ensemble initialization if enabled
+        if getattr(config, "ENSEMBLE_ENABLED", False):
+            try:
+                if self.backend_name == "superb":
+                    from app.voice_backends.emotion2vec import Emotion2VecBackend
+                    sec = Emotion2VecBackend()
+                    sec._load()
+                    self._secondary_backend = sec
+                else:
+                    from app.voice_backends.superb import SuperbBackend
+                    self._secondary_backend = SuperbBackend()
+            except Exception as e:
+                logger.warning("Failed to initialize secondary ensemble backend: %s", e)
+                self._secondary_backend = None
+
+    @property
+    def backend_name(self) -> str:
+        return getattr(self._backend, "family", "superb") if self._backend else "superb"
+
+    @property
+    def display_name(self) -> str:
+        return getattr(self._backend, "display_name", "Wav2Vec2-SUPERB ER")
+
+    @property
+    def family(self) -> str:
+        return getattr(self._backend, "family", "Wav2Vec2")
+
+    @property
+    def training_note(self) -> str:
+        return getattr(self._backend, "training_note", "IEMOCAP Affective DB")
+
+    @property
+    def confidence_informative(self) -> bool:
+        return getattr(self._backend, "confidence_informative", True)
 
     def _analyze_audio_array(
         self,
@@ -66,39 +104,30 @@ class VoiceEmotionAnalyzer:
         if len(audio) == 0:
             raise ValueError("Audio segment is empty.")
 
-        # Delegate to pluggable backend when one is active
-        if self._backend is not None:
-            return self._backend.predict(audio, sr)
+        # Delegate to pluggable backend
+        result = self._backend.predict(audio, sr)
 
-        inputs = self.extractor(
-            audio,
-            sampling_rate=sr,
-            return_tensors="pt",
-            padding=True,
-        )
+        # Ensemble check if enabled
+        if getattr(config, "ENSEMBLE_ENABLED", False) and self._secondary_backend is not None:
+            try:
+                sec_res = self._secondary_backend.predict(audio, sr)
+                primary_emo = result.get("emotion")
+                sec_emo = sec_res.get("emotion")
+                b_preds = {
+                    getattr(self._backend, "family", "primary"): primary_emo,
+                    getattr(self._secondary_backend, "family", "secondary"): sec_emo,
+                }
+                result["backend_predictions"] = b_preds
+                if primary_emo != sec_emo:
+                    result["uncertain"] = True
+                    result["ensemble_disagreement"] = True
+                else:
+                    result["uncertain"] = False
+                    result["ensemble_disagreement"] = False
+            except Exception as e:
+                logger.warning("Ensemble secondary prediction failed: %s", e)
 
-        with torch.no_grad():
-            logits = self.model(**inputs).logits
-
-        probabilities = torch.softmax(logits, dim=-1)[0]
-
-        predicted_index = int(torch.argmax(probabilities))
-
-        emotion = self.model.config.id2label[predicted_index]
-
-        confidence = float(probabilities[predicted_index])
-
-        scores = {
-            self.model.config.id2label[i]: float(probabilities[i])
-            for i in range(len(probabilities))
-        }
-
-        return {
-            "emotion": emotion,
-            "confidence": confidence,
-            "scores": scores,
-        }
-
+        return result
 
     def analyze(self, audio_path: str) -> Dict[str, Any]:
         """

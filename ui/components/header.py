@@ -54,6 +54,17 @@ def render_header() -> None:
         speaker_id_text = "Off (no token)"
         speaker_chip_style = "color: var(--muted);"
 
+    # Dynamic voice backend metadata
+    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        v_meta_name = Emotion2VecBackend.display_name
+        v_meta_family = Emotion2VecBackend.family
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        v_meta_name = SuperbBackend.display_name
+        v_meta_family = SuperbBackend.family
+
     st.markdown(
         html_block(f"""
 <div class="brand-container">
@@ -66,7 +77,7 @@ def render_header() -> None:
 </div>
 <div class="subtitle">Voice + Speech + Text → Unified Conversation Emotion Analysis</div>
 <div class="header-chips-row">
-<div class="header-chip">🎙️ <strong>Voice Emotion:</strong> Wav2Vec2-SUPERB ER</div>
+<div class="header-chip">🎙️ <strong>Voice Emotion:</strong> {html.escape(v_meta_name)}</div>
 <div class="header-chip">📝 <strong>Speech Recognition:</strong> Whisper STT</div>
 <div class="header-chip">💬 <strong>Text Sentiment:</strong> RoBERTa</div>
 <div class="header-chip">🗣️ <strong>Speaker ID:</strong> <span style="{speaker_chip_style}">{speaker_id_text}</span></div>
@@ -86,6 +97,17 @@ def render_pipeline_steps() -> None:
     whisper_lang = st.session_state.get("whisper_language", getattr(config, "STT_LANGUAGE", "auto"))
     fusion_name = getattr(config, "FUSION_STRATEGY_NAME", "Multi-Evidence Arbitration")
 
+    # Dynamic voice backend metadata
+    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+    if voice_backend_name == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        v_meta_name = Emotion2VecBackend.display_name
+        v_meta_family = Emotion2VecBackend.family
+    else:
+        from app.voice_backends.superb import SuperbBackend
+        v_meta_name = SuperbBackend.display_name
+        v_meta_family = SuperbBackend.family
+
     diar_text = "Active" if diar_status["token_present"] else "Off (no token)"
     diar_color = "var(--positive)" if diar_status["token_present"] else "var(--muted)"
 
@@ -100,7 +122,7 @@ def render_pipeline_steps() -> None:
 <div class="pipeline-step" style="border-top: 3px solid var(--voice);">
 <div class="step-number" style="color: var(--voice);">STEP 02</div>
 <div class="step-name">Multimodal Extraction</div>
-<div class="step-modality">Wav2Vec2 ER + Faster-Whisper ({whisper_size}) + RoBERTa NLP on CPU</div>
+<div class="step-modality">{html.escape(v_meta_family)} ER + Faster-Whisper ({whisper_size}) + RoBERTa NLP on CPU</div>
 </div>
 <div class="pipeline-step" style="border-top: 3px solid var(--positive);">
 <div class="step-number" style="color: var(--positive);">STEP 03</div>
@@ -111,7 +133,7 @@ def render_pipeline_steps() -> None:
 
 <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:6px; padding:0.45rem 0.85rem; margin-bottom:1.0rem; font-family:'IBM Plex Mono',monospace; font-size:0.75rem;">
 <span style="color:var(--muted); font-weight:700;">SYSTEM STATUS:</span>
-<span style="color:var(--voice);">🎙️ Wav2Vec2: Ready</span>
+<span style="color:var(--voice);">🎙️ {html.escape(v_meta_family)}: Ready</span>
 <span style="color:var(--muted);">·</span>
 <span style="color:var(--text);">📝 Whisper: INT8 ({whisper_size}, {whisper_lang})</span>
 <span style="color:var(--muted);">·</span>
@@ -166,11 +188,20 @@ B.Tech Mini-Project AI Pipeline
 
         st.markdown('<div class="sidebar-heading">Models & Architecture</div>', unsafe_allow_html=True)
 
+        # Dynamic voice backend metadata
+        voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
+        if voice_backend_name == "emotion2vec":
+            from app.voice_backends.emotion2vec import Emotion2VecBackend
+            v_sidebar_name = Emotion2VecBackend.display_name
+        else:
+            from app.voice_backends.superb import SuperbBackend
+            v_sidebar_name = SuperbBackend.display_name
+
         st.markdown(
             html_block(f"""
 <div class="sidebar-spec-row">
 <span class="sidebar-spec-key">Acoustic Emotion</span>
-<span class="sidebar-spec-val" style="color: var(--voice);">Wav2Vec2-SUPERB ER</span>
+<span class="sidebar-spec-val" style="color: var(--voice);">{html.escape(v_sidebar_name)}</span>
 </div>
 <div class="sidebar-spec-row">
 <span class="sidebar-spec-key">Speech-to-Text</span>

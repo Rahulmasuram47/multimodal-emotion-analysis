@@ -718,28 +718,41 @@ class ConversationAnalyzer:
                     index + 1,
                 )
 
-        # Margin-based reliability: a near-tie between the top two voice
-        # classes lowers voice reliability (applied to final scores).
-        margin_factor = self._margin_reliability(voice_result.get("scores", {}))
-        voice_result["voice_margin_reliability"] = round(margin_factor, 4)
-        voice_result["voice_reliability"] = round(
-            voice_result.get("voice_reliability", 1.0) * margin_factor, 4
-        )
+        # Check backend confidence_informative
+        conf_informative = getattr(self.emotion_analyzer, "confidence_informative", True)
+        voice_result["confidence_informative"] = conf_informative
 
-        # Tier 4 (Item 32): Low voice confidence check
-        low_v_conf_thresh = getattr(config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
-        v_conf = float(voice_result.get("confidence", 0.0))
-        if v_conf < low_v_conf_thresh:
-            conf_penalty = getattr(config, "LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY", 0.60)
+        if conf_informative:
+            # Margin-based reliability: a near-tie between the top two voice
+            # classes lowers voice reliability (applied to final scores).
+            margin_factor = self._margin_reliability(voice_result.get("scores", {}))
+            voice_result["voice_margin_reliability"] = round(margin_factor, 4)
             voice_result["voice_reliability"] = round(
-                voice_result.get("voice_reliability", 1.0) * conf_penalty, 4
+                voice_result.get("voice_reliability", 1.0) * margin_factor, 4
             )
-            voice_result["is_low_voice_confidence"] = True
+
+            # Tier 4 (Item 32): Low voice confidence check
+            low_v_conf_thresh = getattr(config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
+            v_conf = float(voice_result.get("confidence", 0.0))
+            if v_conf < low_v_conf_thresh:
+                conf_penalty = getattr(config, "LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY", 0.60)
+                voice_result["voice_reliability"] = round(
+                    voice_result.get("voice_reliability", 1.0) * conf_penalty, 4
+                )
+                voice_result["is_low_voice_confidence"] = True
+        else:
+            voice_result["voice_margin_reliability"] = 1.0
+            voice_result["is_low_voice_confidence"] = False
+
+        # Item 4 & 5: If emotion is 'other' or ensemble disagreed, clamp voice reliability to floor
+        floor_other = getattr(config, "VOICE_RELIABILITY_FLOOR_OTHER", 0.35)
+        if voice_result.get("emotion") == "other" or voice_result.get("uncertain", False) or voice_result.get("ensemble_disagreement", False):
+            voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), floor_other)
 
         low_v_rel_display_thresh = getattr(config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
         is_low_v_rel = bool(
             voice_result.get("voice_reliability", 1.0) < low_v_rel_display_thresh
-            or voice_result.get("is_low_voice_confidence", False)
+            or (conf_informative and voice_result.get("is_low_voice_confidence", False))
         )
         voice_result["low_voice_reliability"] = is_low_v_rel
 

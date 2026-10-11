@@ -40,7 +40,15 @@ def render_agreement_strip(segments: List[Dict[str, Any]]) -> None:
         v_dir = str(fusion.get("audio_direction", "unknown")).upper()
         t_dir = str(fusion.get("text_direction", "unknown")).upper()
 
-        if is_abstain:
+        is_unavail = bool(s.get("text_unavailable", False)) or (t_dir.lower() in ("unavailable", "none", "")) or (s.get("text_sentiment") is None)
+
+        if is_unavail:
+            border = "var(--border)"
+            bg = "rgba(148, 163, 184, 0.08)"
+            status = "n/a"
+            status_color = "var(--muted)"
+            t_dir = "N/A"
+        elif is_abstain:
             border = "var(--muted)"
             bg = "rgba(148, 163, 184, 0.12)"
             status = "ABSTAIN"
@@ -143,18 +151,29 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         v_voice = base_voice_v * (0.5 + 0.5 * voice_conf)
 
         fusion = s.get("fusion", {}) or {}
-        eff_weights = fusion.get("effective_weights", {}) or {}
-        w_audio = safe_float(eff_weights.get("audio_weight", 0.5))
-        w_text = safe_float(eff_weights.get("text_weight", 0.5))
-        total_w = w_audio + w_text
-        if total_w > 0:
-            w_audio /= total_w
-            w_text /= total_w
-        else:
-            w_audio, w_text = 0.5, 0.5
+        is_text_unavail = bool(s.get("text_unavailable", False)) or (sentiment is None) or (sentiment.get("sentiment") is None) or (sent_label in ("unavailable", "none", ""))
 
-        # Item 20: Fused valence combining both modalities
-        fused_v = round(w_audio * v_voice + w_text * v_text, 3)
+        if is_text_unavail:
+            fused_v = round(v_voice, 3)
+            hover_detail = f"Valence: {fused_v:+.2f} (Voice-only; Text unavailable)<br>Voice: {voice_label.title()} ({voice_conf:.0%})"
+        else:
+            eff_weights = fusion.get("effective_weights", {}) or {}
+            w_audio = safe_float(eff_weights.get("audio_weight", 0.5))
+            w_text = safe_float(eff_weights.get("text_weight", 0.5))
+            total_w = w_audio + w_text
+            if total_w > 0:
+                w_audio /= total_w
+                w_text /= total_w
+            else:
+                w_audio, w_text = 0.5, 0.5
+
+            # Item 20: Fused valence combining both modalities
+            fused_v = round(w_audio * v_voice + w_text * v_text, 3)
+            hover_detail = (
+                f"Fused Valence: {fused_v:+.2f} (Voice: {v_voice:+.2f} [w={w_audio:.2f}], Text: {v_text:+.2f} [w={w_text:.2f}])<br>"
+                f"Voice: {voice_label.title()} ({voice_conf:.0%}) | Text: {sent_label.title()} ({sent_conf:.0%})"
+            )
+
         valence_scores.append(fused_v)
 
         arousal = fusion.get("audio_arousal")
@@ -166,8 +185,7 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         turn_labels.append(format_turn_label(idx, one_based=False))
         hover_texts.append(
             f"<b>{format_turn_label(idx, one_based=False)}</b><br>"
-            f"Fused Valence: {fused_v:+.2f} (Voice: {v_voice:+.2f} [w={w_audio:.2f}], Text: {v_text:+.2f} [w={w_text:.2f}])<br>"
-            f"Voice: {voice_label.title()} ({voice_conf:.0%}) | Text: {sent_label.title()} ({sent_conf:.0%})<br>"
+            f"{hover_detail}<br>"
             f"Arousal: {arousal:.2f}<br>"
             f"Transcript: {html.escape(str(s.get('transcript', ''))[:45])}..."
         )

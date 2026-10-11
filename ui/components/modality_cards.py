@@ -129,22 +129,43 @@ def render_modality_cards(
             unsafe_allow_html=True,
         )
 
+    is_text_all_unavail = (
+        dominant_text in ("N/A", "unavailable", "unknown", "", None)
+        or (
+            bool(segments)
+            and all(
+                s.get("text_unavailable", False)
+                or (s.get("text_sentiment") is None)
+                or ((s.get("text_sentiment") or {}).get("sentiment") in (None, "unavailable", "unknown", ""))
+                for s in segments
+            )
+        )
+    )
+
     with snap_col2:
+        if is_text_all_unavail:
+            text_card_subtext = "Text sentiment skipped: transcript unreliable or non-English."
+            text_rel_badge = "n/a"
+            text_value_html = """<span>⚪</span><span>N/A</span>"""
+        else:
+            text_card_subtext = "Dominant textual sentiment classified via CardiffNLP RoBERTa transformer embeddings."
+            text_rel_badge = f"{text_reliability:.2f}"
+            text_value_html = f"""<span>{emotion_icon(dominant_text)}</span><span>{html.escape(emotion_code_label(dominant_text))}</span>"""
+
         st.markdown(
             f"""
             <div class="modality-card text-accent">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
                     <div class="card-meta-label">Linguistic Modality (Text)</div>
                     <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 6px; border-radius:4px; font-weight:700;">
-                        REL: {text_reliability:.2f}
+                        REL: {text_rel_badge}
                     </span>
                 </div>
                 <div class="card-highlight-value" style="color: var(--text-accent);">
-                    <span>{emotion_icon(dominant_text)}</span>
-                    <span>{html.escape(emotion_code_label(dominant_text))}</span>
+                    {text_value_html}
                 </div>
                 <div class="card-subtext">
-                    Dominant textual sentiment classified via CardiffNLP RoBERTa transformer embeddings.
+                    {text_card_subtext}
                 </div>
             </div>
             """,
@@ -152,12 +173,25 @@ def render_modality_cards(
         )
 
     with snap_col3:
-        total_segs = max(1, len(segments))
-        agree_pct = (agree_count / total_segs) * 100
+        avail_segs = sum(
+            1 for s in segments
+            if not s.get("text_unavailable", False)
+            and s.get("text_sentiment") is not None
+            and (s.get("text_sentiment") or {}).get("sentiment") not in (None, "unavailable", "")
+        )
+        if avail_segs > 0:
+            agree_pct_str = f"{(agree_count / avail_segs) * 100:.0f}%"
+            agree_stat_str = f"{agree_count}/{avail_segs} Agree"
+            rel_str = f"{combined_reliability:.2f}"
+        else:
+            agree_pct_str = "n/a"
+            agree_stat_str = "n/a (voice-only)"
+            rel_str = "n/a"
+
         abstain_badge = (
             """<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(248,113,113,0.2); color:var(--negative); padding:2px 6px; border-radius:4px; font-weight:700;">ABSTAINED</span>"""
             if abstention
-            else f"""<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.15); color:var(--fused); padding:2px 6px; border-radius:4px; font-weight:700;">REL: {combined_reliability:.2f}</span>"""
+            else f"""<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.15); color:var(--fused); padding:2px 6px; border-radius:4px; font-weight:700;">REL: {rel_str}</span>"""
         )
         st.markdown(
             f"""
@@ -167,10 +201,10 @@ def render_modality_cards(
                     {abstain_badge}
                 </div>
                 <div class="card-highlight-value" style="color: var(--fused);">
-                    <span>⚡ {agree_count}/{total_segs} Agree</span>
+                    <span>⚡ {agree_stat_str}</span>
                 </div>
                 <div class="card-subtext">
-                    Modality agreement: <strong style="color: var(--positive);">{agree_pct:.0f}%</strong> ·
+                    Modality agreement: <strong style="color: var(--positive);">{agree_pct_str}</strong> ·
                     Mismatches: <strong style="color: var(--voice);">{mismatch_count}</strong>
                 </div>
             </div>

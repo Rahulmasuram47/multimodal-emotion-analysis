@@ -392,88 +392,140 @@ class MultimodalFusion:
         audio_emotion = self._normalize_emotion(audio_result.get("emotion", "neutral"))
         audio_confidence = float(audio_result.get("confidence", 0.0))
         audio_reliability = _clamp01(audio_result.get("voice_reliability", 1.0))
-
-        # ---- Text ----
-        text_sentiment = self._normalize_sentiment(text_result.get("sentiment", "neutral"))
-        text_confidence = float(text_result.get("confidence", 0.0))
-        text_reliability = _clamp01(text_result.get("text_reliability", 1.0))
-
-        # ---- Directions ----
         audio_direction = self._emotion_direction(audio_emotion)
-        text_direction = text_sentiment
-
-        # Text arousal is explicitly "unknown": sentiment carries no
-        # arousal signal and this is never guessed.
         audio_arousal = self._voice_arousal(audio_emotion)
         text_arousal = "unknown"
 
-        # ---- Agreement / mismatch ----
-        agreement = audio_direction == text_direction
-        high_audio_confidence = audio_confidence >= self.confidence_threshold
-        high_text_confidence = text_confidence >= self.confidence_threshold
-        mismatch = not agreement and high_audio_confidence and high_text_confidence
-
-        # ---- Effective weights and combined confidence ----
-        effective_audio_weight, effective_text_weight = self._effective_weights(
-            audio_reliability, text_reliability
+        # Check if text modality is unavailable
+        is_text_unavailable = (
+            text_result is None
+            or bool(text_result.get("text_unavailable", False))
+            or text_result.get("sentiment") is None
         )
 
-        combined_confidence = (
-            effective_audio_weight * audio_confidence
-            + effective_text_weight * text_confidence
-        )
+        if is_text_unavailable:
+            effective_audio_weight = 1.0
+            effective_text_weight = 0.0
+            text_sentiment = "unavailable"
+            text_confidence = 0.0
+            text_reliability = 0.0
+            text_direction = "unavailable"
+            agreement = False
+            mismatch = False
+            combined_confidence = audio_confidence
 
-        # ---- Legacy interpretation (kept for backward compatibility) ----
-        if agreement:
-            if audio_direction == "negative":
-                interpretation = "Multimodal negative emotional signal."
-            elif audio_direction == "positive":
-                interpretation = "Multimodal positive emotional signal."
-            else:
-                interpretation = "Multimodal neutral emotional signal."
-        elif mismatch:
-            interpretation = "Voice and text indicate different emotional directions."
-        else:
-            interpretation = "Weak or low-confidence modality disagreement."
-
-        # ---- Declarative pattern rules ----
-        pattern_label, pattern_explanation, rule_ids_fired = self._evaluate_pattern_rules(
-            audio_direction=audio_direction,
-            text_direction=text_direction,
-            audio_arousal=audio_arousal,
-            agreement=agreement,
-            mismatch=mismatch,
-        )
-
-        # ---- Combined reliability & abstention ----
-        combined_reliability = round(
-            effective_audio_weight * audio_reliability
-            + effective_text_weight * text_reliability,
-            4,
-        )
-
-        is_abstention = combined_reliability < self.abstention_threshold
-
-        if is_abstention:
-            pattern_label = "Insufficient reliability. Review audio"
+            pattern_label = "voice-only (text unavailable)"
             pattern_explanation = (
-                f"Combined modality reliability ({combined_reliability:.2f}) is below the "
-                f"abstention threshold ({self.abstention_threshold:.2f}). Voice or text signal "
-                "quality is insufficient for a confident classification. Manual review is recommended."
+                "Text sentiment is unavailable (transcript was non-English, repetitive, or empty). "
+                "Operating in voice-only analysis mode."
             )
-            rule_ids_fired = ["abstention_low_reliability"]
-            interpretation = "Insufficient reliability. Review audio"
+            rule_ids_fired = ["voice_only_text_unavailable"]
+            interpretation = "Voice-only analysis; transcript unavailable or excluded."
 
-        # ---- Counterfactuals ----
-        counterfactuals = self.compute_counterfactuals(
-            audio_emotion=audio_emotion,
-            audio_confidence=audio_confidence,
-            text_sentiment=text_sentiment,
-            text_confidence=text_confidence,
-            audio_arousal=audio_arousal,
-            combined_reliability=combined_reliability,
-            current_pattern=pattern_label,
-        )
+            combined_reliability = round(audio_reliability, 4)
+            is_abstention = combined_reliability < self.abstention_threshold
+
+            if is_abstention:
+                pattern_label = "Insufficient reliability. Review audio"
+                pattern_explanation = (
+                    f"Combined modality reliability ({combined_reliability:.2f}) is below the "
+                    f"abstention threshold ({self.abstention_threshold:.2f}). Voice or text signal "
+                    "quality is insufficient for a confident classification. Manual review is recommended."
+                )
+                rule_ids_fired = ["abstention_low_reliability"]
+                interpretation = "Insufficient reliability. Review audio"
+
+            # Counterfactual sensitivity for voice-only mode
+            counterfactuals = []
+            if combined_reliability < self.abstention_threshold:
+                counterfactuals.append(
+                    f"If voice reliability rose above {self.abstention_threshold:.2f} (currently {combined_reliability:.2f}), "
+                    "the system would produce an active classification instead of abstaining."
+                )
+            else:
+                margin = round(combined_reliability - self.abstention_threshold, 2)
+                counterfactuals.append(
+                    f"Abstention buffer: voice reliability ({combined_reliability:.2f}) is {margin:.2f} above "
+                    f"the abstention cut-off ({self.abstention_threshold:.2f})."
+                )
+            counterfactuals.append(
+                "If reliable text transcript becomes available, multimodal cross-modal arbitration will engage."
+            )
+        else:
+            # ---- Text ----
+            text_sentiment = self._normalize_sentiment(text_result.get("sentiment", "neutral"))
+            text_confidence = float(text_result.get("confidence", 0.0))
+            text_reliability = _clamp01(text_result.get("text_reliability", 1.0))
+            text_direction = text_sentiment
+
+            # ---- Agreement / mismatch ----
+            agreement = audio_direction == text_direction
+            high_audio_confidence = audio_confidence >= self.confidence_threshold
+            high_text_confidence = text_confidence >= self.confidence_threshold
+            mismatch = not agreement and high_audio_confidence and high_text_confidence
+
+            # ---- Effective weights and combined confidence ----
+            effective_audio_weight, effective_text_weight = self._effective_weights(
+                audio_reliability, text_reliability
+            )
+
+            combined_confidence = (
+                effective_audio_weight * audio_confidence
+                + effective_text_weight * text_confidence
+            )
+
+            # ---- Legacy interpretation (kept for backward compatibility) ----
+            if agreement:
+                if audio_direction == "negative":
+                    interpretation = "Multimodal negative emotional signal."
+                elif audio_direction == "positive":
+                    interpretation = "Multimodal positive emotional signal."
+                else:
+                    interpretation = "Multimodal neutral emotional signal."
+            elif mismatch:
+                interpretation = "Voice and text indicate different emotional directions."
+            else:
+                interpretation = "Weak or low-confidence modality disagreement."
+
+            # ---- Declarative pattern rules ----
+            pattern_label, pattern_explanation, rule_ids_fired = self._evaluate_pattern_rules(
+                audio_direction=audio_direction,
+                text_direction=text_direction,
+                audio_arousal=audio_arousal,
+                agreement=agreement,
+                mismatch=mismatch,
+            )
+
+            # ---- Combined reliability & abstention ----
+            combined_reliability = round(
+                effective_audio_weight * audio_reliability
+                + effective_text_weight * text_reliability,
+                4,
+            )
+
+            is_abstention = combined_reliability < self.abstention_threshold
+
+            if is_abstention:
+                pattern_label = "Insufficient reliability. Review audio"
+                pattern_explanation = (
+                    f"Combined modality reliability ({combined_reliability:.2f}) is below the "
+                    f"abstention threshold ({self.abstention_threshold:.2f}). Voice or text signal "
+                    "quality is insufficient for a confident classification. Manual review is recommended."
+                )
+                rule_ids_fired = ["abstention_low_reliability"]
+                interpretation = "Insufficient reliability. Review audio"
+
+            # ---- Counterfactuals ----
+            counterfactuals = self.compute_counterfactuals(
+                audio_emotion=audio_emotion,
+                audio_confidence=audio_confidence,
+                text_sentiment=text_sentiment,
+                text_confidence=text_confidence,
+                audio_arousal=audio_arousal,
+                combined_reliability=combined_reliability,
+                current_pattern=pattern_label,
+            )
+
 
         result = {
             "audio_emotion": audio_emotion,

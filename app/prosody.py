@@ -268,3 +268,150 @@ def compute_voice_arousal(voice_scores: Dict[str, float]) -> float:
 def compute_text_negativity(text_scores: Dict[str, float]) -> float:
     """Probability mass on the 'negative' text-sentiment class."""
     return round(float(text_scores.get("negative", 0.0)), 4)
+
+
+def compute_recording_frame_rms(
+    audio: np.ndarray,
+    sr: int = 16000,
+    hop_length: int = 512,
+) -> np.ndarray:
+    """Compute frame-level RMS energy array across the entire recording."""
+    if len(audio) == 0:
+        return np.array([])
+    try:
+        import librosa
+        return librosa.feature.rms(y=audio, hop_length=hop_length)[0]
+    except Exception:
+        # Fallback to manual frame RMS if librosa is unavailable or fails
+        n_frames = max(1, len(audio) // hop_length)
+        frame_len = hop_length * 2
+        rms_vals = []
+        for i in range(n_frames):
+            start = i * hop_length
+            end = min(len(audio), start + frame_len)
+            frame = audio[start:end]
+            if len(frame) > 0:
+                rms_vals.append(float(np.sqrt(np.mean(np.square(frame)))))
+        return np.array(rms_vals)
+
+
+def compute_segment_acoustic_descriptors(
+    f0_slice: Optional[np.ndarray],
+    voiced_slice: Optional[np.ndarray],
+    rms_slice: Optional[np.ndarray],
+    n_words: int,
+    duration: float,
+    rec_rms_percentiles: Optional[Tuple[float, float]] = None,
+    n_recording_segments: int = 1,
+    is_text_unavailable: bool = False,
+    asr_flags: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Compute acoustic descriptors for a segment without altering fusion/intensity."""
+    # 1. Pitch trend & range
+    pitch_trend = "n/a"
+    pitch_trend_st: Optional[float] = None
+    pitch_range_st: Optional[float] = None
+
+    if f0_slice is not None and len(f0_slice) > 0:
+        if voiced_slice is not None and len(voiced_slice) == len(f0_slice):
+            voiced_mask = voiced_slice & ~np.isnan(f0_slice) & (f0_slice > 0)
+        else:
+            voiced_mask = ~np.isnan(f0_slice) & (f0_slice > 0)
+
+        voiced_f0 = f0_slice[voiced_mask]
+        n_voiced = len(voiced_f0)
+
+        # Semitone conversion: 12 * log2(f / f_ref)
+        f_ref = getattr(config, "PITCH_F_REF_HZ", 440.0)
+        if n_voiced >= 2:
+            voiced_st = 12.0 * np.log2(voiced_f0 / f_ref)
+            p90 = float(np.percentile(voiced_st, 90))
+            p10 = float(np.percentile(voiced_st, 10))
+            pitch_range_st = round(float(p90 - p10), 2)
+        elif n_voiced == 1:
+            pitch_range_st = 0.0
+
+        # Pitch trend requires >= 10 voiced frames in total and >= 4 in each third of segment
+        n_frames = len(f0_slice)
+        if n_voiced >= 10 and n_frames >= 3:
+            one_third = n_frames // 3
+            first_third_f0 = f0_slice[:one_third]
+            last_third_f0 = f0_slice[2 * one_third:]
+
+            if voiced_slice is not None and len(voiced_slice) == len(f0_slice):
+                v_first = first_third_f0[voiced_slice[:one_third] & ~np.isnan(first_third_f0) & (first_third_f0 > 0)]
+                v_last = last_third_f0[voiced_slice[2 * one_third:] & ~np.isnan(last_third_f0) & (last_third_f0 > 0)]
+            else:
+                v_first = first_third_f0[~np.isnan(first_third_f0) & (first_third_f0 > 0)]
+                v_last = last_third_f0[~np.isnan(last_third_f0) & (last_third_f0 > 0)]
+
+            if len(v_first) >= 4 and len(v_last) >= 4:
+                st_first = 12.0 * np.log2(v_first / f_ref)
+                st_last = 12.0 * np.log2(v_last / f_ref)
+                delta_st = float(np.median(st_last) - np.median(st_first))
+                pitch_trend_st = round(delta_st, 2)
+                trend_thresh = getattr(config, "PITCH_TREND_ST", 2.0)
+                if delta_st > trend_thresh:
+                    pitch_trend = "rising"
+                elif delta_st < -trend_thresh:
+                    pitch_trend = "falling"
+                else:
+                    pitch_trend = "flat"
+
+    # 2. Energy level & pause ratio
+    energy_level: Optional[str] = None
+    energy_dbfs: Optional[float] = None
+    pause_ratio: float = 0.0
+
+    if rms_slice is not None and len(rms_slice) > 0:
+        rms_db = 20.0 * np.log10(rms_slice + 1e-9)
+        seg_median_db = float(np.median(rms_db))
+        energy_dbfs = round(seg_median_db, 1)
+
+        pause_db_delta = getattr(config, "PAUSE_DB_BELOW_PEAK", 20.0)
+        peak_db = float(np.max(rms_db))
+        pause_thresh = peak_db - pause_db_delta
+        pause_frames = np.sum(rms_db < pause_thresh)
+        pause_ratio = round(float(pause_frames / len(rms_slice)), 3)
+
+        if n_recording_segments >= 3 and rec_rms_percentiles is not None:
+            p_low, p_high = rec_rms_percentiles
+            if seg_median_db < p_low:
+                energy_level = "low"
+            elif seg_median_db > p_high:
+                energy_level = "high"
+            else:
+                energy_level = "medium"
+
+    # 3. Speaking rate
+    speaking_rate_wps: Optional[float] = None
+    rate_band = "n/a"
+
+    asr_flags = asr_flags or []
+    is_text_invalid = is_text_unavailable or ("non_english" in asr_flags) or ("repetition" in asr_flags)
+
+    if not is_text_invalid and duration >= 1.5:
+        pause_dur = pause_ratio * duration
+        active_duration = max(0.01, duration - pause_dur)
+        wps = float(n_words / active_duration)
+        speaking_rate_wps = round(wps, 2)
+
+        slow_thresh = getattr(config, "RATE_SLOW_WPS", 1.8)
+        fast_thresh = getattr(config, "RATE_FAST_WPS", 3.3)
+        if wps < slow_thresh:
+            rate_band = "slow"
+        elif wps > fast_thresh:
+            rate_band = "fast"
+        else:
+            rate_band = "moderate"
+
+    return {
+        "pitch_trend": pitch_trend,
+        "pitch_trend_semitones": pitch_trend_st,
+        "pitch_range_st": pitch_range_st,
+        "energy_level": energy_level,
+        "energy_dbfs": energy_dbfs,
+        "pause_ratio": pause_ratio,
+        "speaking_rate_wps": speaking_rate_wps,
+        "rate_band": rate_band,
+    }

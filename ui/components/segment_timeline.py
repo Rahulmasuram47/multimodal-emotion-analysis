@@ -318,11 +318,38 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                     unsafe_allow_html=True,
                 )
 
+            # ASR and Language reliability warnings
+            asr_flags = segment.get("asr_flags", []) or []
+            is_text_unavail = segment.get("text_unavailable", False)
+            detected_lang = segment.get("language") or getattr(_config, "STT_LANGUAGE", "unknown")
+            lang_prob = safe_float(segment.get("language_probability", 0.0))
+
+            if is_text_unavail or "non_english" in asr_flags or "repetition" in asr_flags:
+                prob_str = f" ({lang_prob:.0%} prob)" if lang_prob > 0 else ""
+                lang_str = f" [{detected_lang}{prob_str}]" if detected_lang and detected_lang != "unknown" else ""
+                st.markdown(
+                    html_block(f"""
+<div style="background: rgba(248, 113, 113, 0.12); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--negative);">
+⚠️ <strong>Transcript unreliable or non-English: text sentiment skipped</strong>{html.escape(lang_str)}
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
+            elif "low_language_confidence" in asr_flags:
+                st.markdown(
+                    html_block(f"""
+<div style="background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--warning);">
+⚠️ <strong>Language confidence low: text sentiment may be unreliable</strong>
+</div>
+"""),
+                    unsafe_allow_html=True,
+                )
+
             # Item 15: use config threshold for low ASR confidence badge
             low_asr_threshold = getattr(_config, "LOW_ASR_CONFIDENCE_DISPLAY_THRESHOLD", 0.65)
             seg_text_rel = safe_float(segment.get("text_reliability", fusion.get("text_reliability", 1.0)))
             seg_low_conf = bool(segment.get("is_low_confidence", False) or seg_text_rel < low_asr_threshold)
-            if seg_low_conf:
+            if seg_low_conf and not is_text_unavail:
                 st.markdown(
                     html_block(f"""
 <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--text);">
@@ -376,16 +403,28 @@ Confidence: <strong style="color: var(--voice);">{v_conf:.1%}</strong>{uncal_tag
                 )
 
             with card_col2:
-                st.markdown(
-                    html_block(f"""
-<div class="segment-card text">
-<div class="card-meta-label" style="color: var(--text-accent);">💬 TEXT SENTIMENT</div>
+                if is_text_unavail or t_sentiment_raw in ("unavailable", "unknown", "none"):
+                    text_card_body = """
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--muted); margin-bottom: 0.35rem;">
+⚪ UNAVAILABLE
+</div>
+<div style="font-size: 0.72rem; color: var(--muted);">
+Text sentiment skipped
+</div>"""
+                else:
+                    text_card_body = f"""
 <div style="font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">
 {emotion_icon(t_sentiment_raw)} {html.escape(t_sentiment_display.upper())}
 </div>
 <div style="font-size: 0.72rem; color: var(--muted);">
 Confidence: <strong style="color: var(--text-accent);">{t_conf:.1%}</strong>
-</div>
+</div>"""
+
+                st.markdown(
+                    html_block(f"""
+<div class="segment-card text">
+<div class="card-meta-label" style="color: var(--text-accent);">💬 TEXT SENTIMENT</div>
+{text_card_body}
 </div>
 """),
                     unsafe_allow_html=True,
@@ -408,6 +447,68 @@ Evidence Strength: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
                     unsafe_allow_html=True,
                 )
 
+            # Acoustic Descriptors (independent of Intensity v2)
+            desc = segment.get("acoustic_descriptors") or {}
+            p_trend = desc.get("pitch_trend", "n/a")
+            p_trend_st = desc.get("pitch_trend_semitones")
+            p_range_st = desc.get("pitch_range_st")
+            e_level = desc.get("energy_level")
+            e_dbfs = desc.get("energy_dbfs")
+            r_band = desc.get("rate_band", "n/a")
+            r_wps = desc.get("speaking_rate_wps")
+
+            # Format Pitch Chip
+            p_trend_title = f"Pitch trend: {p_trend}"
+            if p_trend_st is not None:
+                p_trend_title += f" ({p_trend_st:+.1f} st)"
+            if p_range_st is not None:
+                p_trend_title += f" | Range: {p_range_st:.1f} st"
+            p_chip_text = f"Pitch {p_trend}" if p_trend != "n/a" else "Pitch: n/a"
+
+            # Format Energy Chip / Text
+            if e_level is not None:
+                e_chip_text = f"Energy {e_level}"
+                e_title = f"Energy relative level: {e_level} ({e_dbfs} dBFS)" if e_dbfs is not None else f"Energy: {e_level}"
+            elif e_dbfs is not None:
+                e_chip_text = f"Energy: {e_dbfs:.1f} dBFS"
+                e_title = f"Absolute RMS energy: {e_dbfs:.1f} dBFS (recording has < 3 segments)"
+            else:
+                e_chip_text = "Energy: n/a"
+                e_title = "Energy: n/a"
+
+            # Format Rate Chip
+            if r_band != "n/a":
+                r_chip_text = f"Rate {r_band}"
+                r_title = f"Speaking rate: {r_band} ({r_wps:.2f} wps)" if r_wps is not None else f"Speaking rate: {r_band}"
+            else:
+                r_chip_text = "Rate: n/a"
+                r_title = "Speaking rate: n/a (short segment or text unavailable)"
+
+            st.markdown(
+                html_block(f"""
+<div style="background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin-top: 0.4rem; margin-bottom: 0.4rem;">
+<div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;">
+Acoustic descriptors (not emotions)
+</div>
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.12); color:#38bdf8; padding:2px 8px; border-radius:4px; border:1px solid rgba(56,189,248,0.25);" title="{html.escape(p_trend_title)}">
+{html.escape(p_chip_text)}
+</span>
+<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(234,179,8,0.12); color:#eab308; padding:2px 8px; border-radius:4px; border:1px solid rgba(234,179,8,0.25);" title="{html.escape(e_title)}">
+{html.escape(e_chip_text)}
+</span>
+<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(168,85,247,0.12); color:#c084fc; padding:2px 8px; border-radius:4px; border:1px solid rgba(168,85,247,0.25);" title="{html.escape(r_title)}">
+{html.escape(r_chip_text)}
+</span>
+</div>
+<div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; line-height: 1.25;">
+Independent of the Intensity v2 prosody component.
+</div>
+</div>
+"""),
+                unsafe_allow_html=True,
+            )
+
             st.markdown(
                 render_channel_meters_html(
                     voice_label=v_emotion_raw,
@@ -419,7 +520,10 @@ Evidence Strength: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
                 unsafe_allow_html=True,
             )
 
-            if agreement:
+            if is_text_unavail:
+                badge_class = "info"
+                badge_text = "🎙️ Voice-Only Analysis (Text Unavailable)"
+            elif agreement:
                 badge_class = "ok"
                 badge_text = "✓ Voice & Text Modalities Agree"
             elif mismatch:
@@ -468,11 +572,12 @@ Text Dir: <strong style="color: var(--text);">{html.escape(text_dir)}</strong>
             _render_why_this_result(fusion)
 
             # Item 14: incongruence card called WITHOUT repeating disclaimer
-            render_incongruence_card(
-                acoustic_label=v_emotion_display,
-                acoustic_confidence=v_conf,
-                text_label=t_sentiment_display,
-                text_confidence=t_conf,
-                title=f"{title_prefix} MODALITY INCONGRUENCE",
-                show_disclaimer=False,  # already shown at page level
-            )
+            if not is_text_unavail:
+                render_incongruence_card(
+                    acoustic_label=v_emotion_display,
+                    acoustic_confidence=v_conf,
+                    text_label=t_sentiment_display,
+                    text_confidence=t_conf,
+                    title=f"{title_prefix} MODALITY INCONGRUENCE",
+                    show_disclaimer=False,  # already shown at page level
+                )

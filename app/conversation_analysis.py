@@ -39,6 +39,8 @@ from app.prosody import (
     compute_text_negativity,
     compute_recording_loudness_percentiles,
     compute_recording_f0,
+    compute_recording_frame_rms,
+    compute_segment_acoustic_descriptors,
 )
 from app.consistency_analysis import (
     compute_consistency_trajectory,
@@ -217,27 +219,64 @@ class ConversationAnalyzer:
             word_timestamps=word_timestamps,
         )
         voice_arousal = compute_voice_arousal(voice_scores)
-        text_negativity = compute_text_negativity(text_scores)
 
-        intensity = (
-            config.INTENSITY_V2_WEIGHT_PROSODY * prosody_result.arousal
-            + config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL * voice_arousal
-            + config.INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY * text_negativity
-        )
-        intensity = round(min(1.0, max(0.0, intensity)), 4)
-
-        components = {
-            "formula_version": "v2",
-            "prosodic_arousal": prosody_result.arousal,
-            "prosody_components": prosody_result.components,
-            "voice_arousal": voice_arousal,
-            "text_negativity": text_negativity,
-            "weights": {
-                "prosody": config.INTENSITY_V2_WEIGHT_PROSODY,
-                "voice_arousal": config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL,
-                "text_negativity": config.INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY,
-            },
-        }
+        text_available = bool(text_scores)
+        if text_available:
+            text_negativity = compute_text_negativity(text_scores)
+            w_p = config.INTENSITY_V2_WEIGHT_PROSODY
+            w_v = config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL
+            w_t = config.INTENSITY_V2_WEIGHT_TEXT_NEGATIVITY
+            tot_w = w_p + w_v + w_t
+            if tot_w > 0:
+                w_p_eff, w_v_eff, w_t_eff = w_p / tot_w, w_v / tot_w, w_t / tot_w
+            else:
+                w_p_eff, w_v_eff, w_t_eff = 0.35, 0.35, 0.30
+            intensity = (
+                w_p_eff * prosody_result.arousal
+                + w_v_eff * voice_arousal
+                + w_t_eff * text_negativity
+            )
+            intensity = round(min(1.0, max(0.0, intensity)), 4)
+            components = {
+                "formula_version": "v2",
+                "prosodic_arousal": prosody_result.arousal,
+                "prosody_components": prosody_result.components,
+                "voice_arousal": voice_arousal,
+                "text_negativity": text_negativity,
+                "weights": {
+                    "prosody": round(w_p_eff, 4),
+                    "voice_arousal": round(w_v_eff, 4),
+                    "text_negativity": round(w_t_eff, 4),
+                },
+            }
+        else:
+            text_negativity = 0.0
+            w_p = config.INTENSITY_V2_WEIGHT_PROSODY
+            w_v = config.INTENSITY_V2_WEIGHT_VOICE_AROUSAL
+            tot_w = w_p + w_v
+            if tot_w > 0:
+                w_p_eff = round(w_p / tot_w, 4)
+                w_v_eff = round(w_v / tot_w, 4)
+            else:
+                w_p_eff, w_v_eff = 0.5, 0.5
+            w_t_eff = 0.0
+            intensity = (
+                w_p_eff * prosody_result.arousal
+                + w_v_eff * voice_arousal
+            )
+            intensity = round(min(1.0, max(0.0, intensity)), 4)
+            components = {
+                "formula_version": "v2",
+                "prosodic_arousal": prosody_result.arousal,
+                "prosody_components": prosody_result.components,
+                "voice_arousal": voice_arousal,
+                "text_negativity": None,
+                "weights": {
+                    "prosody": w_p_eff,
+                    "voice_arousal": w_v_eff,
+                    "text_negativity": 0.0,
+                },
+            }
 
         return intensity, components
 
@@ -615,6 +654,9 @@ class ConversationAnalyzer:
         recording_percentiles: Optional[Tuple[float, float]] = None,
         rec_f0: Optional[np.ndarray] = None,
         rec_voiced_flags: Optional[np.ndarray] = None,
+        rec_rms: Optional[np.ndarray] = None,
+        n_recording_segments: int = 1,
+        asr_recording_flags: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single transcript segment.
@@ -645,12 +687,18 @@ class ConversationAnalyzer:
         hop_len = getattr(config, "HOP_LENGTH", 512)
         f0_seg = None
         voiced_seg = None
+        rms_seg = None
         if rec_f0 is not None and len(rec_f0) > 0:
             idx_start = max(0, int((start * sr) // hop_len))
             idx_end = min(len(rec_f0), max(idx_start + 1, int((end * sr) // hop_len)))
             f0_seg = rec_f0[idx_start:idx_end]
             if rec_voiced_flags is not None and len(rec_voiced_flags) == len(rec_f0):
                 voiced_seg = rec_voiced_flags[idx_start:idx_end]
+
+        if rec_rms is not None and len(rec_rms) > 0:
+            rms_idx_start = max(0, int((start * sr) // hop_len))
+            rms_idx_end = min(len(rec_rms), max(rms_idx_start + 1, int((end * sr) // hop_len)))
+            rms_seg = rec_rms[rms_idx_start:rms_idx_end]
 
         # Raw (unwidened) audio slice for this segment's transcript window,
         # used by voice calibration and the v2 intensity formula.
@@ -756,24 +804,44 @@ class ConversationAnalyzer:
         )
         voice_result["low_voice_reliability"] = is_low_v_rel
 
-        try:
-            sentiment_result = self.sentiment_analyzer.analyze(text)
-        except Exception:
-            logger.exception(
-                "Text sentiment analysis failed for segment %d; skipping.",
-                index + 1,
-            )
-            return None
+        # ASR validation checks
+        asr_flags: List[str] = list(asr_recording_flags or [])
+        tokens = [t.lower() for t in text.split() if t.strip()]
+        if len(tokens) >= 8:
+            rep_ratio_thresh = getattr(config, "REPETITION_RATIO_MAX", 0.8)
+            unique_tokens = len(set(tokens))
+            rep_ratio = 1.0 - (unique_tokens / float(len(tokens)))
+            if rep_ratio >= rep_ratio_thresh:
+                if "repetition" not in asr_flags:
+                    asr_flags.append("repetition")
 
-        # Text reliability from the ASR confidence flag, so fusion can
-        # down-weight a segment whose transcript itself was uncertain.
-        if "text_reliability" in raw_segment:
-            sentiment_result["text_reliability"] = float(raw_segment["text_reliability"])
+        is_text_unavailable = ("non_english" in asr_flags or "repetition" in asr_flags)
+
+        if is_text_unavailable:
+            sentiment_result = None
+            sentiment_scores = {}
+            text_rel = 0.0
         else:
-            is_low_confidence_asr = bool(raw_segment.get("is_low_confidence", False))
-            sentiment_result["text_reliability"] = (
-                config.FUSION_TEXT_LOW_ASR_RELIABILITY if is_low_confidence_asr else 1.0
-            )
+            try:
+                sentiment_result = self.sentiment_analyzer.analyze(text)
+            except Exception:
+                logger.exception(
+                    "Text sentiment analysis failed for segment %d; skipping.",
+                    index + 1,
+                )
+                return None
+
+            # Text reliability from the ASR confidence flag, so fusion can
+            # down-weight a segment whose transcript itself was uncertain.
+            if "text_reliability" in raw_segment:
+                sentiment_result["text_reliability"] = float(raw_segment["text_reliability"])
+            else:
+                is_low_confidence_asr = bool(raw_segment.get("is_low_confidence", False))
+                sentiment_result["text_reliability"] = (
+                    config.FUSION_TEXT_LOW_ASR_RELIABILITY if is_low_confidence_asr else 1.0
+                )
+            sentiment_scores = sentiment_result.get("scores", {})
+            text_rel = float(sentiment_result.get("text_reliability", 1.0))
 
         try:
             fusion_result = self.fusion.fuse(voice_result, sentiment_result)
@@ -793,16 +861,16 @@ class ConversationAnalyzer:
             "transcript": text,
             "voice_emotion": voice_result,
             "text_sentiment": sentiment_result,
+            "text_unavailable": is_text_unavailable,
+            "asr_flags": asr_flags,
             "fusion": fusion_result,
-            "text_reliability": float(sentiment_result.get("text_reliability", 1.0)),
+            "text_reliability": text_rel,
             "voice_reliability": float(voice_result.get("voice_reliability", 1.0)),
             "low_voice_reliability": is_low_v_rel,
             "is_low_confidence": bool(raw_segment.get("is_low_confidence", False)),
             "acoustic_window_widened": was_widened,
             "segment_duration": max(0.0, end - start),
         }
-
-
 
         # Intensity — v2 by default, with a defensive fallback to v1.
         try:
@@ -811,7 +879,7 @@ class ConversationAnalyzer:
                 seg_duration = max(0.0, end - start)
                 intensity_v2, intensity_components = self._calculate_intensity_v2(
                     voice_scores=voice_result.get("scores", {}),
-                    text_scores=sentiment_result.get("scores", {}),
+                    text_scores=sentiment_scores,
                     audio_segment=segment_audio,
                     sr=sr,
                     word_count=word_count,
@@ -842,6 +910,34 @@ class ConversationAnalyzer:
                 )
                 segment_result["intensity"] = 0.0
                 segment_result["intensity_components"] = {}
+
+        # Acoustic Descriptors (independent of Intensity v2)
+        try:
+            seg_duration = max(0.0, end - start)
+            word_count = len(text.split())
+            segment_result["acoustic_descriptors"] = compute_segment_acoustic_descriptors(
+                f0_slice=f0_seg,
+                voiced_slice=voiced_seg,
+                rms_slice=rms_seg,
+                n_words=word_count,
+                duration=seg_duration,
+                rec_rms_percentiles=recording_percentiles,
+                n_recording_segments=n_recording_segments,
+                is_text_unavailable=is_text_unavailable,
+                asr_flags=asr_flags,
+            )
+        except Exception:
+            logger.exception("Acoustic descriptors computation failed for segment %d.", index + 1)
+            segment_result["acoustic_descriptors"] = {
+                "pitch_trend": "n/a",
+                "pitch_trend_semitones": None,
+                "pitch_range_st": None,
+                "energy_level": None,
+                "energy_dbfs": None,
+                "pause_ratio": 0.0,
+                "speaking_rate_wps": None,
+                "rate_band": "n/a",
+            }
 
         return segment_result
 
@@ -940,12 +1036,35 @@ class ConversationAnalyzer:
         try:
             recording_percentiles = compute_recording_loudness_percentiles(audio, sr)
             rec_f0, rec_voiced_flags = compute_recording_f0(audio, sr)
+            rec_rms = compute_recording_frame_rms(audio, sr)
         except Exception:
             logger.exception(
                 "Failed to compute recording prosody baseline; falling back to segment defaults."
             )
             recording_percentiles = None
             rec_f0, rec_voiced_flags = None, None
+            rec_rms = None
+
+        # Check recording-level ASR language flags
+        detected_lang = str(transcription.get("language", "unknown") or "unknown").strip().lower()
+        lang_prob = float(transcription.get("language_probability", 0.0) or 0.0)
+        user_forced_language = bool(
+            getattr(self.speech_to_text, "language", None)
+            and self.speech_to_text.language != "auto"
+        )
+        non_english_min_prob = getattr(config, "NON_ENGLISH_MIN_PROB", 0.6)
+        low_lang_conf_thresh = getattr(config, "LOW_LANG_CONF", 0.5)
+
+        recording_asr_flags: List[str] = []
+        if (
+            not user_forced_language
+            and detected_lang not in ("en", "unknown")
+            and lang_prob >= non_english_min_prob
+        ):
+            recording_asr_flags.append("non_english")
+
+        if lang_prob < low_lang_conf_thresh:
+            recording_asr_flags.append("low_language_confidence")
 
         # ---- Analyze each transcript segment ----
         t_segments_start = time.perf_counter()
@@ -968,6 +1087,9 @@ class ConversationAnalyzer:
                 recording_percentiles,
                 rec_f0,
                 rec_voiced_flags,
+                rec_rms=rec_rms,
+                n_recording_segments=total,
+                asr_recording_flags=recording_asr_flags,
             )
 
             if segment_result is not None:
@@ -1085,6 +1207,7 @@ class ConversationAnalyzer:
             "sample_rate": sr,
             "language": transcription.get("language", "unknown"),
             "language_probability": float(transcription.get("language_probability", 0.0)),
+            "asr_flags": recording_asr_flags,
             "full_transcript": transcription.get("text", ""),
             "segments": analyzed_segments,
             "emotional_trend": trend_result,

@@ -260,7 +260,12 @@ def run_pipeline_on_sample(
             v_confs = [safe_float(s.get("voice_emotion", {}).get("confidence", 0.0)) for s in segments if s.get("voice_emotion")]
             v_conf = float(sum(v_confs) / len(v_confs)) if v_confs else 0.0
 
-            s_confs = [safe_float(s.get("text_sentiment", {}).get("confidence", 0.0)) for s in segments if s.get("text_sentiment")]
+            s_confs = [
+                safe_float(s.get("text_sentiment", {}).get("confidence", 0.0))
+                for s in segments
+                if s.get("text_sentiment") and not s.get("text_unavailable", False)
+                and s.get("text_sentiment", {}).get("sentiment") not in (None, "unavailable", "")
+            ]
             s_conf = float(sum(s_confs) / len(s_confs)) if s_confs else 0.0
 
             per_segment_predictions = ", ".join([

@@ -32,10 +32,15 @@ def build_key_finding(
     separately, because the fused verdict can differ from the voice-only
     direction (e.g. voice turns negative while confident text stays positive).
     """
+    # Single-turn guard
+    if len(segments) == 1:
+        return "Single turn: too few turns to assess a trend."
+
     # Build per-turn voice and text label counts for the "predominantly" test
     voice_per_turn: Dict[str, int] = {}
     text_per_turn: Dict[str, int] = {}
     for idx, seg in enumerate(segments):
+
         v_raw = (seg.get("voice_emotion") or {}).get("emotion")
         if not v_raw or v_raw == "unknown":
             v_raw = dominant_voice
@@ -69,7 +74,17 @@ def build_key_finding(
         voice_desc = f"Voice is predominantly {v_top}"
 
     # Text description
-    if segments:
+    all_text_unavail = (
+        dominant_text in ("N/A", "unavailable", "unknown", "", None)
+        or (
+            bool(segments)
+            and all(seg.get("text_unavailable", False) for seg in segments)
+        )
+    )
+
+    if all_text_unavail:
+        text_desc = "text sentiment is unavailable (voice-only analysis)"
+    elif segments:
         t_is_pred, t_top, t_mixed = predominantly_label(text_per_turn, turn_sequence=t_seq)
         if t_is_pred:
             text_desc = f"text sentiment is predominantly {t_top}"
@@ -91,7 +106,8 @@ def build_key_finding(
     # Direction transition: voice and text are reported separately.
     if segments:
         def _dir(seg: Dict[str, Any], key: str) -> str:
-            return str((seg.get("fusion") or {}).get(key, "")).lower()
+            val = str((seg.get("fusion") or {}).get(key, "")).lower()
+            return val if val not in ("unavailable", "unknown", "none") else ""
 
         v_first = _dir(segments[0], "audio_direction")
         v_last = _dir(segments[-1], "audio_direction")
@@ -100,7 +116,12 @@ def build_key_finding(
         v_changed = bool(v_first and v_last and v_first != v_last)
         t_changed = bool(t_first and t_last and t_first != t_last)
 
-        if v_changed and t_changed:
+        if all_text_unavail:
+            if v_changed:
+                transition = f"Voice direction moved from {v_first} toward {v_last}."
+            else:
+                transition = "Vocal emotional direction remained consistent across the conversation."
+        elif v_changed and t_changed:
             transition = (
                 f"Voice direction moved from {v_first} toward {v_last}, "
                 f"and text direction moved from {t_first} toward {t_last}."

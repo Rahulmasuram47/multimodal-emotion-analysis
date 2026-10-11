@@ -80,6 +80,7 @@ def render_fusion_explainer() -> None:
                - `mismatch_negative_text_positive_voice`: Negative text with positive voice tone ($c_{\text{audio}}, c_{\text{text}} \ge \theta$).
                - `mismatch_generic`: Conflicting directions with both confidences $\ge \theta$.
                - `weak_disagreement`: Opposing or differing directions with at least one modality confidence below threshold $\theta$.
+               - `voice_only_text_unavailable`: Transcript is non-English, repetitive, or empty; text sentiment is skipped and system operates in voice-only analysis mode ($w_{\text{eff, audio}} = 1.0, w_{\text{eff, text}} = 0.0$).
                - `abstention_low_reliability`: Triggered when combined reliability $r_{\text{combined}} < \tau_{\text{abstain}}$ (default $0.35$).
             """,
             unsafe_allow_html=True,

@@ -147,6 +147,11 @@ STT_LANGUAGE: str = 'auto'
 STT_LOW_CONFIDENCE_AVG_LOGPROB: float = -1.0   # more negative = less confident
 STT_HIGH_NO_SPEECH_PROB_THRESHOLD: float = 0.6  # closer to 1.0 = likely non-speech
 
+# ASR validation guards
+REPETITION_RATIO_MAX: float = 0.8  # with at least 8 tokens, repetition ratio >= threshold flags segment
+NON_ENGLISH_MIN_PROB: float = 0.6  # detected language != 'en' with prob >= threshold flags non_english
+LOW_LANG_CONF: float = 0.5         # warning only when language probability < threshold
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4: Prosody-Based Intensity
@@ -204,6 +209,15 @@ PROSODY_WEIGHT_SPEECH_RATE: float = 0.20
 
 # Backward compatibility aliases
 PROSODY_WEIGHT_RMS: float = PROSODY_WEIGHT_LOUDNESS
+
+# Segment Acoustic Descriptors (independent of Intensity v2)
+PITCH_TREND_ST: float = 2.0                 # Semitones threshold for rising (> +2) or falling (< -2)
+PITCH_F_REF_HZ: float = 440.0               # Reference frequency for semitone conversion (A4)
+RATE_SLOW_WPS: float = 1.8                  # Words per active second threshold for slow speaking rate
+RATE_FAST_WPS: float = 3.3                  # Words per active second threshold for fast speaking rate
+PAUSE_DB_BELOW_PEAK: float = 20.0           # Frames below peak RMS dB by this delta are treated as pause
+ENERGY_LEVEL_PERCENTILE_LOW: float = 33.3   # Recording frame RMS-dB percentile for low energy
+ENERGY_LEVEL_PERCENTILE_HIGH: float = 66.7  # Recording frame RMS-dB percentile for high energy
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4: Escalation Detection

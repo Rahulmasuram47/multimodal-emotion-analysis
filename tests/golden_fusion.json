@@ -1,0 +1,62 @@
+{
+  "agree_neg_high": {
+    "pattern_label": "high-arousal negative pattern",
+    "rule_ids_fired": [
+      "agreement_negative_high_arousal"
+    ],
+    "agreement": true,
+    "mismatch": false,
+    "abstention": false,
+    "audio_direction": "negative",
+    "text_direction": "negative",
+    "combined_reliability": 1.0
+  },
+  "agree_pos": {
+    "pattern_label": "positive pattern",
+    "rule_ids_fired": [
+      "agreement_positive"
+    ],
+    "agreement": true,
+    "mismatch": false,
+    "abstention": false,
+    "audio_direction": "positive",
+    "text_direction": "positive",
+    "combined_reliability": 1.0
+  },
+  "mismatch": {
+    "pattern_label": "incongruence: negative text, positive-toned voice",
+    "rule_ids_fired": [
+      "mismatch_negative_text_positive_voice"
+    ],
+    "agreement": false,
+    "mismatch": true,
+    "abstention": false,
+    "audio_direction": "positive",
+    "text_direction": "negative",
+    "combined_reliability": 1.0
+  },
+  "weak": {
+    "pattern_label": "incongruence: directional mismatch",
+    "rule_ids_fired": [
+      "mismatch_generic"
+    ],
+    "agreement": false,
+    "mismatch": true,
+    "abstention": false,
+    "audio_direction": "neutral",
+    "text_direction": "positive",
+    "combined_reliability": 0.7533
+  },
+  "abstention": {
+    "pattern_label": "Insufficient reliability. Review audio",
+    "rule_ids_fired": [
+      "abstention_low_reliability"
+    ],
+    "agreement": false,
+    "mismatch": false,
+    "abstention": true,
+    "audio_direction": "negative",
+    "text_direction": "neutral",
+    "combined_reliability": 0.3
+  }
+}

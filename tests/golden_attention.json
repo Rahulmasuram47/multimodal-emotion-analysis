@@ -1,0 +1,6 @@
+{
+  "2seg_nomismatch": {"attention_score": 0.175, "mismatch_contribution": 0.0, "intensity_contribution": 0.175, "escalation_contribution": 0.0, "mismatch_rate": 0.0, "average_intensity": 0.5},
+  "2seg_mismatch1": {"attention_score": 0.41, "mismatch_contribution": 0.2, "intensity_contribution": 0.21, "escalation_contribution": 0.0, "mismatch_rate": 0.5, "average_intensity": 0.6},
+  "3seg_mismatch2": {"attention_score": 0.4767, "mismatch_contribution": 0.26668, "intensity_contribution": 0.21, "escalation_contribution": 0.0, "mismatch_rate": 0.6667, "average_intensity": 0.6},
+  "4seg_mismatch1": {"attention_score": 0.31, "mismatch_contribution": 0.1, "intensity_contribution": 0.21, "escalation_contribution": 0.0, "mismatch_rate": 0.25, "average_intensity": 0.6}
+}

@@ -373,7 +373,7 @@ def compute_attention_score(
             1 for s in segments
             if classify_segment_relationship(s) == SEGMENT_RELATION_DIVERGENCE
         )
-        mismatch_rate = round(float(mismatch_count) / float(len(segments)), 4)
+        mismatch_rate = round(float(mismatch_count) / float(max(1, len(segments))), 4)
 
     # Average intensity
     if segments:

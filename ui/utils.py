@@ -152,22 +152,27 @@ def derive_segment_summary(segments: List[Dict[str, Any]]) -> Tuple[str, str, in
         fusion = segment.get("fusion", {}) or {}
 
         voice_label = str(voice.get("emotion", "")).strip().lower()
-        text_label = str(sentiment.get("sentiment", "")).strip().lower()
+        raw_sentiment = sentiment.get("sentiment")
+        text_label = str(raw_sentiment).strip().lower() if raw_sentiment is not None else ""
 
-        if voice_label:
+        if voice_label and voice_label != "unknown":
             # tiny epsilon so a 0.0-confidence label still counts as a vote
             voice_weight[voice_label] += safe_float(voice.get("confidence"), 0.0) + 1e-6
-        if text_label:
+        if text_label and text_label not in ("unknown", "unavailable", "none"):
             text_weight[text_label] += safe_float(sentiment.get("confidence"), 0.0) + 1e-6
 
-        if fusion.get("agreement", False):
-            agreement_count += 1
-        elif fusion.get("mismatch", False):
-            mismatch_count += 1
+        # Only count agreement/mismatch if text was actually available
+        is_text_unavail = segment.get("text_unavailable", False) or (raw_sentiment is None) or (text_label == "unavailable")
+        if not is_text_unavail:
+            if fusion.get("agreement", False):
+                agreement_count += 1
+            elif fusion.get("mismatch", False):
+                mismatch_count += 1
 
+    dom_text = _dominant_label(text_weight) if text_weight else "N/A"
     return (
         _dominant_label(voice_weight),
-        _dominant_label(text_weight),
+        dom_text,
         agreement_count,
         mismatch_count,
     )

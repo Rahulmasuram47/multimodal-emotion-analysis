@@ -65,6 +65,7 @@ class SuperbBackend(VoiceBackend):
             return {
                 "emotion": emotion,
                 "confidence": confidence,
+                "raw_confidence": confidence,
                 "scores": canonical_scores,
                 "top2": top2,
                 "raw_label": raw_label,
@@ -111,6 +112,7 @@ class SuperbBackend(VoiceBackend):
         return {
             "emotion": emotion,
             "confidence": confidence,
+            "raw_confidence": confidence,
             "scores": canonical_scores,
             "top2": top2,
             "raw_label": raw_label,

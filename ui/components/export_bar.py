@@ -40,7 +40,9 @@ def build_json_export_payload(result: Dict[str, Any]) -> Dict[str, Any]:
             ve = dict(seg_copy["voice_emotion"])
             raw_emo = ve.get("emotion", "")
             ve["emotion_raw"] = raw_emo
-            ve["emotion"] = emotion_code_label(raw_emo)
+            ve["raw_confidence"] = ve.get("raw_confidence")
+            ve_leaning = ve.get("leaning") or ve.get("raw_label")
+            ve["emotion"] = emotion_code_label(raw_emo, raw_label=ve_leaning)
             seg_copy["voice_emotion"] = ve
 
         if "text_sentiment" in seg_copy and isinstance(seg_copy["text_sentiment"], dict):
@@ -93,6 +95,7 @@ def render_export_bar(result: Dict[str, Any]) -> None:
             lang_prob = result.get("language_probability")
             asr_flags_list = s.get("asr_flags") or result.get("asr_flags") or []
             asr_flags_str = ", ".join(asr_flags_list) if asr_flags_list else ""
+            v_leaning = v.get("leaning") or v.get("raw_label")
             rows.append(
                 {
                     "segment": s.get("segment_index", ""),
@@ -103,8 +106,9 @@ def render_export_bar(result: Dict[str, Any]) -> None:
                     "language": lang,
                     "language_probability": lang_prob,
                     "asr_flags": asr_flags_str,
-                    "voice_emotion": emotion_code_label(v.get("emotion", "")),
+                    "voice_emotion": emotion_code_label(v.get("emotion", ""), raw_label=v_leaning),
                     "voice_confidence": v.get("confidence", ""),
+                    "raw_confidence": v.get("raw_confidence", ""),
                     "text_sentiment": emotion_code_label(t.get("sentiment", "")) if t and t.get("sentiment") else "N/A",
                     "text_confidence": t.get("confidence", "") if t and t.get("confidence") is not None else "",
                     "fused_confidence": f.get("combined_confidence", ""),

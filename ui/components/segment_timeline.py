@@ -173,7 +173,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
         speaker = str(segment.get("speaker", "")).strip()
 
         v_emotion_raw = str(voice.get("emotion", "unknown")).lower()
-        v_raw_label = voice.get("raw_label")
+        v_raw_label = voice.get("leaning") or voice.get("raw_label")
         v_emotion_display = emotion_code_label(v_emotion_raw, raw_label=v_raw_label)  # item 4 & 9
         v_conf = safe_float(voice.get("confidence", 0.0))
         t_sentiment_raw = str(sentiment.get("sentiment", "unknown")).lower()
@@ -229,13 +229,20 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 if is_low_voice_rel else ""
             )
 
-            # Item 5: Voice models disagree chip
+            # Item 5: Voice models disagree chip or uncertain voice chip
             ensemble_disagree_chip_html = ""
-            if voice.get("ensemble_disagreement", False) or voice.get("uncertain", False):
+            if voice.get("ensemble_disagreement", False):
                 ensemble_disagree_chip_html = (
                     f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
                     f'background:rgba(249,115,22,0.15); color:#fb923c; padding:2px 8px; border-radius:4px; border:1px solid rgba(249,115,22,0.3);">'
                     f'Voice models disagree</span>'
+                )
+            elif voice.get("uncertain", False) or voice.get("emotion") == "uncertain":
+                leaning_text = f" ({voice.get('leaning').title()})" if voice.get("leaning") else ""
+                ensemble_disagree_chip_html = (
+                    f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
+                    f'background:rgba(148,163,184,0.15); color:var(--muted); padding:2px 8px; border-radius:4px; border:1px solid rgba(148,163,184,0.3);">'
+                    f'Voice uncertain{leaning_text}</span>'
                 )
 
             st.markdown(
@@ -368,8 +375,10 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                     reasons.append(f"voice confidence ({v_conf:.0%}) < threshold ({low_v_conf_thresh:.0%})")
                 if v_rel < low_v_rel_disp_thresh:
                     reasons.append(f"voice reliability ({v_rel:.0%}) < threshold ({low_v_rel_disp_thresh:.0%})")
-                if voice.get("ensemble_disagreement", False) or voice.get("uncertain", False):
+                if voice.get("ensemble_disagreement", False):
                     reasons.append("voice models disagree")
+                elif voice.get("uncertain", False) or voice.get("emotion") == "uncertain":
+                    reasons.append("unmapped or uncertain acoustic emotion")
                 if not reasons:
                     reasons.append("reduced acoustic clarity")
                 collapse_reason = "; ".join(reasons)

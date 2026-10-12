@@ -36,6 +36,7 @@ _EMOTION_CODE_MAP: Dict[str, str] = {
     "negative": "Negative",
     "unknown": "Unknown",
     "other": "Other",
+    "uncertain": "Uncertain",
 }
 
 
@@ -45,8 +46,13 @@ def emotion_code_label(code: str, raw_label: Optional[str] = None) -> str:
     Used by UI chips, key-finding text, JSON/CSV exports — single source of truth.
     Falls back to title-cased input for codes not in the map.
     If code is 'other' and raw_label is provided, returns 'Other (<raw_label>)'.
+    If code is 'uncertain' and raw_label is provided, returns 'Uncertain (leaning <raw_label>)'.
     """
     key = str(code).strip().lower()
+    if key == "uncertain" and raw_label:
+        # Strip bilingual prefix if any
+        clean_raw = raw_label.split("/")[-1].strip().title() if "/" in raw_label else raw_label.strip().title()
+        return f"Uncertain (leaning {clean_raw})"
     if key == "other" and raw_label:
         return f"Other ({raw_label})"
     return _EMOTION_CODE_MAP.get(key, key.title())
@@ -63,6 +69,8 @@ def emotion_icon(emotion: str) -> str:
         "hap": "😊",
         "neutral": "😐",
         "neu": "😐",
+        "uncertain": "😐",
+        "other": "😐",
         "positive": "↗",
         "negative": "↘",
         "increasing": "↗",

@@ -392,9 +392,22 @@ class MultimodalFusion:
         audio_emotion = self._normalize_emotion(audio_result.get("emotion", "neutral"))
         audio_confidence = float(audio_result.get("confidence", 0.0))
         audio_reliability = _clamp01(audio_result.get("voice_reliability", 1.0))
-        audio_direction = self._emotion_direction(audio_emotion)
+
+        # "uncertain" emotion (emotion2vec other-group) is treated as direction-neutral
+        # and voice reliability 0.2 is already applied upstream; additionally force the
+        # mismatch flag off below so a noisy "other" class never raises a mismatch alert.
+        is_uncertain_voice = (audio_emotion == "uncertain")
+        if is_uncertain_voice:
+            audio_direction = "neutral"
+        else:
+            audio_direction = self._emotion_direction(audio_emotion)
+
         audio_arousal = self._voice_arousal(audio_emotion)
         text_arousal = "unknown"
+        # Note: for the emotion2vec backend, confidence_informative=False means the top-2
+        # margin is NOT used in voice_margin_reliability (set to 1.0 upstream in
+        # conversation_analysis.py). The saturated softmax margin (~1.0) is therefore
+        # ignored for emotion2vec and does not inflate voice reliability.
 
         # Check if text modality is unavailable
         is_text_unavailable = (
@@ -462,7 +475,9 @@ class MultimodalFusion:
             agreement = audio_direction == text_direction
             high_audio_confidence = audio_confidence >= self.confidence_threshold
             high_text_confidence = text_confidence >= self.confidence_threshold
-            mismatch = not agreement and high_audio_confidence and high_text_confidence
+            # Never raise a mismatch when voice is "uncertain" (emotion2vec other-group):
+            # the label is uninformative, so cross-modal comparison is not meaningful.
+            mismatch = not agreement and high_audio_confidence and high_text_confidence and not is_uncertain_voice
 
             # ---- Effective weights and combined confidence ----
             effective_audio_weight, effective_text_weight = self._effective_weights(

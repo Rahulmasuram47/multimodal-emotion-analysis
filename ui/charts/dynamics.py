@@ -132,6 +132,8 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         "sad": -0.75,
         "angry": -0.75,
         "ang": -0.75,
+        "uncertain": 0.0,
+        "other": 0.0,
     }
 
     # Item 20: Alternate label positions to avoid overlapping text labels

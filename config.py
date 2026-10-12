@@ -25,14 +25,18 @@ STT_MODEL_SIZE = 'base'  # faster-whisper model size ('base' or 'small')
 TEXT_SENTIMENT_MODEL_NAME = 'cardiffnlp/twitter-roberta-base-sentiment-latest'
 TEXT_SENTIMENT_FALLBACK_MODEL = 'distilbert-base-uncased-finetuned-sst-2-english'
 
-# Voice backend selector: "superb" (default, production) or "emotion2vec"
-VOICE_BACKEND: str = "superb"
-# emotion2vec model id (benchmark / experimental only)
+# Voice backend selector: "superb" (production baseline) or "emotion2vec" (default)
+VOICE_BACKEND: str = "emotion2vec"
+# emotion2vec model id
 EMOTION2VEC_MODEL_NAME: str = "emotion2vec/emotion2vec_plus_base"
 # Ensemble configuration: if True, runs both backends and detects disagreement
 ENSEMBLE_ENABLED: bool = False
 # Floor for voice reliability when an unmapped/other label or ensemble disagreement occurs
 VOICE_RELIABILITY_FLOOR_OTHER: float = 0.35
+# emotion2vec softmax is saturated (mean conf 0.998 correct / 0.999 wrong on the 8-clip dev
+# benchmark, accuracy 62.5%, preliminary); cap confidence near measured accuracy; revisit
+# with more labelled data.
+VOICE_CONF_CAP: float = 0.65
 
 # Emotion & Sentiment Categories
 AUDIO_EMOTION_CLASSES = ['neutral', 'happy', 'angry', 'sad']

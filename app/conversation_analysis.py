@@ -754,7 +754,8 @@ class ConversationAnalyzer:
                 )
 
                 voice_result["raw_emotion"] = voice_result["emotion"]
-                voice_result["raw_confidence"] = voice_result["confidence"]
+                if "raw_confidence" not in voice_result:
+                    voice_result["raw_confidence"] = voice_result["confidence"]
                 voice_result["raw_scores"] = dict(voice_result["scores"])
                 voice_result["emotion"] = calibration.emotion
                 voice_result["confidence"] = calibration.confidence
@@ -792,10 +793,14 @@ class ConversationAnalyzer:
             voice_result["voice_margin_reliability"] = 1.0
             voice_result["is_low_voice_confidence"] = False
 
-        # Item 4 & 5: If emotion is 'other' or ensemble disagreed, clamp voice reliability to floor
+        # Item 4 & 5: If emotion is 'other'/'uncertain' or ensemble disagreed, clamp voice reliability
         floor_other = getattr(config, "VOICE_RELIABILITY_FLOOR_OTHER", 0.35)
-        if voice_result.get("emotion") == "other" or voice_result.get("uncertain", False) or voice_result.get("ensemble_disagreement", False):
-            voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), floor_other)
+        if voice_result.get("emotion") in ("other", "uncertain") or voice_result.get("uncertain", False) or voice_result.get("ensemble_disagreement", False):
+            # "uncertain" from emotion2vec uses a stricter floor of 0.2
+            if voice_result.get("emotion") == "uncertain":
+                voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), 0.2)
+            else:
+                voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), floor_other)
 
         low_v_rel_display_thresh = getattr(config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
         is_low_v_rel = bool(

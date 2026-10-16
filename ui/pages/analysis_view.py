@@ -19,7 +19,7 @@ from ui.charts.dynamics import (
     render_valence_arousal_map,
 )
 from ui.components.modality_cards import render_modality_cards
-from ui.components.segment_timeline import render_segment_timeline
+from ui.components.segment_timeline import render_segment_timeline, sanitize_transcript, _collapse_repetitive_tokens
 from ui.components.speaker_analytics_card import render_speaker_analytics_card
 from ui.pages.validation_view import render_multimodal_validation_section
 from ui.components.verdict_card import build_key_finding, render_verdict_hero
@@ -140,14 +140,17 @@ def render_analysis_page(
     with transcript_col:
         full_transcript = str(result.get("full_transcript", "")).strip()
         if full_transcript:
-            escaped_transcript = html.escape(full_transcript).replace("\n", "<br>")
+            # Apply same display sanitizer as per-turn: strip U+FFFD, collapse
+            # repetitive tokens. Exports use raw full_transcript unchanged.
+            disp_transcript = _collapse_repetitive_tokens(full_transcript)
+            escaped_transcript = html.escape(disp_transcript).replace("\n", "<br>")
             st.markdown(
                 html_block(f"""
 <div class="transcript-container">
 <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 700; color: var(--text-accent); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.08em;">
 COMPLETE SPEECH TRANSCRIPT
 </div>
-<div style="font-size: 0.82rem; color: var(--text); line-height: 1.55;">
+<div style="font-size: 0.82rem; color: var(--text); line-height: 1.55;" dir="auto">
 {escaped_transcript}
 </div>
 </div>

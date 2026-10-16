@@ -15,6 +15,34 @@ import re
 import textwrap
 
 
+def sanitize_transcript(text: str) -> str:
+    """Strip U+FFFD and trailing partial / replacement characters."""
+    if not text:
+        return ""
+    s = re.sub(r'[\ufffd\uFFFE\uFFFF]+', '', str(text))
+    return s.strip()
+
+
+def _collapse_repetitive_tokens(text: str) -> str:
+    """Collapse repeated token or phrase of up to 4 tokens repeated 4+ times.
+    Example: '<phrase> x N (repetitive transcript)'.
+    """
+    clean_text = sanitize_transcript(text)
+    tokens = clean_text.split()
+    n = len(tokens)
+    if n < 4:
+        return clean_text
+
+    # Check phrase lengths k = 1, 2, 3, 4
+    for k in (1, 2, 3, 4):
+        if n >= 4 * k and n % k == 0:
+            phrase = tokens[:k]
+            if tokens == phrase * (n // k):
+                phrase_str = " ".join(phrase)
+                return f"{phrase_str} x {n // k} (repetitive transcript)"
+    return clean_text
+
+
 # ---------------------------------------------------------------------------
 # Disclaimer shown ONCE at page level (item 14)
 # ---------------------------------------------------------------------------
@@ -26,7 +54,7 @@ _INCONGRUENCE_PAGE_DISCLAIMER = (
 )
 
 
-def _render_why_this_result(fusion: Dict[str, Any]) -> None:
+def _render_why_this_result(fusion: Dict[str, Any], is_text_unavail: bool = False) -> None:
     """Phase 5: 'Why this result?' expander — shows the declarative
     pattern rule that fired, the evidence behind it, and the effective
     (reliability-weighted) fusion weights actually used for this segment.
@@ -63,11 +91,15 @@ def _render_why_this_result(fusion: Dict[str, Any]) -> None:
 
     # Item 15: low ASR confidence badge uses config threshold
     low_asr_threshold = getattr(_config, "LOW_ASR_CONFIDENCE_DISPLAY_THRESHOLD", 0.65)
-    text_rel_note = (
-        " (low ASR confidence)"
-        if text_reliability < low_asr_threshold
-        else ""
-    )
+    if is_text_unavail:
+        text_rel_str = "text: n/a (text unavailable)"
+    else:
+        text_rel_note = (
+            " (low ASR confidence)"
+            if text_reliability < low_asr_threshold
+            else ""
+        )
+        text_rel_str = f"text: {text_reliability:.2f}{text_rel_note}"
 
     base_weights = fusion.get("base_weights", {}) or {}
     effective_weights = fusion.get("effective_weights", {}) or {}
@@ -99,9 +131,9 @@ def _render_why_this_result(fusion: Dict[str, Any]) -> None:
         else " (equal to base weights — both modalities fully reliable)"
     )
 
-    cfs = fusion.get("counterfactuals", [])
+    cfs = [str(c).strip() for c in fusion.get("counterfactuals", []) if str(c).strip()]
     cfs_block = ""
-    if cfs:
+    if cfs and not is_text_unavail:
         cfs_items = "".join(f"<li style='margin-bottom:0.25rem;'>{html.escape(c)}</li>" for c in cfs)
         cfs_block = (
             '<div style="margin-top:0.6rem; border-top:1px dashed var(--border); padding-top:0.4rem;">'
@@ -127,13 +159,13 @@ def _render_why_this_result(fusion: Dict[str, Any]) -> None:
         f'<div style="margin-bottom:0.2rem;">Base weights: audio {base_audio_w:.2f} / text {base_text_w:.2f}</div>'
         f'<div>Effective weights used: <strong style="color:var(--text);">audio {eff_audio_w:.2f} / text {eff_text_w:.2f}</strong>{weight_note}</div>'
         f'<div style="margin-top:0.3rem;">'
-        f'Reliability — voice: {audio_reliability:.2f}{audio_rel_note}, text: {text_reliability:.2f}{text_rel_note}'
+        f'Reliability — voice: {audio_reliability:.2f}{audio_rel_note}, {text_rel_str}'
         f'</div></div>'
         f'{cfs_block}'
     )
 
     with st.expander("🔎 Why this result?", expanded=False):
-        st.markdown(content, unsafe_allow_html=True)
+        st.markdown(html_block(content), unsafe_allow_html=True)
 
 
 def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
@@ -174,7 +206,8 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 
         v_emotion_raw = str(voice.get("emotion", "unknown")).lower()
         v_raw_label = voice.get("leaning") or voice.get("raw_label")
-        v_emotion_display = emotion_code_label(v_emotion_raw, raw_label=v_raw_label)  # item 4 & 9
+        # Item 6: one display name per voice class; no "OTHER (SURPRISED)" mixed label in title
+        v_emotion_display = emotion_code_label(v_emotion_raw, raw_label=None if v_emotion_raw == "other" else v_raw_label)
         v_conf = safe_float(voice.get("confidence", 0.0))
         t_sentiment_raw = str(sentiment.get("sentiment", "unknown")).lower()
         t_sentiment_display = emotion_code_label(t_sentiment_raw)  # item 9
@@ -190,9 +223,12 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
         title_prefix = format_turn_label(idx, one_based=False)
         speaker_tag = f" · {speaker}" if speaker and speaker != "Unknown" else ""
 
+        is_text_unavail = segment.get("text_unavailable", False) or t_sentiment_raw in ("unavailable", "none", "unknown", "")
+        t_display_header = "n/a" if is_text_unavail else t_sentiment_display.upper()
+
         expander_title = (
             f"{title_prefix}{speaker_tag} · [{start:.2f}s → {end:.2f}s] · "
-            f"Voice: {v_emotion_display.upper()} | Text: {t_sentiment_display.upper()} | Intensity: {intensity:.0%}"
+            f"Voice: {v_emotion_display.upper()} | Text: {t_display_header} | Intensity: {intensity:.0%}"
         )
 
         # Per-speaker color assignment
@@ -209,6 +245,14 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             # Chat-style turn header with emotion chips & speaker tag
             # Tier 4 (Item 32): Low voice reliability chip
             import config as _config
+            min_voice_sec = getattr(_config, "VOICE_MIN_SEGMENT_SEC", 1.0)
+            is_short_voice = (end - start) < min_voice_sec
+            short_voice_chip_html = (
+                f'<span style="font-family:\'IBM Plex Mono\',monospace; font-size:0.75rem; '
+                f'background:rgba(251,191,36,0.15); color:var(--warning); padding:2px 8px; border-radius:4px; border:1px solid rgba(251,191,36,0.3);">'
+                f'⚠️ too short for reliable voice emotion</span>'
+                if is_short_voice else ""
+            )
             low_v_conf_thresh = getattr(_config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
             low_v_rel_disp_thresh = getattr(_config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
             v_rel = safe_float(segment.get("voice_reliability", voice.get("voice_reliability", fusion.get("audio_reliability", 1.0))))
@@ -257,8 +301,9 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 </div>
 <div style="display:flex; gap:6px; flex-wrap:wrap;">
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(251,191,36,0.15); color:var(--voice); padding:2px 8px; border-radius:4px;">🎙️ {v_emotion_display.upper()}</span>
-<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 8px; border-radius:4px;">💬 {t_sentiment_display.upper()}</span>
+<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--text-accent); padding:2px 8px; border-radius:4px;">💬 {t_display_header}</span>
 <span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.12); color:var(--fused); padding:2px 8px; border-radius:4px;">⚡ {pat_label}</span>
+{short_voice_chip_html}
 {low_voice_chip_html}
 {ensemble_disagree_chip_html}
 </div>
@@ -290,6 +335,11 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 w_p = safe_float(weights.get("prosody", 0.35))
                 w_v = safe_float(weights.get("voice_arousal", 0.35))
                 w_t = safe_float(weights.get("text_negativity", 0.30))
+                text_neg_span = (
+                    f'<span>·</span>'
+                    f'<span title="RoBERTa negative sentiment class probability">Text Negativity (w={w_t:.0%}): <strong style="color:var(--critical);">{t_neg:.1%}</strong></span>'
+                    if w_t > 0 else ""
+                )
                 st.markdown(
                     html_block(f"""
 <div style="display:flex; gap:0.6rem; flex-wrap:wrap; font-family:'IBM Plex Mono',monospace; font-size:0.70rem; color:var(--muted); margin-bottom:0.6rem; padding:2px 6px; background:rgba(255,255,255,0.02); border-radius:4px;">
@@ -297,8 +347,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <span title="Loudness, pitch variation, voiced ratio, speech rate">Prosody (w={w_p:.0%}): <strong style="color:var(--text);">{p_arousal:.1%}</strong></span>
 <span>·</span>
 <span title="Expected-value voice-emotion arousal from class probabilities">Expected Arousal (Intensity v2, w={w_v:.0%}): <strong style="color:var(--voice);">{v_arousal:.1%}</strong></span>
-<span>·</span>
-<span title="RoBERTa negative sentiment class probability">Text Negativity (w={w_t:.0%}): <strong style="color:var(--critical);">{t_neg:.1%}</strong></span>
+{text_neg_span}
 </div>
 """),
                     unsafe_allow_html=True,
@@ -311,6 +360,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 clean_text = re.sub(rf"^{re.escape(speaker)}\s*:\s*", "", clean_text, flags=re.IGNORECASE)
 
             if clean_text:
+                disp_text = _collapse_repetitive_tokens(clean_text)
                 # Show speaker badge separately; never embed prefix in the text
                 speaker_label_html = (
                     f'<span style="font-family: \'IBM Plex Mono\', monospace; font-size: 0.75rem; '
@@ -318,8 +368,8 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
                 )
                 st.markdown(
                     html_block(f"""
-<div class="segment-transcript-box" style="border-left: 3px solid {spk_color};">
-{speaker_label_html}"{html.escape(clean_text)}"
+<div class="segment-transcript-box" style="border-left: 3px solid {spk_color};" dir="auto">
+{speaker_label_html}"{html.escape(disp_text)}"
 </div>
 """),
                     unsafe_allow_html=True,
@@ -327,17 +377,19 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 
             # ASR and Language reliability warnings
             asr_flags = segment.get("asr_flags", []) or []
-            is_text_unavail = segment.get("text_unavailable", False)
-            detected_lang = segment.get("language") or getattr(_config, "STT_LANGUAGE", "unknown")
+            detected_lang = segment.get("language")
             lang_prob = safe_float(segment.get("language_probability", 0.0))
 
-            if is_text_unavail or "non_english" in asr_flags or "repetition" in asr_flags:
-                prob_str = f" ({lang_prob:.0%} prob)" if lang_prob > 0 else ""
-                lang_str = f" [{detected_lang}{prob_str}]" if detected_lang and detected_lang != "unknown" else ""
+            if is_text_unavail or "non_english" in asr_flags or "repetition" in asr_flags or "empty" in asr_flags:
+                fired_flag = "repetition" if "repetition" in asr_flags else ("non_english" if "non_english" in asr_flags else ("empty" if "empty" in asr_flags else (asr_flags[0] if asr_flags else "unavailable")))
+                if detected_lang and detected_lang not in ("unknown", "auto", ""):
+                    badge_str = f" [lang: {detected_lang} (p={lang_prob:.0%}) · flag: {fired_flag}]"
+                else:
+                    badge_str = f" [lang: n/a · flag: {fired_flag}]"
                 st.markdown(
                     html_block(f"""
 <div style="background: rgba(248, 113, 113, 0.12); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 6px; padding: 0.4rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.72rem; color: var(--negative);">
-⚠️ <strong>Transcript unreliable or non-English: text sentiment skipped</strong>{html.escape(lang_str)}
+⚠️ <strong>Transcript unreliable or non-English: text sentiment skipped</strong>{html.escape(badge_str)}
 </div>
 """),
                     unsafe_allow_html=True,
@@ -395,7 +447,30 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             card_col1, card_col2, card_col3 = st.columns(3)
 
             with card_col1:
-                uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(raw model score (not calibrated))</span>' if not v_conf_info else ''
+                v_raw_conf = safe_float(voice.get("raw_confidence", v_conf))
+                if not v_conf_info:
+                    if v_raw_conf > v_conf + 0.001:
+                        uncal_tag = (
+                            f' <span style="font-size:0.68rem; color:var(--muted);">'
+                            f'(capped from raw {v_raw_conf:.0%}; not calibrated)</span>'
+                        )
+                    else:
+                        uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(raw model score (not calibrated))</span>'
+                else:
+                    uncal_tag = ''
+                short_note_html = (
+                    '<div style="font-size:0.68rem; color:var(--warning); margin-top:0.25rem;">too short for reliable voice emotion</div>'
+                    if is_short_voice else ""
+                )
+                # Strip CJK prefix before "/" for display (e.g. "生气/angry" → "angry").
+                # v_raw_label stays unchanged so exports keep the full bilingual string.
+                _raw_str = str(v_raw_label).strip() if v_raw_label else ""
+                raw_label_disp = (_raw_str.split("/")[-1] if "/" in _raw_str else _raw_str).strip()
+                raw_label_html = (
+                    f'<div style="font-size:0.68rem; color:var(--muted); margin-top:0.2rem;">Raw model label: {html.escape(raw_label_disp)}</div>'
+                    if raw_label_disp and raw_label_disp.lower() != v_emotion_display.lower()
+                    else ""
+                )
                 st.markdown(
                     html_block(f"""
 <div class="segment-card voice">
@@ -403,9 +478,11 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
 <div style="font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">
 {emotion_icon(v_emotion_raw)} {html.escape(v_emotion_display.upper())}
 </div>
+{raw_label_html}
 <div style="font-size: 0.72rem; color: var(--muted);">
 Confidence: <strong style="color: var(--voice);">{v_conf:.1%}</strong>{uncal_tag}
 </div>
+{short_note_html}
 </div>
 """),
                     unsafe_allow_html=True,
@@ -414,11 +491,8 @@ Confidence: <strong style="color: var(--voice);">{v_conf:.1%}</strong>{uncal_tag
             with card_col2:
                 if is_text_unavail or t_sentiment_raw in ("unavailable", "unknown", "none"):
                     text_card_body = """
-<div style="font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--muted); margin-bottom: 0.35rem;">
-⚪ UNAVAILABLE
-</div>
-<div style="font-size: 0.72rem; color: var(--muted);">
-Text sentiment skipped
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-bottom: 0.35rem;">
+Text sentiment skipped: transcript unreliable or non-English
 </div>"""
                 else:
                     text_card_body = f"""
@@ -440,6 +514,12 @@ Confidence: <strong style="color: var(--text-accent);">{t_conf:.1%}</strong>
                 )
 
             with card_col3:
+                if is_text_unavail:
+                    evidence_str = 'n/a (voice-only)'
+                    evidence_caption = ''
+                else:
+                    evidence_str = f'{f_conf:.1%}'
+                    evidence_caption = '<div style="font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.3;">Weighted average of the two modality confidences; not confidence in a single label when voice and text disagree.</div>'
                 st.markdown(
                     html_block(f"""
 <div class="segment-card fusion">
@@ -448,8 +528,8 @@ Confidence: <strong style="color: var(--text-accent);">{t_conf:.1%}</strong>
 INTENSITY: {intensity:.1%}
 </div>
 <div style="font-size: 0.72rem; color: var(--muted);" title="Reliability-weighted average of acoustic and text confidences">
-Evidence Strength: <strong style="color: var(--fused);">{f_conf:.1%}</strong>
-<div style="font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.3;">Weighted average of the two modality confidences; not confidence in a single label when voice and text disagree.</div>
+Evidence Strength: <strong style="color: var(--fused);">{evidence_str}</strong>
+{evidence_caption}
 </div>
 </div>
 """),
@@ -525,6 +605,7 @@ Independent of the Intensity v2 prosody component.
                     text_label=t_sentiment_raw,
                     text_confidence=t_conf,
                     fused_confidence=f_conf,
+                    hide_text=is_text_unavail,
                 ),
                 unsafe_allow_html=True,
             )
@@ -552,7 +633,7 @@ Independent of the Intensity v2 prosody component.
                 f'<div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem;">'
                 f'Voice and text point in different directions: Voice → {html.escape(audio_dir)}, Text → {html.escape(text_dir)}'
                 f'</div>'
-                if dirs_differ and not agreement
+                if dirs_differ and not agreement and not is_text_unavail
                 else ""
             )
 
@@ -578,7 +659,7 @@ Text Dir: <strong style="color: var(--text);">{html.escape(text_dir)}</strong>
             # Phase 5: "Why this result?" — declarative rule trace and
             # effective (reliability-weighted) fusion weights for this
             # specific segment.
-            _render_why_this_result(fusion)
+            _render_why_this_result(fusion, is_text_unavail=is_text_unavail)
 
             # Item 14: incongruence card called WITHOUT repeating disclaimer
             if not is_text_unavail:
@@ -589,4 +670,5 @@ Text Dir: <strong style="color: var(--text);">{html.escape(text_dir)}</strong>
                     text_confidence=t_conf,
                     title=f"{title_prefix} MODALITY INCONGRUENCE",
                     show_disclaimer=False,  # already shown at page level
+                    fusion=fusion,
                 )

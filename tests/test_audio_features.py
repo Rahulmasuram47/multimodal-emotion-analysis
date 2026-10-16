@@ -1,9 +1,16 @@
+import os
+import pytest
+
 from app.audio_processor import (
     load_and_preprocess_audio,
     extract_acoustic_features,
 )
 
 
+@pytest.mark.skipif(
+    not os.path.exists("sample_audio/real_voice.wav"),
+    reason="sample_audio/real_voice.wav not found",
+)
 def test_extract_acoustic_features():
     audio_path = "sample_audio/real_voice.wav"
     audio, sr, duration = load_and_preprocess_audio(audio_path)

@@ -22,6 +22,11 @@ from config import TARGET_SAMPLE_RATE, N_MFCC
 
 
 class TestAudioProcessor(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.exists(os.path.join("sample_audio", "sample_16k.wav")):
+            raise unittest.SkipTest("sample_audio files not present")
+
     def setUp(self):
         self.valid_file = os.path.join("sample_audio", "sample_16k.wav")
         self.unsupported_file = os.path.join("sample_audio", "test_unsupported.xyz")

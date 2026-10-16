@@ -190,15 +190,41 @@ def compute_consistency_trajectory(
         ConsistencyTrajectory dataclass.
     """
     if len(segments) < MIN_TRAJECTORY_SEGMENTS:
+        divergence_cnt = sum(
+            1 for s in segments
+            if classify_segment_relationship(s) == SEGMENT_RELATION_DIVERGENCE
+        )
+        agreement_cnt = sum(
+            1 for s in segments
+            if classify_segment_relationship(s) == SEGMENT_RELATION_AGREEMENT
+        )
+        low_conf_cnt = sum(
+            1 for s in segments
+            if classify_segment_relationship(s) == SEGMENT_RELATION_LOW_CONFIDENCE
+        )
+        tot = max(1, len(segments))
+        m_rate = round(float(divergence_cnt) / float(tot), 4) if segments else 0.0
+        a_rate = round(float(agreement_cnt) / float(tot), 4) if segments else 0.0
+        per_seg_few = [
+            {
+                "segment_index": seg.get("segment_index"),
+                "start_seconds": seg.get("start_seconds"),
+                "end_seconds": seg.get("end_seconds"),
+                "voice_direction": (seg.get("fusion") or {}).get("audio_direction"),
+                "text_direction": (seg.get("fusion") or {}).get("text_direction"),
+                "relationship": classify_segment_relationship(seg),
+            }
+            for seg in segments
+        ]
         return ConsistencyTrajectory(
             trajectory="insufficient_data",
             total_segments=len(segments),
-            agreement_count=0,
-            divergence_count=0,
-            low_confidence_count=0,
-            agreement_rate=0.0,
-            mismatch_rate=0.0,
-            per_segment_relationships=[],
+            agreement_count=agreement_cnt,
+            divergence_count=divergence_cnt,
+            low_confidence_count=low_conf_cnt,
+            agreement_rate=a_rate,
+            mismatch_rate=m_rate,
+            per_segment_relationships=per_seg_few,
         )
 
     per_seg: List[Dict[str, Any]] = []

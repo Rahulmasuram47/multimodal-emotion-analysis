@@ -105,12 +105,20 @@ def build_key_finding(
 
     # Direction transition: voice and text are reported separately.
     if segments:
+        import config as _config
+        min_sec = getattr(_config, "VOICE_MIN_SEGMENT_SEC", 1.0)
+        # Exclude segments below min_sec from Voice direction moved transition
+        voice_segs = [
+            s for s in segments
+            if (safe_float(s.get("end_seconds", 0.0)) - safe_float(s.get("start_seconds", 0.0))) >= min_sec
+        ]
+
         def _dir(seg: Dict[str, Any], key: str) -> str:
             val = str((seg.get("fusion") or {}).get(key, "")).lower()
             return val if val not in ("unavailable", "unknown", "none") else ""
 
-        v_first = _dir(segments[0], "audio_direction")
-        v_last = _dir(segments[-1], "audio_direction")
+        v_first = _dir(voice_segs[0], "audio_direction") if voice_segs else ""
+        v_last = _dir(voice_segs[-1], "audio_direction") if voice_segs else ""
         t_first = _dir(segments[0], "text_direction")
         t_last = _dir(segments[-1], "text_direction")
         v_changed = bool(v_first and v_last and v_first != v_last)

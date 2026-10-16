@@ -8,6 +8,7 @@ when the calling context has already shown it once at page level.
 """
 
 import html
+from typing import Any, Dict, Optional
 import streamlit as st
 
 from app.incongruence_analysis import detect_modality_incongruence
@@ -21,6 +22,7 @@ def render_incongruence_card(
     text_confidence: float,
     title: str = "MODALITY INCONGRUENCE",
     show_disclaimer: bool = True,
+    fusion: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Render a transparent, safe, explainable Modality Incongruence Card.
 
@@ -30,6 +32,10 @@ def render_incongruence_card(
         When False the long heuristic_notice footer is suppressed. Use this
         when the disclaimer has already been rendered at the page level so it
         does not repeat for every turn (item 14).
+    fusion:
+        Optional segment fusion result dict. When rule_ids_fired contains any
+        'mismatch_*', conflict strength is derived from fusion so it never
+        evaluates to 'NONE'.
     """
     inc = detect_modality_incongruence(
         acoustic_label=acoustic_label,
@@ -38,7 +44,24 @@ def render_incongruence_card(
         text_confidence=text_confidence,
     )
 
-    strength = inc.conflict_strength.upper()
+    fusion = fusion or {}
+    rule_ids = fusion.get("rule_ids_fired", []) or []
+    has_mismatch_rule = any(str(r).startswith("mismatch_") for r in rule_ids) or bool(fusion.get("mismatch", False))
+
+    raw_strength = inc.conflict_strength.upper()
+    if has_mismatch_rule and raw_strength == "NONE":
+        # Derive conflict strength from confidence or default to MEDIUM if high confidence
+        if acoustic_confidence >= 0.60 and text_confidence >= 0.60:
+            raw_strength = "HIGH"
+        elif acoustic_confidence >= 0.40 and text_confidence >= 0.40:
+            raw_strength = "MEDIUM"
+        else:
+            raw_strength = "LOW"
+    explanation = inc.explanation
+    if has_mismatch_rule and inc.conflict_strength.upper() == "NONE":
+        explanation = str(fusion.get("interpretation") or "").strip() or f"Modality mismatch detected between acoustic tone ('{acoustic_label}') and text sentiment ('{text_label}')."
+
+    strength = raw_strength
     if strength == "HIGH":
         badge_bg = "rgba(228, 107, 107, 0.18)"
         badge_color = "var(--negative)"
@@ -91,7 +114,7 @@ CONFLICT: {strength}
 </div>
 </div>
 <div style="font-size:0.78rem; color:var(--text); line-height:1.45; margin-bottom: 0.4rem;">
-<strong style="color:var(--muted);">Possible interpretation:</strong> {html.escape(inc.explanation)}
+<strong style="color:var(--muted);">Possible interpretation:</strong> {html.escape(explanation)}
 </div>
 {disclaimer_html}
 </div>

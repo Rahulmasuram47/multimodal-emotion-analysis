@@ -6,7 +6,7 @@ import html
 from typing import Any, Dict, List, Optional
 import streamlit as st
 
-from ui.utils import emotion_code_label, emotion_icon, safe_float
+from ui.utils import emotion_code_label, emotion_icon, html_block, safe_float
 
 
 def render_channel_meters_html(
@@ -15,13 +15,38 @@ def render_channel_meters_html(
     text_label: str,
     text_confidence: float,
     fused_confidence: float,
+    hide_text: bool = False,
 ) -> str:
     """Generate HTML for dual-modality and fused confidence meters."""
     voice_pct = max(0.0, min(1.0, safe_float(voice_confidence))) * 100
     text_pct = max(0.0, min(1.0, safe_float(text_confidence))) * 100
     fused_pct = max(0.0, min(1.0, safe_float(fused_confidence))) * 100
 
-    return f"""
+    text_meter_html = f"""
+        <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
+                <span>💬 LINGUISTIC (TEXT) · {html.escape(str(text_label).upper())}</span>
+                <span style="color: var(--text-accent); font-weight: 700;">{text_pct:.1f}%</span>
+            </div>
+            <div class="meter-bar-bg">
+                <div class="meter-bar-fill text-fill" style="width: {text_pct:.1f}%;"></div>
+            </div>
+        </div>
+    """ if not hide_text else ""
+
+    fused_meter_html = f"""
+        <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
+                <span title="Reliability-weighted average of acoustic and text confidences">⚡ MULTIMODAL EVIDENCE STRENGTH</span>
+                <span style="color: var(--fused); font-weight: 700;">{fused_pct:.1f}%</span>
+            </div>
+            <div class="meter-bar-bg">
+                <div class="meter-bar-fill fused-fill" style="width: {fused_pct:.1f}%;"></div>
+            </div>
+        </div>
+    """ if not hide_text else ""
+
+    return html_block(f"""
     <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.6rem; padding: 0.65rem 0.85rem; background: var(--panel-2); border-radius: 6px; border: 1px solid var(--border);">
         <div>
             <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
@@ -32,26 +57,10 @@ def render_channel_meters_html(
                 <div class="meter-bar-fill voice-fill" style="width: {voice_pct:.1f}%;"></div>
             </div>
         </div>
-        <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
-                <span>💬 LINGUISTIC (TEXT) · {html.escape(str(text_label).upper())}</span>
-                <span style="color: var(--text-accent); font-weight: 700;">{text_pct:.1f}%</span>
-            </div>
-            <div class="meter-bar-bg">
-                <div class="meter-bar-fill text-fill" style="width: {text_pct:.1f}%;"></div>
-            </div>
-        </div>
-        <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
-                <span title="Reliability-weighted average of acoustic and text confidences">⚡ MULTIMODAL EVIDENCE STRENGTH</span>
-                <span style="color: var(--fused); font-weight: 700;">{fused_pct:.1f}%</span>
-            </div>
-            <div class="meter-bar-bg">
-                <div class="meter-bar-fill fused-fill" style="width: {fused_pct:.1f}%;"></div>
-            </div>
-        </div>
+        {text_meter_html}
+        {fused_meter_html}
     </div>
-    """
+    """)
 
 
 def render_modality_cards(
@@ -67,12 +76,12 @@ def render_modality_cards(
 ) -> None:
     """Render side-by-side Voice, Text, and Alignment snapshot cards with reliability chips."""
     st.markdown(
-        """
+        html_block("""
         <div class="section-header-bar">
             <div class="section-title">🎚️ Modality Snapshot & Fusion Arbitration</div>
             <div class="section-badge">VOICE VS TEXT ALIGNMENT & RELIABILITY</div>
         </div>
-        """,
+        """),
         unsafe_allow_html=True,
     )
 
@@ -109,7 +118,7 @@ def render_modality_cards(
 
     with snap_col1:
         st.markdown(
-            f"""
+            html_block(f"""
             <div class="modality-card voice-accent">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
                     <div class="card-meta-label">Acoustic Modality (Voice)</div>
@@ -125,7 +134,7 @@ def render_modality_cards(
                     Dominant acoustic emotion extracted via {html.escape(v_card_name)} acoustic classification.
                 </div>
             </div>
-            """,
+            """),
             unsafe_allow_html=True,
         )
 
@@ -153,7 +162,7 @@ def render_modality_cards(
             text_value_html = f"""<span>{emotion_icon(dominant_text)}</span><span>{html.escape(emotion_code_label(dominant_text))}</span>"""
 
         st.markdown(
-            f"""
+            html_block(f"""
             <div class="modality-card text-accent">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
                     <div class="card-meta-label">Linguistic Modality (Text)</div>
@@ -168,7 +177,7 @@ def render_modality_cards(
                     {text_card_subtext}
                 </div>
             </div>
-            """,
+            """),
             unsafe_allow_html=True,
         )
 
@@ -194,7 +203,7 @@ def render_modality_cards(
             else f"""<span style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem; background:rgba(226,232,240,0.15); color:var(--fused); padding:2px 6px; border-radius:4px; font-weight:700;">REL: {rel_str}</span>"""
         )
         st.markdown(
-            f"""
+            html_block(f"""
             <div class="modality-card fusion-accent">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
                     <div class="card-meta-label">Cross-Modal Alignment</div>
@@ -208,6 +217,6 @@ def render_modality_cards(
                     Mismatches: <strong style="color: var(--voice);">{mismatch_count}</strong>
                 </div>
             </div>
-            """,
+            """),
             unsafe_allow_html=True,
         )

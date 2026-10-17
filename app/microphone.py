@@ -157,7 +157,79 @@ def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
     """
     msg = str(exc).lower()
 
-    # 1. Empty or silent audio
+    # 1. Hugging Face Authentication & Missing Token (401 / Unauthorized / Missing)
+    if (
+        "missing token" in msg
+        or "token is required" in msg
+        or "hf_token is not set" in msg
+        or "no hf token" in msg
+    ):
+        return (
+            "Hugging Face Token Missing",
+            "A Hugging Face access token is required to load this model. Please set HF_TOKEN in your environment or .env file.",
+        )
+    if (
+        "401" in msg
+        or "unauthorized" in msg
+        or "invalid token" in msg
+        or "bad token" in msg
+    ):
+        return (
+            "Hugging Face Authentication Failed",
+            "The provided Hugging Face token is invalid or expired. Please verify your HF_TOKEN configuration in .env.",
+        )
+
+    # 2. Hugging Face Gated Model Access Denied (403 / GatedRepoError)
+    if (
+        "gated" in msg
+        or "403" in msg
+        or "gatedrepoerror" in msg
+        or "restricted access" in msg
+        or "terms must be accepted" in msg
+    ):
+        return (
+            "Gated Model Access Restricted",
+            "Access to this Hugging Face model repository requires accepting user conditions. Please accept terms on the model repository page and verify your HF_TOKEN.",
+        )
+
+    # 3. Offline / Network Connection Error
+    if (
+        "offline" in msg
+        or "connection error" in msg
+        or "connection refused" in msg
+        or "failed to establish a new connection" in msg
+        or "name resolution" in msg
+        or "maxretryerror" in msg
+        or "timeout" in msg
+        or "socket" in msg
+        or "dns" in msg
+    ):
+        return (
+            "Network Connection Error",
+            "Unable to connect to online model repositories. Check your network connection, or run in offline mode if models are cached locally.",
+        )
+
+    # 4. Microphone Permission / Device Denied
+    if (
+        "permission" in msg
+        or "notallowederror" in msg
+        or "mic denied" in msg
+        or "microphone denied" in msg
+        or "device not found" in msg
+    ):
+        return (
+            "Microphone Access Denied",
+            "Microphone access was denied or no recording device was found. Please check browser microphone permissions or upload an audio file instead.",
+        )
+
+    # 5. File Size Limit Exceeded
+    if "exceeds maximum allowed limit" in msg or ("file size" in msg and "mb" in msg):
+        return (
+            "Audio File Size Exceeded",
+            "The selected audio file exceeds the maximum allowed file size. Please provide a file within the 50 MB limit.",
+        )
+
+    # 6. Empty or silent audio
     if (
         "empty" in msg
         or "silent" in msg
@@ -174,7 +246,7 @@ def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
             "The audio recording appears to be silent or contains no detectable spoken conversation. Please verify that your microphone is working properly, speak clearly into the microphone, or upload an audio file containing audible conversation.",
         )
 
-    # 2. Extremely short audio
+    # 7. Extremely short audio
     if (
         "shorter than minimum" in msg
         or "too short" in msg
@@ -187,7 +259,7 @@ def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
             "The audio recording is too short for reliable emotion extraction and conversation dynamics. Please provide a recording of at least 1.0 to 2.0 seconds with spoken dialogue.",
         )
 
-    # 3. Corrupted or unsupported format
+    # 8. Corrupted or unsupported format
     if (
         "unsupported" in msg
         or "corrupt" in msg
@@ -201,7 +273,7 @@ def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
             "The provided audio file could not be decoded or is corrupted. Please try a different audio file in a supported format (WAV, FLAC, MP3, OGG, or M4A).",
         )
 
-    # 4. Model inference failure
+    # 9. Model inference failure
     if (
         "cuda" in msg
         or "torch" in msg
@@ -217,7 +289,7 @@ def categorize_pipeline_error(exc: Exception) -> Tuple[str, str]:
             "A neural model inference error occurred during acoustic or linguistic processing. Please verify available system resources (CPU/RAM) and retry your analysis.",
         )
 
-    # 5. General fallback
+    # 10. General fallback
     return (
         "Multimodal Analysis Pipeline Failed",
         "An unexpected error occurred during multimodal analysis. Please check your audio input and try again.",

@@ -23,6 +23,12 @@ from app.voice_calibration import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _use_superb_backend(monkeypatch):
+    """Voice calibration unit tests were written for the SUPERB backend."""
+    monkeypatch.setattr(config, "VOICE_BACKEND", "superb")
+
+
 def _synthetic_signal(freq: float, duration: float, sr: int = 16000, amp: float = 0.5) -> np.ndarray:
     """Generate synthetic sine signal (test-only input)."""
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)

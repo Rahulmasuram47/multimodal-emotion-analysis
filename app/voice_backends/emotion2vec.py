@@ -97,10 +97,12 @@ class Emotion2VecBackend(VoiceBackend):
             # Fallback: no output
             empty: Dict[str, float] = {k: 0.0 for k in self.CANONICAL}
             return {
-                "emotion": "other",
+                "emotion": "uncertain",
+                "leaning": "unk",
                 "confidence": 0.0,
+                "raw_confidence": 0.0,
                 "scores": empty,
-                "top2": [("other", 0.0), ("neutral", 0.0)],
+                "top2": [("uncertain", 0.0), ("neutral", 0.0)],
                 "raw_label": "unk",
             }
 
@@ -113,13 +115,33 @@ class Emotion2VecBackend(VoiceBackend):
 
         # Top predicted
         top_raw = max(raw_score_map, key=lambda k: raw_score_map[k])
-        emotion = _map_label(top_raw)
-        confidence = canonical_scores[emotion]
+        mapped_emotion = _map_label(top_raw)
+        raw_confidence = canonical_scores.get(mapped_emotion, 0.0)
+
+        # Apply confidence cap (emotion2vec softmax is saturated)
+        conf_cap = getattr(config, "VOICE_CONF_CAP", 0.65)
+        confidence = min(raw_confidence, conf_cap)
+
         top2 = self._top2(canonical_scores)
 
+        # "other" label group → return as "uncertain" with leaning
+        if mapped_emotion == "other":
+            leaning = _parse_english(top_raw)
+            confidence = min(confidence, 0.3)
+            return {
+                "emotion": "uncertain",
+                "leaning": leaning,
+                "confidence": confidence,
+                "raw_confidence": raw_confidence,
+                "scores": canonical_scores,
+                "top2": top2,
+                "raw_label": top_raw,
+            }
+
         return {
-            "emotion": emotion,
+            "emotion": mapped_emotion,
             "confidence": confidence,
+            "raw_confidence": raw_confidence,
             "scores": canonical_scores,
             "top2": top2,
             "raw_label": top_raw,

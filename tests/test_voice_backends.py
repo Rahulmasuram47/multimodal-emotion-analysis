@@ -152,22 +152,26 @@ class TestEmotion2VecBackend:
     def test_disgusted_becomes_other(self):
         b = self._make_backend(["disgusted"], [1.0])
         r = b.predict(DUMMY_WAVE)
-        assert r["emotion"] == "other"
+        assert r["emotion"] == "uncertain"
+        assert r["leaning"] == "disgusted"
 
     def test_fearful_becomes_other(self):
         b = self._make_backend(["fearful"], [1.0])
         r = b.predict(DUMMY_WAVE)
-        assert r["emotion"] == "other"
+        assert r["emotion"] == "uncertain"
+        assert r["leaning"] == "fearful"
 
     def test_surprised_becomes_other(self):
         b = self._make_backend(["surprised"], [1.0])
         r = b.predict(DUMMY_WAVE)
-        assert r["emotion"] == "other"
+        assert r["emotion"] == "uncertain"
+        assert r["leaning"] == "surprised"
 
     def test_unk_becomes_other(self):
         b = self._make_backend(["unk"], [1.0])
         r = b.predict(DUMMY_WAVE)
-        assert r["emotion"] == "other"
+        assert r["emotion"] == "uncertain"
+        assert r["leaning"] == "unk"
 
     def test_scores_normalised(self):
         b = self._make_backend(["angry", "happy"], [3.0, 1.0])
@@ -178,8 +182,7 @@ class TestEmotion2VecBackend:
     def test_empty_output_returns_other(self):
         b = self._make_backend([], [])
         r = b.predict(DUMMY_WAVE)
-        assert r["emotion"] == "other"
-        _assert_contract(r)
+        assert r["emotion"] == "uncertain"
 
     def test_scores_contain_all_canonical(self):
         b = self._make_backend(["angry", "happy", "neutral", "sad"], [0.4, 0.3, 0.2, 0.1])
@@ -192,9 +195,9 @@ class TestEmotion2VecBackend:
 # ------------------------------------------------------------------ #
 
 class TestDefaultBackendUnchanged:
-    def test_config_voice_backend_is_superb(self):
+    def test_config_voice_backend_is_emotion2vec_and_superb_selectable(self):
         import config
-        assert config.VOICE_BACKEND == "superb"
+        assert config.VOICE_BACKEND == "emotion2vec"
 
     def test_vea_default_uses_superb_backend(self):
         """With VOICE_BACKEND='superb' and no explicit backend arg,

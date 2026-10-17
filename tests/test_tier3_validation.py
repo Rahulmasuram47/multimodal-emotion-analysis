@@ -3,6 +3,7 @@ Tier 3 Regression Tests: Validation Tab, Inventory SSOT, Small-Sample Fallback, 
 Covers items 28 through 31 from user specification.
 """
 
+import os
 from pathlib import Path
 import pytest
 
@@ -29,6 +30,10 @@ from ui.pages.validation_view import _load_prediction_table
 # Item 28: Shared dataset inventory function and gap explanation
 # ==============================================================================
 
+@pytest.mark.skipif(
+    not os.path.exists("sample_audio") or len(os.listdir("sample_audio")) < 9,
+    reason="sample_audio files not present on disk",
+)
 def test_get_dataset_inventory_returns_expected_counts():
     """get_dataset_inventory must return the shared single source of truth:
     - 9 audio files on disk in sample_audio

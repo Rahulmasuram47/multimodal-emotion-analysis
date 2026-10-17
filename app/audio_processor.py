@@ -14,6 +14,7 @@ from config import (
     SUPPORTED_AUDIO_EXTENSIONS,
     MAX_AUDIO_DURATION_SECONDS,
     MIN_AUDIO_DURATION_SECONDS,
+    MAX_AUDIO_FILE_SIZE_MB,
     N_MFCC,
     N_FFT,
     HOP_LENGTH,
@@ -66,10 +67,15 @@ def validate_audio_file(file_path: str) -> Dict[str, Any]:
             f"Unsupported audio format '{ext}'. Supported formats: {supported_str}"
         )
 
-    # Empty file check
+    # Empty and maximum file size check
     file_size = os.path.getsize(file_path)
     if file_size == 0:
         raise AudioValidationError(f"Audio file is empty (0 bytes): '{file_path}'")
+    max_bytes = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024
+    if file_size > max_bytes:
+        raise AudioValidationError(
+            f"Audio file size ({file_size / (1024 * 1024):.1f} MB) exceeds maximum allowed limit of {MAX_AUDIO_FILE_SIZE_MB:.0f} MB."
+        )
 
     # Corruption check by reading header/metadata
     try:

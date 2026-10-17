@@ -109,6 +109,7 @@ def apply_prosody_sanity_rule(
     recording_percentiles: Optional[Tuple[float, float]] = None,
     f0_segment: Optional[np.ndarray] = None,
     voiced_flag_segment: Optional[np.ndarray] = None,
+    backend: Optional[str] = None,
 ) -> CalibrationResult:
     """Dampen 'sad' when the segment's own acoustics look high-arousal.
 
@@ -119,7 +120,9 @@ def apply_prosody_sanity_rule(
     applied: List[str] = []
     scores = dict(raw_scores)
 
-    if not config.VOICE_CALIBRATION_PROSODY_RULE_ENABLED:
+    active_backend = backend if backend is not None else getattr(config, "VOICE_BACKEND", "superb")
+    allowed_backends = getattr(config, "VOICE_SANITY_RULE_BACKENDS", ["superb"])
+    if not config.VOICE_CALIBRATION_PROSODY_RULE_ENABLED or (active_backend not in allowed_backends):
         top_label, top_conf = _top_class(scores)
         return CalibrationResult(scores=scores, emotion=top_label, confidence=top_conf, applied_rules=applied)
 
@@ -280,6 +283,7 @@ class VoiceCalibrator:
         recording_percentiles: Optional[Tuple[float, float]] = None,
         f0_segment: Optional[np.ndarray] = None,
         voiced_flag_segment: Optional[np.ndarray] = None,
+        backend: Optional[str] = None,
     ) -> CalibrationResult:
         """Full calibration pipeline for one segment: temperature (if fitted)
         then prosody sanity rule, both logged in applied_rules.
@@ -291,6 +295,7 @@ class VoiceCalibrator:
             scores = self.apply_temperature(scores)
             applied.append(f"temperature_scaling: T={self.temperature:.2f}")
 
+        active_backend = backend or getattr(config, "VOICE_BACKEND", "superb")
         prosody_result = apply_prosody_sanity_rule(
             raw_scores=scores,
             audio_segment=audio_segment,
@@ -298,6 +303,7 @@ class VoiceCalibrator:
             recording_percentiles=recording_percentiles,
             f0_segment=f0_segment,
             voiced_flag_segment=voiced_flag_segment,
+            backend=active_backend,
         )
         applied.extend(prosody_result.applied_rules)
 

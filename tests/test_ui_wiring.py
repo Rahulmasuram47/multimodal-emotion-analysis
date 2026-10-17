@@ -116,6 +116,45 @@ def test_error_message_model_inference_failure():
     assert "resources" in guidance.lower() or "memory" in guidance.lower()
 
 
+def test_error_message_auth_gated_network_and_privacy():
+    """Verify friendly error handling for HF auth, gated 403, network, and mic denial without leaking secrets."""
+    # 1. Gated model denial (403)
+    title, guidance = categorize_pipeline_error(RuntimeError("GatedRepoError: 403 Client Error: Repository access is restricted"))
+    assert "Gated" in title
+    assert "terms" in guidance.lower()
+
+    # 2. Missing token
+    title, guidance = categorize_pipeline_error(ValueError("HF_TOKEN is not set or missing token for gated access"))
+    assert "Token Missing" in title
+    assert "hf_token" in guidance.lower()
+
+    # 3. 401 Unauthorized / Invalid token (never leaks fake token value)
+    fake_token = "hf_secret_1234567890abcdef"
+    title, guidance = categorize_pipeline_error(RuntimeError(f"401 Client Error: Invalid token '{fake_token}'"))
+    assert "Authentication Failed" in title
+    assert fake_token not in guidance
+    assert fake_token not in title
+
+    # 4. Offline / Network error
+    title, guidance = categorize_pipeline_error(ConnectionError("MaxRetryError: Failed to establish a new connection: [Errno 11001] getaddrinfo failed"))
+    assert "Network" in title
+    assert "offline" in guidance.lower() or "connect" in guidance.lower()
+
+    # 5. Microphone permission denied
+    title, guidance = categorize_pipeline_error(PermissionError("NotAllowedError: Permission denied by browser"))
+    assert "Microphone Access Denied" in title
+    assert "permission" in guidance.lower()
+
+
+def test_wavesurfer_player_local_asset_embedding():
+    """Verify that WaveSurfer component uses bundled local javascript asset to prevent external network calls."""
+    from ui.components.waveform_player import get_wavesurfer_script_tag
+    tag = get_wavesurfer_script_tag()
+    assert tag.startswith("<script>")
+    assert "unpkg.com" not in tag
+
+
+
 def test_json_export_notices_and_limitations_field():
     """Verify JSON export payload additively includes structured notices/limitations field."""
     sample_result = {

@@ -1,0 +1,7 @@
+# robots.txt for Multimodal Voice & Conversation Emotion Analysis System
+User-agent: *
+Allow: /
+Disallow: /eval/
+Disallow: /data/
+Disallow: /models/
+Sitemap: https://multimodal-emotion-analysis.example.com/sitemap.xml

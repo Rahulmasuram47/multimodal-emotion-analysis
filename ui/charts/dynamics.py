@@ -132,6 +132,8 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
         "sad": -0.75,
         "angry": -0.75,
         "ang": -0.75,
+        "uncertain": 0.0,
+        "other": 0.0,
     }
 
     # Item 20: Alternate label positions to avoid overlapping text labels
@@ -182,12 +184,14 @@ def render_valence_arousal_map(segments: List[Dict[str, Any]]) -> None:
             arousal = intensity
         arousal_scores.append(round(safe_float(arousal), 3))
 
+        from ui.components.segment_timeline import _collapse_repetitive_tokens
+        t_clean = _collapse_repetitive_tokens(str(s.get("transcript", "")))
         turn_labels.append(format_turn_label(idx, one_based=False))
         hover_texts.append(
             f"<b>{format_turn_label(idx, one_based=False)}</b><br>"
             f"{hover_detail}<br>"
             f"Arousal: {arousal:.2f}<br>"
-            f"Transcript: {html.escape(str(s.get('transcript', ''))[:45])}..."
+            f"Transcript: {html.escape(t_clean[:45])}..."
         )
 
     theme_tokens = get_chart_theme_tokens()

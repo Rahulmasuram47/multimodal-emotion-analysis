@@ -185,3 +185,90 @@ class TestItem36NoNewUIDeps:
     def test_no_option_menu_in_requirements(self):
         req = _src("requirements.txt")
         assert "streamlit-option-menu" not in req
+
+
+# ---------------------------------------------------------------------------
+# Repetition collapse & banner reliability consistency tests
+# ---------------------------------------------------------------------------
+class TestRepetitionCollapseAndBannerFix:
+    def test_repetition_collapse_required_patterns(self):
+        from ui.components.segment_timeline import _collapse_repetitive_tokens, collapse_repetitive_tokens
+        assert collapse_repetitive_tokens is _collapse_repetitive_tokens
+
+        cases = [
+            ("Thank you. " * 40, "Thank you.", 40),
+            (("the " * 30) + "th", "the", 31),
+            ("I don't know what to do " * 8, "I don't know what to do", 8),
+            ("... " * 12, "...", 12),
+        ]
+        for raw, first_occ, expected_n in cases:
+            collapsed = _collapse_repetitive_tokens(raw)
+            # Displayed length under 200 chars
+            assert len(collapsed) < 200, f"Length {len(collapsed)} >= 200 for {first_occ}"
+            # Marker present
+            assert "(repetitive transcript)" in collapsed
+            assert f"×{expected_n}" in collapsed
+            # First occurrence kept
+            assert collapsed.startswith(first_occ)
+
+    def test_natural_repeats_untouched(self):
+        from ui.components.segment_timeline import _collapse_repetitive_tokens
+        assert _collapse_repetitive_tokens("very, very good") == "very, very good"
+        assert _collapse_repetitive_tokens("no, no, no") == "no, no, no"
+
+    def test_raw_unchanged_in_export(self):
+        from ui.components.export_bar import build_json_export_payload
+        raw_rep = "Thank you. " * 40
+        mock_result = {
+            "segments": [
+                {
+                    "segment_index": 1,
+                    "start_seconds": 0.0,
+                    "end_seconds": 2.0,
+                    "speaker": "Speaker A",
+                    "transcript": f"Speaker A: {raw_rep}",
+                }
+            ],
+            "full_transcript": raw_rep,
+        }
+        payload = build_json_export_payload(mock_result)
+        # Export retains uncollapsed raw text (minus speaker prefix)
+        assert payload["segments"][0]["transcript"].strip() == raw_rep.strip()
+
+    def test_banner_number_matches_why_this_result(self):
+        """Banner reliability number and Why this result voice reliability must match."""
+        import pytest
+        from ui.utils import safe_float
+        import config as _config
+
+        # Turn with voice collapse penalty (0.50 reliability)
+        seg = {
+            "start_seconds": 0.0,
+            "end_seconds": 2.0,
+            "transcript": "Neutral turn",
+            "voice_emotion": {"emotion": "neutral", "confidence": 0.70, "voice_reliability": 0.50},
+            "voice_reliability": 0.50,
+            "voice_collapse_detected": True,
+            "fusion": {"audio_reliability": 0.50, "pattern_label": "neutral pattern"},
+        }
+        fusion = seg.get("fusion", {})
+        voice = seg.get("voice_emotion", {})
+
+        v_rel = safe_float(fusion.get("audio_reliability", voice.get("voice_reliability", seg.get("voice_reliability", 1.0))))
+        if "voice_reliability" in voice:
+            v_rel = min(v_rel, safe_float(voice.get("voice_reliability", 1.0)))
+        if "voice_reliability" in seg:
+            v_rel = min(v_rel, safe_float(seg.get("voice_reliability", 1.0)))
+        if isinstance(fusion, dict):
+            fusion["audio_reliability"] = v_rel
+
+        # Banner formats as percentage
+        banner_str = f"Low Voice Reliability ({v_rel:.0%})"
+        assert banner_str == "Low Voice Reliability (50%)"
+
+        # Why this result formats as float .2f
+        why_rel = safe_float(fusion.get("audio_reliability", 1.0))
+        assert why_rel == pytest.approx(0.50)
+        assert f"{why_rel:.2f}" == "0.50"
+        assert f"{v_rel:.2f}" == f"{why_rel:.2f}"
+

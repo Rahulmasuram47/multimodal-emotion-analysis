@@ -59,6 +59,12 @@ def run_milestone1_verification():
     print('   [SUCCESS] Milestone 1 verification tests passed!       ')
     print('=============================================================')
 
+import pytest
+
+@pytest.mark.skipif(
+    not os.path.exists(os.path.join("sample_audio", "sample_16k.wav")),
+    reason="sample_audio/sample_16k.wav not found",
+)
 def test_milestone1_verification():
     run_milestone1_verification()
 

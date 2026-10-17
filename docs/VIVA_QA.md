@@ -1,0 +1,98 @@
+# Comprehensive Viva & Technical Defense Q&A
+
+This document provides rigorous, code-grounded answers for technical vivas, examinations, and architectural defense of the **Multimodal Voice & Conversation Emotion Analysis System**.
+
+---
+
+## 1. System Architecture & Model Pipeline
+
+### Q1: What models comprise the active multimodal pipeline, and what preprocessing is applied?
+- **Acoustic Preprocessing**: Input audio is validated (format, 0-byte, corruption, and 50 MB / 600s limits), converted to mono, resampled to $16,000\text{ Hz}$ PCM float32, and peak-amplitude normalized in `app/audio_processor.py`.
+- **Voice Emotion**: `superb/wav2vec2-base-superb-er` (or `emotion2vec/emotion2vec_plus_base` when configured). Wav2Vec2 uses 12 transformer encoder blocks (768 hidden dimension) extracting CNN temporal representations and pooling into 4 discrete classes: *neutral, happy, angry, sad*.
+- **Speech-to-Text (STT)**: `faster-whisper` (`base` or `small` model), running under CTranslate2 in INT8 CPU quantization. Features Voice Activity Detection (VAD) filtering, producing timestamped word/segment tokens and transcription log-probabilities.
+- **Text Sentiment**: `cardiffnlp/twitter-roberta-base-sentiment-latest`, a RoBERTa-base architecture fine-tuned on TweetEval, producing probabilities over *positive, neutral, negative*.
+- **Speaker Diarization**: `pyannote/speaker-diarization-community-1`, clustering voice embeddings across time when an authenticated `HF_TOKEN` is provided.
+
+---
+
+## 2. Mathematical Formulas & Fusion Rules
+
+### Q2: What are the mathematical formulas for dynamic weights, evidence strength, and intensity?
+1. **Dynamic Reliability-Weighted Effective Weights**:
+   $$w_{\text{eff, audio}} = \frac{w_{\text{base, audio}} \cdot r_{\text{audio}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}$$
+   $$w_{\text{eff, text}} = \frac{w_{\text{base, text}} \cdot r_{\text{text}}}{w_{\text{base, audio}} \cdot r_{\text{audio}} + w_{\text{base, text}} \cdot r_{\text{text}}}$$
+   Where $r_{\text{audio}}$ integrates duration and probability margin, and $r_{\text{text}}$ is derived from Whisper average token log-probabilities.
+
+2. **Combined Confidence (Evidence Strength)**:
+   $$c_{\text{combined}} = w_{\text{eff, audio}} \cdot c_{\text{audio}} + w_{\text{eff, text}} \cdot c_{\text{text}}$$
+   Evidence strength is strictly a convex combination bounded in $[\min(c_{\text{audio}}, c_{\text{text}}), \max(c_{\text{audio}}, c_{\text{text}})]$. Mismatch receives no artificial boost; uncertainty in either modality directly attenuates the combined confidence.
+
+3. **Conversational Turn Intensity**:
+   $$I = 0.50 \cdot A_{\text{audio}} + 0.50 \cdot \text{negativity}_{\text{text}}$$
+   Where acoustic arousal $A_{\text{audio}}$ is mapped via `config.VOICE_EMOTION_AROUSAL_MAP` (angry=0.85, happy=0.70, sad=0.35, neutral=0.20), and $\text{negativity}_{\text{text}}$ is RoBERTa negative sentiment probability. On voice-only turns ($w_{\text{eff, text}} = 0$), intensity defaults purely to $A_{\text{audio}}$.
+
+---
+
+## 3. Reliability Gating, Confidence Cap & Sanity Rules
+
+### Q3: Why is `VOICE_CONF_CAP` set to 0.65, and why is the sanity rule SUPERB-only?
+- **Confidence Cap (`VOICE_CONF_CAP = 0.65`)**: On the `emotion2vec` backend, the raw softmax distribution is severely over-saturated (exhibiting mean confidence $\ge 0.998$ on both correct and incorrect predictions on preliminary dev benchmarks with $\approx 62.5\%$ accuracy). Leaving confidence uncapped allowed faulty acoustic classifications to completely dominate text sentiment during fusion. Capping raw confidence at $0.65$ restores parity with empirical accuracy.
+- **Why the Sanity Rule is SUPERB-Only**: The SUPERB Wav2Vec2 model occasionally produces extreme probability spikes on short or degraded clips, or suffers acoustic collapse where all classes approach identical probabilities. The heuristic sanity rule was calibrated specifically to SUPERB's logit distribution and must not be applied to `emotion2vec`, which has fundamentally different representation geometry and saturation characteristics.
+
+---
+
+## 4. Evaluation Methodology & CREMA-D Benchmark
+
+### Q4: Why use CREMA-D with an actor-disjoint split and actor-cluster bootstrap?
+- **Actor-Disjoint Split**: CREMA-D contains 7,442 clips from 91 ethnically diverse actors. Splitting data randomly by clip causes severe data leakage because the model memorizes speaker-specific vocal traits. An actor-disjoint split ensures actors in the development set never appear in the test set.
+- **Actor-Cluster Bootstrap**: Utterances spoken by the same actor are correlated (non-i.i.d.). Standard empirical bootstrap underestimates variance. Actor-cluster bootstrap resamples entire actor clusters with replacement, producing valid 95% confidence intervals reflecting generalization across unseen speakers.
+
+### Q5: What was the Candidate Head adoption protocol, and why train on frozen embeddings?
+- **Frozen Embeddings**: Fine-tuning all 95M+ transformer parameters on smaller corpora causes catastrophic forgetting and acoustic overfitting. Extracting frozen penultimate transformer representations and training a lightweight Logistic Regression head adapts classification boundaries while preserving learned acoustic representations.
+- **Pre-Declared Frozen Decision Protocol**: In accordance with rigorous scientific practice, the adoption rule was pre-declared in `evaluation/results/head_decision.json` **before** execution: candidate must beat dev baseline mean UAR by $\ge 0.03$ in actor-grouped CV across a majority of folds without degrading sad or neutral recall. The dev-only CV rejected the head; the decision was frozen; the test split was evaluated exactly **once** without post-hoc tuning, and results were honestly reported showing the candidate was not adopted.
+
+---
+
+## 5. Calibration, Agreement & Natural Speech
+
+### Q6: Why doesn't temperature calibration change classification accuracy?
+- Temperature scaling applies a monotonic transformation: $p_i = \frac{e^{z_i / T}}{\sum_j e^{z_j / T}}$. Dividing all logits $z$ by a positive scalar $T$ preserves logit ranking ($\arg\max_i z_i / T = \arg\max_i z_i$). Therefore, predicted classes and raw accuracy remain identical, while calibration metrics (ECE and NLL) improve.
+
+### Q7: Why wasn't `VOICE_CONF_CAP` altered during calibration?
+- Central project constraints strictly forbid altering fusion rules, weights, thresholds, or `VOICE_CONF_CAP` to ensure data integrity and prevent post-hoc hyperparameter gaming.
+
+### Q8: What is the relevance of Cohen/Fleiss Kappa and human agreement?
+- Human annotator agreement on conversational affect typically yields $\kappa \approx 0.40 - 0.65$. Speech emotion is inherently ambiguous; expecting computational models to achieve $> 85\%$ accuracy against single-rater annotations ignores human baseline variance.
+
+### Q9: What is the Natural Speech Protocol, and why is the target sample size small (40–60 clips)?
+- Acted corpora feature exaggerated, theatrical affect not representative of real conversations.
+- Protocol (`docs/NATURAL_SET_PROTOCOL.md`) gathers 40–60 authentic 3–15s clips from $\ge 8$ consenting speakers (including Indian English). A small, high-quality corpus with multi-rater independent consensus provides verifiable ecological validity without ethical or consent compromises.
+
+---
+
+## 6. Runtime Performance & Production Hygiene
+
+### Q10: What is the system's CPU latency and Real-Time Factor (RTF)?
+- Benchmarked on Intel Core Ultra CPU:
+  - **Cold Start (Model Loading)**: 1.2s to 3.5s (deferred until the user triggers "Analyze a clip").
+  - **Warm Inference (3.0s conversation)**: 0.95 seconds.
+  - **Real-Time Factor (RTF)**: $\text{RTF} = 0.95 / 3.0 \approx 0.32$ (more than $3\times$ faster than real-time on CPU).
+  - **Fusion Recompute**: $< 5\text{ ms}$ (instant rule re-arbitration without neural re-execution).
+
+### Q11: How are edge cases (abstention, voice-only, short segments) handled?
+- **Abstention**: If combined reliability $r_{\text{combined}} < 0.35$, the system flags low confidence and abstains from asserting definitive classifications.
+- **Voice-Only Fallback**: When transcripts are empty, repetitive, or non-English, text weight drops to $0.0$, operating purely on acoustic features.
+- **Short Segments (< 1.0s)**: Flagged with warning chips and excluded from OLS trend regressions due to insufficient acoustic frames.
+
+---
+
+## 7. Scoped-Out Features, Ethical Boundaries & Limitations
+
+### Q12: Why are there NO claims of sarcasm or deception detection?
+- Modality incongruence reflects computational divergence between acoustic and linguistic classifiers. Sarcasm, irony, and deception involve human pragmatic intent and internal mental states that cannot be verified computationally from audio. Claiming lie detection would be scientifically invalid and ethically irresponsible.
+
+### Q13: Why were RAVDESS, Live Streaming, and XAI deferred or scoped out?
+- **RAVDESS**: Secondary acted dataset; deferred in favor of CREMA-D and natural speech protocol.
+- **Live Streaming**: Requires streaming chunked ASR (which causes hallucinations on partial utterances) and WebSocket complexity; file-based turn analysis satisfies the project specification.
+- **Complex XAI (LIME/SHAP)**: Opaque post-hoc explanations were rejected in favor of transparent, rule-based arbitration with explicit counterfactual sensitivity tables.
+- **Docker**: Containerization is provided via production `Dockerfile` for self-hosted instances, but local lightweight virtual environment remains primary.

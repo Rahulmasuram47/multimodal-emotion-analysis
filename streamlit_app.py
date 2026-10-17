@@ -33,6 +33,8 @@ from ui.components.transparency_panels import (
 from ui.pages.acoustic_view import render_acoustic_page  # noqa: F401
 from ui.pages.analysis_view import render_analysis_page
 from ui.pages.annotation_view import render_annotation_page
+from ui.pages.limitations_view import render_limitations_page
+from ui.pages.privacy_view import render_privacy_page
 from ui.pages.validation_view import render_multimodal_validation_section
 from ui.state import (
     clear_results,
@@ -50,9 +52,18 @@ SAMPLE_DIR = Path("sample_audio")
 # 1. PAGE CONFIGURATION & STYLES
 st.set_page_config(
     page_title="Multimodal Emotion Analysis System",
-    page_icon="🎛️",
+    page_icon="🎙️",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={
+        "About": (
+            "### Multimodal Voice & Conversation Emotion Analysis System\n\n"
+            "Academic and research prototype for transparent multimodal voice emotion, "
+            "speech recognition, and text sentiment analysis. Strictly for educational "
+            "and decision-support research. Never for clinical diagnosis, hiring, "
+            "surveillance, or deception detection."
+        ),
+    },
 )
 load_css()
 init_session_state()
@@ -64,9 +75,40 @@ def load_analyzer(whisper_model_size: str = "base", whisper_language: str = "aut
     return ConversationAnalyzer(whisper_model_size=whisper_model_size, whisper_language=whisper_language)
 
 
+def render_footer() -> None:
+    """Render the dashboard footer with navigation and research scope."""
+    st.markdown(
+        """
+        <div class="dashboard-footer">
+            MULTIMODAL VOICE & CONVERSATION EMOTION ANALYSIS SYSTEM &nbsp;·&nbsp;
+            B.TECH MINI-PROJECT AI ANALYTICS ENGINE &nbsp;·&nbsp;
+            CPU INFERENCE OPTIMIZED<br>
+            <span style="font-size: 0.75rem; margin-top: 0.45rem; display: inline-block;">
+                <a href="?view=privacy" style="color: var(--accent); text-decoration: none; margin-right: 1.25rem;">🔒 Privacy Policy</a>
+                <a href="?view=limitations" style="color: var(--accent); text-decoration: none; margin-right: 1.25rem;">⚠️ System Limitations</a>
+                <span style="color: var(--text-muted);">Educational & Academic Research Use Only</span>
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 # 2. BRAND HEADER & SIDEBAR
 render_header()
 render_sidebar()
+
+# Query parameter and active view routing
+active_view = st.session_state.get("active_view", "🎙️ Analysis Workspace")
+if active_view == "🔒 Privacy Policy":
+    render_privacy_page()
+    render_footer()
+    st.stop()
+elif active_view == "⚠️ System Limitations":
+    render_limitations_page()
+    render_footer()
+    st.stop()
+
 render_pipeline_steps()
 
 # 3. AUDIO INGESTION (UPLOAD & MICROPHONE)
@@ -158,7 +200,11 @@ btn_col1, btn_col2, btn_col3, _ = st.columns([1.5, 1, 1.2, 1.8])
 auto_analyze = st.query_params.get("auto_analyze") in ("true", "1")
 with btn_col1:
     clicked = st.button(
-        "ANALYZE AUDIO ▶", type="primary", use_container_width=True, disabled=(active_audio is None)
+        "Analyze a clip ▶",
+        type="primary",
+        use_container_width=True,
+        disabled=(active_audio is None),
+        help="Execute multimodal voice emotion, transcription, and sentiment analysis on the active clip.",
     )
     # Auto-analyze only once per source, so a failed run cannot loop forever.
     auto_trigger = (
@@ -360,13 +406,5 @@ else:
         render_annotation_page()
 
 # 6. DASHBOARD FOOTER
-st.markdown(
-    """
-    <div class="dashboard-footer">
-        MULTIMODAL VOICE & CONVERSATION EMOTION ANALYSIS SYSTEM &nbsp;·&nbsp;
-        B.TECH MINI-PROJECT AI ANALYTICS ENGINE &nbsp;·&nbsp;
-        CPU INFERENCE OPTIMIZED
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()
+

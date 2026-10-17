@@ -15,6 +15,7 @@ TARGET_SAMPLE_RATE = 16000  # Standard sample rate for speech models (Hz)
 SUPPORTED_AUDIO_EXTENSIONS = ('.wav', '.flac', '.mp3', '.ogg', '.m4a')
 MAX_AUDIO_DURATION_SECONDS = 600  # Maximum 10 minutes per conversation
 MIN_AUDIO_DURATION_SECONDS = 0.5  # Minimum 0.5 seconds for analysis
+MAX_AUDIO_FILE_SIZE_MB = 50.0  # Maximum upload file size in megabytes
 N_MFCC = 13  # Number of MFCC coefficients to extract
 N_FFT = 2048
 HOP_LENGTH = 512
@@ -25,14 +26,21 @@ STT_MODEL_SIZE = 'base'  # faster-whisper model size ('base' or 'small')
 TEXT_SENTIMENT_MODEL_NAME = 'cardiffnlp/twitter-roberta-base-sentiment-latest'
 TEXT_SENTIMENT_FALLBACK_MODEL = 'distilbert-base-uncased-finetuned-sst-2-english'
 
-# Voice backend selector: "superb" (default, production) or "emotion2vec"
-VOICE_BACKEND: str = "superb"
-# emotion2vec model id (benchmark / experimental only)
+# Voice backend selector: "superb" (production baseline) or "emotion2vec" (default)
+VOICE_BACKEND: str = "emotion2vec"
+# emotion2vec model id
 EMOTION2VEC_MODEL_NAME: str = "emotion2vec/emotion2vec_plus_base"
 # Ensemble configuration: if True, runs both backends and detects disagreement
 ENSEMBLE_ENABLED: bool = False
 # Floor for voice reliability when an unmapped/other label or ensemble disagreement occurs
 VOICE_RELIABILITY_FLOOR_OTHER: float = 0.35
+# emotion2vec softmax is saturated (mean conf 0.998 correct / 0.999 wrong on the 8-clip dev
+# benchmark, accuracy 62.5%, preliminary); cap confidence near measured accuracy; revisit
+# with more labelled data.
+VOICE_CONF_CAP: float = 0.65
+
+# Candidate Voice Head Model Path (Phase 4B: default None / OFF, loaded only when set)
+VOICE_HEAD_PATH: str | None = os.getenv("VOICE_HEAD_PATH", None)
 
 # Emotion & Sentiment Categories
 AUDIO_EMOTION_CLASSES = ['neutral', 'happy', 'angry', 'sad']
@@ -85,6 +93,8 @@ VOICE_CALIBRATION_ENABLED: bool = True
 
 # Prosody sanity rule (data-free heuristic, usable even at very small N).
 VOICE_CALIBRATION_PROSODY_RULE_ENABLED: bool = True
+# designed for SUPERB's sad bias; in the 8-clip ablation it never changed an emotion2vec label
+VOICE_SANITY_RULE_BACKENDS: list = ["superb"]
 VOICE_CALIBRATION_RMS_THRESHOLD: float = 0.05          # tune once labeled data exists
 VOICE_CALIBRATION_ZCR_STD_THRESHOLD: float = 0.02      # tune once labeled data exists
 VOICE_CALIBRATION_RELATIVE_LOUDNESS_THRESHOLD: float = 0.40  # Normalized relative loudness [0, 1]
@@ -116,6 +126,7 @@ LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD: float = 0.65
 # emotion inference on their own. Their audio window is widened using
 # neighboring context before running the acoustic model.
 SHORT_SEGMENT_THRESHOLD_SECONDS: float = 1.0
+VOICE_MIN_SEGMENT_SEC: float = 1.0  # Minimum segment duration (sec) for reliable voice emotion inference
 
 # When widening a short segment's audio window, expand by this many seconds
 # on each side (clamped to the full audio's bounds and to not overlap past

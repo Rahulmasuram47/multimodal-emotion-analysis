@@ -20,10 +20,19 @@ Also provides:
 """
 
 import logging
+import re
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+
+
+def sanitize_transcript(text: str) -> str:
+    """Strip U+FFFD and trailing partial / replacement characters."""
+    if not text:
+        return ""
+    s = re.sub(r'[\ufffd\uFFFE\uFFFF]+', '', str(text))
+    return s.strip()
 
 import config
 from app.audio_processor import load_and_preprocess_audio
@@ -486,19 +495,26 @@ class ConversationAnalyzer:
         turns is not meaningful.
         """
         min_turns = getattr(config, "VERDICT_MIN_SEGMENTS", 3)
-        if len(segments) < min_turns:
+        min_sec = getattr(config, "VOICE_MIN_SEGMENT_SEC", 1.0)
+        # Exclude segments shorter than VOICE_MIN_SEGMENT_SEC from trend verdict
+        trend_segments = [
+            s for s in segments
+            if ("start_seconds" not in s and "end_seconds" not in s)  # no time info → include always
+            or (float(s.get("end_seconds", 0.0) or 0.0) - float(s.get("start_seconds", 0.0) or 0.0)) >= min_sec
+        ]
+        if len(trend_segments) < min_turns:
             return {
                 "verdict": "insufficient_data",
                 "reason": (
-                    f"At least {min_turns} turns are needed to assess a trend "
-                    f"(found {len(segments)})."
+                    f"At least {min_turns} reliable turns (>= {min_sec:.1f}s) are needed to assess a trend "
+                    f"(found {len(trend_segments)})."
                 ),
                 "slope": 0.0,
                 "net_change": 0.0,
                 "counterfactuals": [],
             }
 
-        intensities = [float(segment.get("intensity", 0.0)) for segment in segments]
+        intensities = [float(segment.get("intensity", 0.0)) for segment in trend_segments]
 
         slope = ConversationAnalyzer._ols_slope(intensities)
         net_change = round(intensities[-1] - intensities[0], 4)
@@ -754,7 +770,8 @@ class ConversationAnalyzer:
                 )
 
                 voice_result["raw_emotion"] = voice_result["emotion"]
-                voice_result["raw_confidence"] = voice_result["confidence"]
+                if "raw_confidence" not in voice_result:
+                    voice_result["raw_confidence"] = voice_result["confidence"]
                 voice_result["raw_scores"] = dict(voice_result["scores"])
                 voice_result["emotion"] = calibration.emotion
                 voice_result["confidence"] = calibration.confidence
@@ -792,10 +809,14 @@ class ConversationAnalyzer:
             voice_result["voice_margin_reliability"] = 1.0
             voice_result["is_low_voice_confidence"] = False
 
-        # Item 4 & 5: If emotion is 'other' or ensemble disagreed, clamp voice reliability to floor
+        # Item 4 & 5: If emotion is 'other'/'uncertain' or ensemble disagreed, clamp voice reliability
         floor_other = getattr(config, "VOICE_RELIABILITY_FLOOR_OTHER", 0.35)
-        if voice_result.get("emotion") == "other" or voice_result.get("uncertain", False) or voice_result.get("ensemble_disagreement", False):
-            voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), floor_other)
+        if voice_result.get("emotion") in ("other", "uncertain") or voice_result.get("uncertain", False) or voice_result.get("ensemble_disagreement", False):
+            # "uncertain" from emotion2vec uses a stricter floor of 0.2
+            if voice_result.get("emotion") == "uncertain":
+                voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), 0.2)
+            else:
+                voice_result["voice_reliability"] = min(voice_result.get("voice_reliability", 1.0), floor_other)
 
         low_v_rel_display_thresh = getattr(config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
         is_low_v_rel = bool(
@@ -823,7 +844,7 @@ class ConversationAnalyzer:
             text_rel = 0.0
         else:
             try:
-                sentiment_result = self.sentiment_analyzer.analyze(text)
+                sentiment_result = self.sentiment_analyzer.analyze(sanitize_transcript(text))
             except Exception:
                 logger.exception(
                     "Text sentiment analysis failed for segment %d; skipping.",
@@ -1093,6 +1114,10 @@ class ConversationAnalyzer:
             )
 
             if segment_result is not None:
+                # Stamp recording-level language detection onto each segment so
+                # the UI badge shows the actual detected language, not config.
+                segment_result["language"] = detected_lang
+                segment_result["language_probability"] = lang_prob
                 analyzed_segments.append(segment_result)
         t_segments_elapsed = time.perf_counter() - t_segments_start
 
@@ -1138,11 +1163,12 @@ class ConversationAnalyzer:
                         seg["voice_emotion"]["low_voice_reliability"] = True
                         seg["voice_collapse_detected"] = True
                         seg["low_voice_reliability"] = True
-                        if "fusion" in seg and "text_sentiment" in seg:
+                        seg["voice_reliability"] = seg["voice_emotion"]["voice_reliability"]
+                        if "fusion" in seg:
                             try:
                                 seg["fusion"] = self.fusion.fuse(
                                     seg["voice_emotion"],
-                                    seg["text_sentiment"],
+                                    seg.get("text_sentiment"),
                                 )
 
                             except Exception:

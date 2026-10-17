@@ -24,8 +24,9 @@ def sanitize_transcript(text: str) -> str:
 
 
 def _collapse_repetitive_tokens(text: str) -> str:
-    """Collapse repeated token or phrase of up to 4 tokens repeated 4+ times.
-    Example: '<phrase> x N (repetitive transcript)'.
+    """Collapse repeated token or phrase of 1 to 6 tokens repeated 4+ times.
+    Counts a truncated final token that is a prefix of the repeated token as part of the run.
+    Keeps the first occurrence and appends '… ×N (repetitive transcript)'.
     """
     clean_text = sanitize_transcript(text)
     tokens = clean_text.split()
@@ -33,14 +34,58 @@ def _collapse_repetitive_tokens(text: str) -> str:
     if n < 4:
         return clean_text
 
-    # Check phrase lengths k = 1, 2, 3, 4
-    for k in (1, 2, 3, 4):
-        if n >= 4 * k and n % k == 0:
-            phrase = tokens[:k]
-            if tokens == phrase * (n // k):
-                phrase_str = " ".join(phrase)
-                return f"{phrase_str} x {n // k} (repetitive transcript)"
-    return clean_text
+    result_parts = []
+    i = 0
+    while i < n:
+        best_k = None
+        best_count = 0
+        best_advance = 0
+
+        # Check phrase lengths k = 1 to 6
+        for k in range(1, min(7, n - i + 1)):
+            phrase = tokens[i : i + k]
+            count = 1
+            j = i + k
+            while j + k <= n and tokens[j : j + k] == phrase:
+                count += 1
+                j += k
+
+            advance = j
+            if j < n:
+                rem_len = n - j
+                if rem_len == 1:
+                    last_tok = tokens[j]
+                    expected_tok = phrase[0]
+                    if expected_tok.startswith(last_tok) and len(last_tok) < len(expected_tok):
+                        count += 1
+                        advance = j + 1
+                elif rem_len < k:
+                    prefix_match = True
+                    for r in range(rem_len - 1):
+                        if tokens[j + r] != phrase[r]:
+                            prefix_match = False
+                            break
+                    if prefix_match:
+                        last_tok = tokens[j + rem_len - 1]
+                        exp_tok = phrase[rem_len - 1]
+                        if exp_tok.startswith(last_tok):
+                            count += 1
+                            advance = j + rem_len
+
+            if count >= 4 and advance > best_advance:
+                best_k = k
+                best_count = count
+                best_advance = advance
+
+        if best_k is not None:
+            phrase_str = " ".join(tokens[i : i + best_k])
+            result_parts.append(f"{phrase_str}… ×{best_count} (repetitive transcript)")
+            i = best_advance
+        else:
+            result_parts.append(tokens[i])
+            i += 1
+
+    return " ".join(result_parts)
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +300,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             )
             low_v_conf_thresh = getattr(_config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
             low_v_rel_disp_thresh = getattr(_config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
-            v_rel = safe_float(segment.get("voice_reliability", voice.get("voice_reliability", fusion.get("audio_reliability", 1.0))))
+            v_rel = safe_float(fusion.get("audio_reliability", voice.get("voice_reliability", segment.get("voice_reliability", 1.0))))
             v_conf_info = voice.get("confidence_informative", True)
             is_low_voice_rel = bool(
                 segment.get("low_voice_reliability", False)

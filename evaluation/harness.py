@@ -92,7 +92,10 @@ class EvaluationResult:
         if self.voice_emotion_metrics.get("status") == "OK":
             ve = self.voice_emotion_metrics
             lines.append(f"   Evaluated: {ve['total_samples']}")
-            lines.append(f"   Accuracy:  {ve['accuracy']}")
+            u_info = f" (Uncertain rate: {ve['uncertain_rate']:.1%})" if ve.get("uncertain_rate") is not None else ""
+            lines.append(f"   Accuracy:  {ve['accuracy']}{u_info}")
+            if ve.get("uncertain_rate") is not None:
+                lines.append(f"   Uncertain: {ve['uncertain_rate']:.1%}")
             lines.append(f"   Precision: {ve['precision_macro']}")
             lines.append(f"   Recall:    {ve['recall_macro']}")
             lines.append(f"   F1-Score:  {ve['f1_macro']}")
@@ -294,12 +297,30 @@ class EvaluationHarness:
                 inc_true.append(sample.true_incongruent)
                 inc_pred.append("yes" if pred_inc else "no")
 
+            # Copy forward new metadata keys if present in extra
+            extra = pred.extra or {}
+            for col in [
+                "voice_backend", "voice_conf_cap", "whisper_model_size",
+                "sanity_rule_applied", "n_segments", "uncertain_rate",
+                "asr_flags", "mean_raw_confidence", "detected_language",
+                "clip_level_prediction", "per_segment_predictions", "aggregation_rule",
+            ]:
+                if col in extra and col not in record:
+                    record[col] = extra[col]
+
             sample_records.append(record)
 
         # Compute metric aggregates
+        ve_total = len(ve_pred)
+        ve_uncertain_cnt = sum(1 for p in ve_pred if str(p).lower() == "uncertain")
+        ve_uncertain_rate = round(ve_uncertain_cnt / ve_total, 4) if ve_total > 0 else 0.0
+
         ve_metrics = compute_classification_metrics(
             ve_true, ve_pred, labels=self.voice_classes
         )
+        ve_metrics["uncertain_rate"] = ve_uncertain_rate
+        ve_metrics["uncertain_count"] = ve_uncertain_cnt
+
         ts_metrics = compute_classification_metrics(
             ts_true, ts_pred, labels=self.sentiment_classes
         )

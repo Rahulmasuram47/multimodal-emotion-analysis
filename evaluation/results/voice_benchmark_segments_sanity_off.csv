@@ -1,0 +1,17 @@
+backend,filename,true,raw_pred,raw_conf,pred,confidence,seconds,skipped
+superb,sample_audio/Happy2.wav,happy,happy,0.9429777264595032,happy,0.9429777264595032,11.67829250000068,False
+superb,sample_audio/happy_sample.wav,happy,sad,0.7379014492034912,sad,0.7379014492034912,15.462484500021674,False
+superb,sample_audio/angry_sample.wav,angry,sad,0.6740367611249288,sad,0.6740367611249288,20.987401799997315,False
+superb,sample_audio/Neutral1.wav,neutral,angry,0.6130949854850769,angry,0.6130949854850769,7.45919830002822,False
+superb,sample_audio/Neutral2.wav,neutral,angry,0.6020944714546204,angry,0.6020944714546204,4.788812200014945,False
+superb,sample_audio/Sad1.wav,sad,happy,0.6149998903274536,happy,0.6149998903274536,6.185797700018156,False
+superb,sample_audio/Sad2.wav,sad,neutral,0.38057684898376465,neutral,0.38057684898376465,4.789686700009042,False
+superb,sample_audio/Sad3.wav,sad,happy,0.9011082649230957,happy,0.9011082649230957,4.2988229999900796,False
+emotion2vec,sample_audio/Happy2.wav,happy,happy,0.9999994372696556,happy,0.9999994372696556,13.24592549999943,False
+emotion2vec,sample_audio/happy_sample.wav,happy,neutral,0.9999981945673245,neutral,0.9999981945673245,19.091420599987032,False
+emotion2vec,sample_audio/angry_sample.wav,angry,neutral,0.9990515860972256,neutral,0.9990515860972256,33.52401029999601,False
+emotion2vec,sample_audio/Neutral1.wav,neutral,neutral,0.9999999998663738,neutral,0.9999999998663738,14.60107119998429,False
+emotion2vec,sample_audio/Neutral2.wav,neutral,neutral,0.9999999999995732,neutral,0.9999999999995732,10.931541799975093,False
+emotion2vec,sample_audio/Sad1.wav,sad,neutral,0.9999641266560997,neutral,0.9999641266560997,10.564298500015866,False
+emotion2vec,sample_audio/Sad2.wav,sad,sad,0.931772094330792,sad,0.931772094330792,9.871650799992494,False
+emotion2vec,sample_audio/Sad3.wav,sad,sad,0.9999993045778253,sad,0.9999993045778253,10.661644599982537,False

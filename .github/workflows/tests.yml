@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+
+      - name: Install CPU PyTorch
+        run: |
+          pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu || pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install project dependencies
+        run: |
+          pip install -r requirements.txt pytest || pip install -r requirements-ci.txt pytest
+
+      - name: Run test suite
+        run: |
+          python -m pytest -q -x

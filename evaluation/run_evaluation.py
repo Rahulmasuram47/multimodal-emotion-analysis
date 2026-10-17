@@ -68,9 +68,17 @@ def compute_sample_cache_key(filepath: str) -> str:
             hasher.update(chunk)
 
     cfg_dict = {
-        "audio_model": getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er"),
-        "text_model": getattr(config, "TEXT_SENTIMENT_MODEL_NAME", "cardiffnlp/twitter-roberta-base-sentiment-latest"),
-        "whisper_size": getattr(config, "STT_MODEL_SIZE", "base"),
+        "voice_backend": str(getattr(config, "VOICE_BACKEND", "emotion2vec")),
+        "voice_conf_cap": getattr(config, "VOICE_CONF_CAP", 0.65),
+        "sanity_backends": sorted(list(getattr(config, "VOICE_SANITY_RULE_BACKENDS", ["superb"]))),
+        "sanity_enabled": bool(getattr(config, "VOICE_CALIBRATION_PROSODY_RULE_ENABLED", True)),
+        "whisper_size": str(getattr(config, "STT_MODEL_SIZE", "base")),
+        "language_setting": str(getattr(config, "STT_LANGUAGE", "auto")),
+        "voice_min_segment_sec": getattr(config, "VOICE_MIN_SEGMENT_SEC", 1.0),
+        "audio_model": str(getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")),
+        "emotion2vec_model": str(getattr(config, "EMOTION2VEC_MODEL_ID", "iic/emotion2vec_plus_base")),
+        "text_model": str(getattr(config, "TEXT_SENTIMENT_MODEL_NAME", "cardiffnlp/twitter-roberta-base-sentiment-latest")),
+        "diarization_model": str(getattr(config, "DIARIZATION_MODEL_NAME", "pyannote/speaker-diarization-community-1")),
         "target_sr": getattr(config, "TARGET_SAMPLE_RATE", 16000),
         "calibration_audio": getattr(config, "CALIBRATION_TEMPERATURE_AUDIO", 1.0),
         "calibration_text": getattr(config, "CALIBRATION_TEMPERATURE_TEXT", 1.0),
@@ -78,6 +86,12 @@ def compute_sample_cache_key(filepath: str) -> str:
         "default_text_weight": getattr(config, "DEFAULT_TEXT_WEIGHT", 0.5),
         "voice_collapse_threshold": getattr(config, "VOICE_COLLAPSE_THRESHOLD", 0.70),
         "voice_collapse_min_conf": getattr(config, "VOICE_COLLAPSE_MIN_CONFIDENCE", 0.50),
+        "low_voice_conf_threshold": getattr(config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50),
+        "low_voice_rel_penalty": getattr(config, "LOW_VOICE_CONFIDENCE_RELIABILITY_PENALTY", 0.60),
+        "stt_low_conf_avg_logprob": getattr(config, "STT_LOW_CONFIDENCE_AVG_LOGPROB", -1.0),
+        "stt_high_no_speech_prob": getattr(config, "STT_HIGH_NO_SPEECH_PROB_THRESHOLD", 0.6),
+        "non_english_min_prob": getattr(config, "NON_ENGLISH_MIN_PROB", 0.6),
+        "low_lang_conf": getattr(config, "LOW_LANG_CONF", 0.5),
         "pipeline": "live_conversation_analyzer_aggregation_v1",
     }
     hasher.update(json.dumps(cfg_dict, sort_keys=True).encode("utf-8"))
@@ -305,6 +319,44 @@ def run_pipeline_on_sample(
             "(sum(conf+1e-6) per label, ties broken alphabetically)"
         )
 
+        # Phase 5a metadata columns
+        voice_backend = str(getattr(config, "VOICE_BACKEND", "emotion2vec"))
+        voice_conf_cap = getattr(config, "VOICE_CONF_CAP", 0.65)
+        whisper_model_size = str(getattr(config, "STT_MODEL_SIZE", "base"))
+        n_segments = len(segments)
+        if segments:
+            u_count = sum(
+                1 for s in segments
+                if str(s.get("voice_emotion", {}).get("emotion", "")).lower() == "uncertain"
+            )
+            uncertain_rate = round(float(u_count) / float(n_segments), 4)
+        else:
+            uncertain_rate = 1.0 if str(pred_voice).lower() == "uncertain" else 0.0
+
+        flags_set = set(conv_res.get("asr_flags", []) or [])
+        for s in segments:
+            flags_set.update(s.get("asr_flags", []) or [])
+        asr_flags_str = ";".join(sorted(str(f) for f in flags_set if f))
+
+        raw_confs = [
+            safe_float(s.get("voice_emotion", {}).get("raw_confidence"))
+            for s in segments
+            if s.get("voice_emotion") and s.get("voice_emotion", {}).get("raw_confidence") is not None
+        ]
+        if raw_confs:
+            mean_raw_conf = round(float(sum(raw_confs) / len(raw_confs)), 4)
+        elif v_res.get("raw_confidence") is not None:
+            mean_raw_conf = round(safe_float(v_res.get("raw_confidence")), 4)
+        else:
+            mean_raw_conf = round(v_conf, 4)
+
+        detected_language = str(conv_res.get("language") or "unknown")
+
+        sanity_rule_applied = any(
+            any("prosody_sanity_rule" in str(r) for r in s.get("voice_emotion", {}).get("calibration_applied_rules", []))
+            for s in segments
+        ) if segments else False
+
         result = {
             "status": "EVALUATED",
             "filename": filepath,
@@ -313,17 +365,35 @@ def run_pipeline_on_sample(
             "per_segment_predictions": per_segment_predictions,
             "aggregation_rule": aggregation_rule,
             "voice_confidence": v_conf,
+            "mean_raw_confidence": mean_raw_conf,
             "pred_text_sentiment": pred_sentiment,
             "text_confidence": s_conf,
             "pred_transcript": transcript,
             "pred_speaker_count": pred_speaker_count,
+            "voice_backend": voice_backend,
+            "voice_conf_cap": voice_conf_cap,
+            "whisper_model_size": whisper_model_size,
+            "sanity_rule_applied": sanity_rule_applied,
+            "n_segments": n_segments,
+            "uncertain_rate": uncertain_rate,
+            "asr_flags": asr_flags_str,
+            "detected_language": detected_language,
             "audio_result": v_res,
             "text_result": s_res,
             "fusion_result": f_res,
             "conversation_result": conv_res,
             "cache_key": cache_key,
             "extra": {
-                "segment_count": len(segments),
+                "segment_count": n_segments,
+                "n_segments": n_segments,
+                "uncertain_rate": uncertain_rate,
+                "voice_backend": voice_backend,
+                "voice_conf_cap": voice_conf_cap,
+                "whisper_model_size": whisper_model_size,
+                "sanity_rule_applied": sanity_rule_applied,
+                "asr_flags": asr_flags_str,
+                "mean_raw_confidence": mean_raw_conf,
+                "detected_language": detected_language,
                 "conversation_analyzed": conv_res is not None,
                 "clip_level_prediction": pred_voice,
                 "per_segment_predictions": per_segment_predictions,
@@ -614,12 +684,38 @@ def execute_evaluation(
     stt = eval_result.speech_to_text_metrics
     spk = eval_result.speaker_count_metrics
 
+    from datetime import datetime, timezone
+    timestamp_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    cfg_snapshot = {
+        "VOICE_BACKEND": getattr(config, "VOICE_BACKEND", "emotion2vec"),
+        "VOICE_CONF_CAP": getattr(config, "VOICE_CONF_CAP", 0.65),
+        "STT_MODEL_SIZE": getattr(config, "STT_MODEL_SIZE", "base"),
+        "STT_LANGUAGE": getattr(config, "STT_LANGUAGE", "auto"),
+        "VOICE_MIN_SEGMENT_SEC": getattr(config, "VOICE_MIN_SEGMENT_SEC", 1.0),
+        "VOICE_SANITY_RULE_BACKENDS": getattr(config, "VOICE_SANITY_RULE_BACKENDS", ["superb"]),
+        "VOICE_CALIBRATION_PROSODY_RULE_ENABLED": getattr(config, "VOICE_CALIBRATION_PROSODY_RULE_ENABLED", True),
+    }
+
     md_lines = [
         "# Multimodal Emotion Analysis — Evaluation Report",
         "",
+        f"> **Timestamp**: `{timestamp_str}`  ",
         f"> Generated by `evaluation/run_evaluation.py`  ",
         f"> Dataset: `{dataset_path}`  ",
         f"> Total records: {len(dataset)} | Evaluated: {len(evaluated_samples)} | Failed: {len(failed_samples)}",
+        "",
+        "### Configuration Snapshot",
+        "",
+        "| Key | Value |",
+        "|---|---|",
+        f"| `VOICE_BACKEND` | `{cfg_snapshot['VOICE_BACKEND']}` |",
+        f"| `VOICE_CONF_CAP` | `{cfg_snapshot['VOICE_CONF_CAP']}` |",
+        f"| `STT_MODEL_SIZE` | `{cfg_snapshot['STT_MODEL_SIZE']}` |",
+        f"| `STT_LANGUAGE` | `{cfg_snapshot['STT_LANGUAGE']}` |",
+        f"| `VOICE_MIN_SEGMENT_SEC` | `{cfg_snapshot['VOICE_MIN_SEGMENT_SEC']}` |",
+        f"| `VOICE_SANITY_RULE_BACKENDS` | `{cfg_snapshot['VOICE_SANITY_RULE_BACKENDS']}` |",
+        f"| `VOICE_CALIBRATION_PROSODY_RULE_ENABLED` | `{cfg_snapshot['VOICE_CALIBRATION_PROSODY_RULE_ENABLED']}` |",
         "",
         "---",
         "",
@@ -629,7 +725,11 @@ def execute_evaluation(
         "|---|---|---|",
     ]
     ve_n = int(ve.get("n", ve.get("total_samples", 0)) or 0)
-    md_lines.append(_md_metric("Accuracy", ve.get("accuracy"), ve.get("accuracy_ci"), ve_n))
+    u_rate = ve.get("uncertain_rate")
+    u_rate_str = f" (Uncertain rate: {u_rate:.1%})" if u_rate is not None else ""
+    md_lines.append(_md_metric(f"Accuracy{u_rate_str}", ve.get("accuracy"), ve.get("accuracy_ci"), ve_n))
+    if u_rate is not None:
+        md_lines.append(_md_metric("Uncertain Rate", u_rate, None, ve_n))
     md_lines.append(_md_metric("Macro F1", ve.get("f1_macro"), ve.get("f1_macro_ci"), ve_n))
     md_lines.append(_md_metric("Macro Precision", ve.get("precision_macro"), None, ve_n))
     md_lines.append(_md_metric("Macro Recall", ve.get("recall_macro"), None, ve_n))
@@ -677,6 +777,15 @@ def execute_evaluation(
     with open(csv_preds_path, "w", newline="", encoding="utf-8") as f:
         fieldnames = [
             "filename",
+            "voice_backend",
+            "voice_conf_cap",
+            "whisper_model_size",
+            "sanity_rule_applied",
+            "n_segments",
+            "uncertain_rate",
+            "asr_flags",
+            "mean_raw_confidence",
+            "detected_language",
             "true_voice_emotion",
             "pred_voice_emotion",
             "clip_level_prediction",
@@ -700,8 +809,9 @@ def execute_evaluation(
             t_v = rec.get("true_voice_emotion")
             p_v = rec.get("pred_voice_emotion")
             v_match = (t_v == p_v) if t_v and p_v else "N/A"
-            clip_pred = rec.get("clip_level_prediction") or (rec.get("extra") or {}).get("clip_level_prediction") or p_v
-            seg_preds = rec.get("per_segment_predictions") or (rec.get("extra") or {}).get("per_segment_predictions") or "N/A"
+            extra = rec.get("extra") or {}
+            clip_pred = rec.get("clip_level_prediction") or extra.get("clip_level_prediction") or p_v
+            seg_preds = rec.get("per_segment_predictions") or extra.get("per_segment_predictions") or "N/A"
 
             t_s = rec.get("true_text_sentiment")
             p_s = rec.get("pred_text_sentiment")
@@ -711,13 +821,33 @@ def execute_evaluation(
             p_spk = rec.get("pred_speaker_count")
             spk_match = (t_spk == p_spk) if t_spk is not None and p_spk is not None else "N/A"
 
+            # Phase 5a columns (None-safe for old cache/records)
+            v_backend = rec.get("voice_backend") or extra.get("voice_backend") or getattr(config, "VOICE_BACKEND", "N/A")
+            v_cap = rec.get("voice_conf_cap") if rec.get("voice_conf_cap") is not None else extra.get("voice_conf_cap", getattr(config, "VOICE_CONF_CAP", "N/A"))
+            w_size = rec.get("whisper_model_size") or extra.get("whisper_model_size") or getattr(config, "STT_MODEL_SIZE", "N/A")
+            sanity_app = rec.get("sanity_rule_applied") if rec.get("sanity_rule_applied") is not None else extra.get("sanity_rule_applied", False)
+            n_segs = rec.get("n_segments") if rec.get("n_segments") is not None else extra.get("n_segments", extra.get("segment_count", "N/A"))
+            u_rate = rec.get("uncertain_rate") if rec.get("uncertain_rate") is not None else extra.get("uncertain_rate", 0.0)
+            a_flags = rec.get("asr_flags") if rec.get("asr_flags") is not None else extra.get("asr_flags", "")
+            raw_conf = rec.get("mean_raw_confidence") if rec.get("mean_raw_confidence") is not None else extra.get("mean_raw_confidence", "N/A")
+            lang = rec.get("detected_language") or extra.get("detected_language") or "N/A"
+
             writer.writerow({
                 "filename": rec.get("filename"),
+                "voice_backend": v_backend,
+                "voice_conf_cap": v_cap,
+                "whisper_model_size": w_size,
+                "sanity_rule_applied": sanity_app,
+                "n_segments": n_segs,
+                "uncertain_rate": u_rate,
+                "asr_flags": a_flags,
+                "mean_raw_confidence": raw_conf,
+                "detected_language": lang,
                 "true_voice_emotion": t_v or "N/A",
                 "pred_voice_emotion": p_v or "N/A",
                 "clip_level_prediction": clip_pred or "N/A",
                 "per_segment_predictions": seg_preds or "N/A",
-                "aggregation_rule": rec.get("aggregation_rule") or (rec.get("extra") or {}).get("aggregation_rule", "derive_segment_summary"),
+                "aggregation_rule": rec.get("aggregation_rule") or extra.get("aggregation_rule", "derive_segment_summary"),
                 "voice_match": v_match,
                 "true_text_sentiment": t_s or "N/A",
                 "pred_text_sentiment": p_s or "N/A",

@@ -89,6 +89,8 @@ VOICE_CALIBRATION_ENABLED: bool = True
 
 # Prosody sanity rule (data-free heuristic, usable even at very small N).
 VOICE_CALIBRATION_PROSODY_RULE_ENABLED: bool = True
+# designed for SUPERB's sad bias; in the 8-clip ablation it never changed an emotion2vec label
+VOICE_SANITY_RULE_BACKENDS: list = ["superb"]
 VOICE_CALIBRATION_RMS_THRESHOLD: float = 0.05          # tune once labeled data exists
 VOICE_CALIBRATION_ZCR_STD_THRESHOLD: float = 0.02      # tune once labeled data exists
 VOICE_CALIBRATION_RELATIVE_LOUDNESS_THRESHOLD: float = 0.40  # Normalized relative loudness [0, 1]
@@ -120,6 +122,7 @@ LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD: float = 0.65
 # emotion inference on their own. Their audio window is widened using
 # neighboring context before running the acoustic model.
 SHORT_SEGMENT_THRESHOLD_SECONDS: float = 1.0
+VOICE_MIN_SEGMENT_SEC: float = 1.0  # Minimum segment duration (sec) for reliable voice emotion inference
 
 # When widening a short segment's audio window, expand by this many seconds
 # on each side (clamped to the full audio's bounds and to not overlap past

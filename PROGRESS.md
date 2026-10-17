@@ -389,3 +389,54 @@ Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 r
 
 ### Tests
 - `tests/test_tier2_correctness.py`: 18 tests, all 18 passed.
+
+---
+
+## Phase 4d: UI Display Cleanup & Robustness (branch: current)
+
+### What Changed
+- **Raw HTML Code Block Fix**: Wrapped all meter and card markdown templates with `html_block()` helper stripping leading spaces and blank lines, eliminating accidental code-block rendering.
+- **Voice-Only Turns**: Suppressed fused evidence meter on voice-only turns; updated "Why" reliability line to "text: n/a (text unavailable)"; omitted empty counterfactual sensitivity header.
+- **Rendered Quality Verification**: Verified badge formatting as `[lang: <code> (p=<prob>) · flag: <flags>]`; suppressed 0.0% text row on unavailable text; scoped capped confidence note strictly to capped states.
+- **Transcript Sanitization & Phrase Collapse**: Added `sanitize_transcript()` stripping `U+FFFD`/`U+FFFE`/`U+FFFF` before text sentiment; collapsed 1–4 token repetitive phrases repeated $\ge 4$ times in timeline display.
+- **Short Segments (< 1.0s)**: Added `VOICE_MIN_SEGMENT_SEC = 1.0` in `config.py`; tagged sub-second turns with warning chip; excluded from trend OLS regression and direction shift summary while keeping segment listing intact.
+- **Label Consistency**: Standardized canonical display names across cards and meters without mixed `OTHER (SURPRISED)` titles; raw model labels displayed on separate dedicated line.
+- **Backend String Agnosticism**: Grepped and confirmed all UI/app components dynamically resolve model IDs and backend names from `config.py`.
+
+### Tests
+- Full test suite: **442 passed**, 0 failed, 1 warning (100.13s).
+
+---
+
+## Phase 5a: Evaluation, CI and Repo Hygiene (branch: current)
+
+### What Changed
+- **Evaluation Pipeline Verification**: Verified `evaluation/run_evaluation.py` executes clip-level inference via single `ConversationAnalyzer.analyze()` invocation (live pipeline); `predictions_before_pipeline_fix.csv` already preserved.
+- **Evaluation Metadata & Columns**: Added `voice_backend`, `voice_conf_cap`, `whisper_model_size`, `sanity_rule_applied`, `n_segments`, `uncertain_rate`, `asr_flags`, `mean_raw_confidence`, `detected_language` to `SamplePrediction`, sample records, and `evaluation_predictions.csv` with full None-safe fallbacks for older runs.
+- **Cache Key Specification**: Updated `compute_sample_cache_key` with SHA-256 of file bytes, `VOICE_BACKEND`, `VOICE_CONF_CAP`, `VOICE_SANITY_RULE_BACKENDS`, `VOICE_CALIBRATION_PROSODY_RULE_ENABLED`, `STT_MODEL_SIZE`, `STT_LANGUAGE`, `VOICE_MIN_SEGMENT_SEC`, fusion weights, ASR guard thresholds, and model IDs.
+- **Report & Metrics**: Updated `EVALUATION_REPORT.md` with UTC timestamp and active configuration snapshot; metrics treat `uncertain` as incorrect and report uncertain rate beside accuracy.
+- **CI & Hygiene**: Created `.github/workflows/tests.yml` (Python 3.12, CPU PyTorch from index, offline env, `pytest -q -x`), `requirements-ci.txt`, `.gitattributes`, `.env.example`, and complete `.gitignore` ignoring media/model caches.
+- **Test Portability**: Added `skipif` decorators to sample-audio dependent and standalone test scripts for offline test execution without missing file errors.
+
+### Tests
+- `tests/test_evaluation_phase5a.py`: 4 new mocked unit tests for columns, uncertain rate, and cache invalidation.
+- Full test suite: **446 passed**, 0 failed, 1 warning (73.31s).
+
+---
+
+## Phase 4e: Last UI/ASR Display Fixes (branch: current)
+
+### What Changed
+- **ASR Language Badge**: `app/conversation_analysis.py` — stamped recording-level `language` and `language_probability` from `transcription` onto each per-segment result dict after `_analyze_segment()`. `ui/components/segment_timeline.py` badge logic now shows `"lang: n/a"` instead of config `"auto"` fallback when language is unknown/undetected.
+- **Voice-Only Turn Header Chip**: Turn header chip now uses `t_display_header` (`"n/a"` for voice-only) instead of `t_sentiment_display.upper()` (`"UNKNOWN"`). Chip text is `"💬 n/a"` on voice-only turns.
+- **Intensity v2 Text Component Hidden**: Text Negativity span (+ bullet separator) is conditionally built in Python and only emitted when `w_t > 0`; voice-only segments (where fusion sets text weight to 0) no longer show a `"Text Negativity (w=0%): 0.0%"` line.
+- **Top Transcript Sanitization**: `ui/pages/analysis_view.py` applies `_collapse_repetitive_tokens()` (which internally calls `sanitize_transcript()`) to `full_transcript` before display. Added `dir="auto"` to the transcript `<div>`. Exports keep raw `full_transcript` unchanged.
+- **Raw Model Label CJK Strip & Resilience**: Display strips the CJK prefix before `"/"` (e.g. `"生气/angry"` → `"angry"`), while `<unk>`, no-slash labels, and empty/whitespace inputs never crash or render blank lines; `v_raw_label` and all export fields remain the full bilingual string.
+
+### Tests
+- `tests/test_phase4e.py`: 9 comprehensive regression tests covering all Phase 4e requirements.
+- Full test suite: **455 passed**, 0 failed, 3 warnings (59.38s).
+
+
+
+

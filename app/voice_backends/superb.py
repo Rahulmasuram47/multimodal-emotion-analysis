@@ -4,6 +4,7 @@ Delegates all heavy lifting to the existing VoiceEmotionAnalyzer so model
 weights are loaded only once regardless of which call-site created the
 analyzer.
 """
+import os
 from typing import Any, Dict
 
 import numpy as np
@@ -52,6 +53,16 @@ class SuperbBackend(VoiceBackend):
             from app.emotion_analyzer import VoiceEmotionAnalyzer
             self._vea = VoiceEmotionAnalyzer(model_id=self.model_id)
 
+        # Candidate head loaded only when VOICE_HEAD_PATH is set and valid (default None / OFF)
+        self._candidate_head = None
+        head_path = getattr(config, "VOICE_HEAD_PATH", None)
+        if head_path and os.path.isfile(head_path):
+            try:
+                import joblib
+                self._candidate_head = joblib.load(head_path)
+            except Exception:
+                self._candidate_head = None
+
     def predict(self, waveform: np.ndarray, sr: int = 16000) -> Dict[str, Any]:
         if hasattr(self, "_mock_raw_output"):
             raw_label = self._mock_raw_output["raw_label"]
@@ -86,17 +97,27 @@ class SuperbBackend(VoiceBackend):
             padding=True,
         )
 
-        with torch.no_grad():
-            logits = self._vea.model(**inputs).logits
+        if self._candidate_head is not None:
+            with torch.no_grad():
+                out = self._vea.model.wav2vec2(**inputs)
+                embedding = out.last_hidden_state.mean(dim=1).cpu().numpy()
+            probs = self._candidate_head.predict_proba(embedding)[0]
+            classes = list(self._candidate_head.classes_)
+            predicted_index = int(np.argmax(probs))
+            raw_label = str(classes[predicted_index])
+            raw_scores = {str(classes[i]): float(probs[i]) for i in range(len(probs))}
+        else:
+            with torch.no_grad():
+                logits = self._vea.model(**inputs).logits
 
-        probabilities = torch.softmax(logits, dim=-1)[0]
-        predicted_index = int(torch.argmax(probabilities))
-        raw_label = self._vea.model.config.id2label[predicted_index]
+            probabilities = torch.softmax(logits, dim=-1)[0]
+            predicted_index = int(torch.argmax(probabilities))
+            raw_label = self._vea.model.config.id2label[predicted_index]
 
-        raw_scores = {
-            self._vea.model.config.id2label[i]: float(probabilities[i])
-            for i in range(len(probabilities))
-        }
+            raw_scores = {
+                self._vea.model.config.id2label[i]: float(probabilities[i])
+                for i in range(len(probabilities))
+            }
 
         emotion = _canonical(raw_label)
 

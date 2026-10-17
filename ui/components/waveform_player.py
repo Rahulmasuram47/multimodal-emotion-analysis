@@ -4,10 +4,28 @@ Custom WaveSurfer.js player with turn navigation markers and dynamic theme suppo
 
 import base64
 import json
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List
 import streamlit as st
 
 from ui.utils import emotion_code_label, format_turn_label, safe_float
+
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+_LOCAL_WAVESURFER = _ASSETS_DIR / "wavesurfer.min.js"
+
+
+@lru_cache(maxsize=1)
+def get_wavesurfer_script_tag() -> str:
+    """Return inline <script> tag with local WaveSurfer bundle for privacy/offline, fallback to CDN."""
+    if _LOCAL_WAVESURFER.is_file():
+        try:
+            content = _LOCAL_WAVESURFER.read_text(encoding="utf-8")
+            if content.strip():
+                return f"<script>{content}</script>"
+        except Exception:
+            pass
+    return '<script src="https://unpkg.com/wavesurfer.js@7"></script>'
 
 
 def render_wavesurfer_player(
@@ -67,6 +85,8 @@ def render_wavesurfer_player(
         tag_border = "rgba(56, 189, 248, 0.25)"
         color_scheme = "dark"
 
+    wavesurfer_script_tag = get_wavesurfer_script_tag()
+
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -74,7 +94,7 @@ def render_wavesurfer_player(
       <meta charset="utf-8">
       <meta name="color-scheme" content="dark">
       <meta name="color-scheme" content="{color_scheme}">
-      <script src="https://unpkg.com/wavesurfer.js@7"></script>
+      {wavesurfer_script_tag}
       <style>
         /* Base dark theme contract: background: #181D24; background-color: #181D24; background: #101318; color-scheme: dark; */
         * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}

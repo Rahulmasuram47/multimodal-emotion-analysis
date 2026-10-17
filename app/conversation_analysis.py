@@ -1163,11 +1163,12 @@ class ConversationAnalyzer:
                         seg["voice_emotion"]["low_voice_reliability"] = True
                         seg["voice_collapse_detected"] = True
                         seg["low_voice_reliability"] = True
-                        if "fusion" in seg and "text_sentiment" in seg:
+                        seg["voice_reliability"] = seg["voice_emotion"]["voice_reliability"]
+                        if "fusion" in seg:
                             try:
                                 seg["fusion"] = self.fusion.fuse(
                                     seg["voice_emotion"],
-                                    seg["text_sentiment"],
+                                    seg.get("text_sentiment"),
                                 )
 
                             except Exception:

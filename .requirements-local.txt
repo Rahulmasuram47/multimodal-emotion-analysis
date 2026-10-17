@@ -1,0 +1,47 @@
+# Multimodal Voice & Conversation Emotion Analysis System
+# Python 3.11.x
+
+# ==============================
+# Audio Processing
+# ==============================
+librosa==0.11.0
+soundfile==0.14.0
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+
+# ==============================
+# Voice Emotion Analysis
+# ==============================
+transformers==5.15.1
+funasr==1.4.16
+modelscope==1.40.2
+
+# ==============================
+# Speech-to-Text
+# ==============================
+faster-whisper==1.2.1
+
+# ==============================
+# Text Sentiment Analysis
+# ==============================
+# Uses Hugging Face Transformers
+
+# ==============================
+# Speaker Diarization
+# ==============================
+pyannote-audio==4.0.7
+
+# ==============================
+# Streamlit Dashboard
+# ==============================
+streamlit==1.62.0
+pandas==3.0.5
+altair==6.2.2
+plotly==7.0.0
+
+# ==============================
+# Testing
+# ==============================
+pytest==9.1.1
+python-dotenv

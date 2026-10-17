@@ -202,14 +202,14 @@ def test_top_transcript_collapsed_and_sanitized():
     clean = sanitize_transcript(raw)
     assert "\ufffd" not in clean
     collapsed = _collapse_repetitive_tokens(clean)
-    assert "world x 16 (repetitive transcript)" in collapsed
+    assert "world… ×16 (repetitive transcript)" in collapsed
 
 
 def test_top_transcript_repetition_collapsed():
-    """16 identical tokens collapse to 'token x 16 (repetitive transcript)'."""
+    """16 identical tokens collapse to 'token… ×16 (repetitive transcript)'."""
     text = " ".join(["repetitive"] * 16)
     result = _collapse_repetitive_tokens(text)
-    assert "repetitive x 16 (repetitive transcript)" == result
+    assert "repetitive… ×16 (repetitive transcript)" == result
 
 
 def test_sanitize_removes_replacement_chars():

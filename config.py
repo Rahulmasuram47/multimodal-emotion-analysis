@@ -15,6 +15,7 @@ TARGET_SAMPLE_RATE = 16000  # Standard sample rate for speech models (Hz)
 SUPPORTED_AUDIO_EXTENSIONS = ('.wav', '.flac', '.mp3', '.ogg', '.m4a')
 MAX_AUDIO_DURATION_SECONDS = 600  # Maximum 10 minutes per conversation
 MIN_AUDIO_DURATION_SECONDS = 0.5  # Minimum 0.5 seconds for analysis
+MAX_AUDIO_FILE_SIZE_MB = 50.0  # Maximum upload file size in megabytes
 N_MFCC = 13  # Number of MFCC coefficients to extract
 N_FFT = 2048
 HOP_LENGTH = 512
@@ -37,6 +38,9 @@ VOICE_RELIABILITY_FLOOR_OTHER: float = 0.35
 # benchmark, accuracy 62.5%, preliminary); cap confidence near measured accuracy; revisit
 # with more labelled data.
 VOICE_CONF_CAP: float = 0.65
+
+# Candidate Voice Head Model Path (Phase 4B: default None / OFF, loaded only when set)
+VOICE_HEAD_PATH: str | None = os.getenv("VOICE_HEAD_PATH", None)
 
 # Emotion & Sentiment Categories
 AUDIO_EMOTION_CLASSES = ['neutral', 'happy', 'angry', 'sad']

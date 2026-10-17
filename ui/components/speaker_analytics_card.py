@@ -77,11 +77,13 @@ def render_speaker_analytics_card(
         speaker = str(initiator.get("speaker", "Unknown"))
         rise = safe_float(initiator.get("intensity_rise", 0.0))
         transcript = str(initiator.get("transcript", "")).strip()
+        from ui.components.segment_timeline import _collapse_repetitive_tokens
+        transcript_disp = _collapse_repetitive_tokens(transcript)
         st.markdown(
             f"""
             <div style="background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--negative); border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.6rem; font-size: 0.8rem; color: var(--text);">
                 <strong style="font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; color: var(--negative);">📈 Possible Escalation Point:</strong>
-                The largest single-step intensity rise (+{rise:.2f}) occurs at a turn by <strong>{html.escape(speaker)}</strong>: "{html.escape(transcript[:120])}{'...' if len(transcript) > 120 else ''}"
+                The largest single-step intensity rise (+{rise:.2f}) occurs at a turn by <strong>{html.escape(speaker)}</strong>: "{html.escape(transcript_disp[:120])}{'...' if len(transcript_disp) > 120 else ''}"
                 <div style="margin-top: 0.4rem; font-size: 0.72rem; color: var(--muted);">
                     This is a descriptive pattern only — a rise in intensity may be a reaction to the prior turn, not necessarily its cause. It is not an attribution of fault or intent.
                 </div>

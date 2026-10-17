@@ -437,6 +437,20 @@ Resolved discrepancy between Annotation Helper (9 files) and Validation tab (7 r
 - `tests/test_phase4e.py`: 9 comprehensive regression tests covering all Phase 4e requirements.
 - Full test suite: **455 passed**, 0 failed, 3 warnings (59.38s).
 
+---
+
+## Phase 9: Project Documentation & Defense Materials (branch: current)
+
+### What Changed
+- **Comprehensive Test Plan**: Authored `docs/TEST_PLAN.md` covering all 25 operational scenarios with expected code behaviors and verification status.
+- **Academic Demonstration Script**: Created `docs/DEMO_SCRIPT.md` with structured 5-minute presentation flow, cold-start pre-warm instructions, and video capture fallback.
+- **Technical Viva Q&A**: Produced `docs/VIVA_QA.md` with code-grounded answers for every model, mathematical formula, confidence cap, evaluation split, and ethical constraint.
+- **Changelog**: Documented full development history in `CHANGELOG.md` covering v1 baseline milestones, v2 phases, and explicitly scoped-out features.
+- **Privacy & Ethics Charter**: Published `docs/PRIVACY_AND_ETHICS.md` (27 lines) validating 0 outbound network calls, local CPU execution, ephemeral deletion, and prohibited uses.
+
+### Tests
+- Full test suite: **482 passed**, 13 skipped, 0 failures (verified across all unit and integration test suites).
+
 
 
 

@@ -36,3 +36,6 @@ Thumbs.db
 diagnostic_output.txt
 
 evaluation/results/cache/
+*.npy
+data/natural_set/audio/
+evaluation/natural_set/audio/

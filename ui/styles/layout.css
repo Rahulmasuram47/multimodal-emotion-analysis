@@ -165,3 +165,16 @@ section[data-testid="stSidebar"] .block-container {
         padding-right: 0.75rem;
     }
 }
+
+/* Responsive tables and charts - prevent horizontal viewport overflow */
+table, .stTable, [data-testid="stTable"], div[data-testid="stDataFrame"] {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    box-sizing: border-box;
+}
+
+div[data-testid="stPlotlyChart"], div[data-testid="stVegaLiteChart"] {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box;
+}

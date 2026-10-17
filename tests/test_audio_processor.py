@@ -104,6 +104,15 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertIn("spectral_centroid_mean", features)
         self.assertGreater(features["spectral_centroid_mean"], 0)
 
+    def test_06_file_size_limit_rejection(self):
+        """Test that audio files exceeding MAX_AUDIO_FILE_SIZE_MB are rejected with AudioValidationError."""
+        from unittest.mock import patch
+        # Mock os.path.getsize to return 51 MB
+        with patch("os.path.getsize", return_value=51 * 1024 * 1024):
+            with self.assertRaises(AudioValidationError) as ctx:
+                validate_audio_file(self.valid_file)
+            self.assertIn("exceeds maximum allowed limit", str(ctx.exception).lower())
+
 
 def run_tests():
     suite = unittest.TestLoader().loadTestsFromTestCase(TestAudioProcessor)

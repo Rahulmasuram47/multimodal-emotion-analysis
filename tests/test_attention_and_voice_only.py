@@ -363,13 +363,13 @@ def test_strip_ufffd_and_repetitive_phrase_collapse():
     assert sanitize_transcript(raw_text) == "Hello world"
 
     # Repeated token
-    assert _collapse_repetitive_tokens("yes yes yes yes") == "yes x 4 (repetitive transcript)"
+    assert _collapse_repetitive_tokens("yes yes yes yes") == "yes… ×4 (repetitive transcript)"
 
     # Repeated 2-token phrase
-    assert _collapse_repetitive_tokens("thank you thank you thank you thank you") == "thank you x 4 (repetitive transcript)"
+    assert _collapse_repetitive_tokens("thank you thank you thank you thank you") == "thank you… ×4 (repetitive transcript)"
 
     # Repeated 3-token phrase
-    assert _collapse_repetitive_tokens("one two three one two three one two three one two three") == "one two three x 4 (repetitive transcript)"
+    assert _collapse_repetitive_tokens("one two three one two three one two three one two three") == "one two three… ×4 (repetitive transcript)"
 
     # Non-repetitive text unchanged
     assert _collapse_repetitive_tokens("this is a normal sentence with distinct words") == "this is a normal sentence with distinct words"

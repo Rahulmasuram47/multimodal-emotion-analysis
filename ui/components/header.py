@@ -172,6 +172,28 @@ B.Tech Mini-Project AI Pipeline
             unsafe_allow_html=True,
         )
 
+        st.markdown('<div class="sidebar-heading">Navigation</div>', unsafe_allow_html=True)
+        nav_options = ["🎙️ Analysis Workspace", "🔒 Privacy Policy", "⚠️ System Limitations"]
+        qp_view = st.query_params.get("view", "")
+        default_nav = "🎙️ Analysis Workspace"
+        if qp_view == "privacy":
+            default_nav = "🔒 Privacy Policy"
+        elif qp_view == "limitations":
+            default_nav = "⚠️ System Limitations"
+
+        current_nav = st.session_state.get("active_view", default_nav)
+        nav_index = nav_options.index(current_nav) if current_nav in nav_options else 0
+        selected_nav = st.radio(
+            "Page Navigation",
+            nav_options,
+            index=nav_index,
+            label_visibility="collapsed",
+            key="page_nav_radio",
+        )
+        if selected_nav != st.session_state.get("active_view"):
+            st.session_state["active_view"] = selected_nav
+            st.rerun()
+
         st.markdown('<div class="sidebar-heading">Appearance</div>', unsafe_allow_html=True)
         current_theme = st.session_state.get("theme", "dark")
         selected_theme = st.radio(

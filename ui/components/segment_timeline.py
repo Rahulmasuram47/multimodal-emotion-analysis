@@ -88,6 +88,9 @@ def _collapse_repetitive_tokens(text: str) -> str:
     return " ".join(result_parts)
 
 
+collapse_repetitive_tokens = _collapse_repetitive_tokens
+
+
 # ---------------------------------------------------------------------------
 # Disclaimer shown ONCE at page level (item 14)
 # ---------------------------------------------------------------------------
@@ -238,7 +241,7 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
     st.caption(_INCONGRUENCE_PAGE_DISCLAIMER)
 
     for idx, segment in enumerate(segments):
-        
+
         start = safe_float(segment.get("start_seconds", 0.0))
         end = safe_float(segment.get("end_seconds", 0.0))
         # Item 13: store raw transcript text (no speaker prefix)
@@ -301,6 +304,12 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             low_v_conf_thresh = getattr(_config, "LOW_VOICE_CONFIDENCE_THRESHOLD", 0.50)
             low_v_rel_disp_thresh = getattr(_config, "LOW_VOICE_RELIABILITY_DISPLAY_THRESHOLD", 0.65)
             v_rel = safe_float(fusion.get("audio_reliability", voice.get("voice_reliability", segment.get("voice_reliability", 1.0))))
+            if "voice_reliability" in voice:
+                v_rel = min(v_rel, safe_float(voice.get("voice_reliability", 1.0)))
+            if "voice_reliability" in segment:
+                v_rel = min(v_rel, safe_float(segment.get("voice_reliability", 1.0)))
+            if isinstance(fusion, dict):
+                fusion["audio_reliability"] = v_rel
             v_conf_info = voice.get("confidence_informative", True)
             is_low_voice_rel = bool(
                 segment.get("low_voice_reliability", False)

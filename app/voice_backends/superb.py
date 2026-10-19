@@ -41,6 +41,7 @@ class SuperbBackend(VoiceBackend):
     display_name: str = "Wav2Vec2-SUPERB ER"
     family: str = "Wav2Vec2"
     training_note: "IEMOCAP Affective DB" = "IEMOCAP Affective DB"
+    model_id: str = "superb/wav2vec2-base-superb-er"
     confidence_informative: bool = True
 
     def __init__(self, analyzer=None, model_id: str | None = None):

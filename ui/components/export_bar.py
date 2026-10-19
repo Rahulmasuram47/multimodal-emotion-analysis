@@ -28,6 +28,18 @@ def build_json_export_payload(result: Dict[str, Any]) -> Dict[str, Any]:
     payload = dict(result)
     payload["notices_and_limitations"] = dict(SYSTEM_NOTICES_AND_LIMITATIONS)
 
+    # Phase 12: Voice backend provenance
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    payload["voice_backend_used"] = vb_info["backend_used"]
+    payload["model_id"] = vb_info["model_id"]
+    payload["fallback_reason"] = vb_info["fallback_reason"]
+    payload["voice_confidence_informative"] = vb_info.get("confidence_informative", True)
+    payload["voice_confidence_capped"] = any(
+        bool((s.get("voice_emotion") or {}).get("confidence_capped", False))
+        for s in (payload.get("segments") or [])
+    )
+
     # Item 13: Clean transcripts; Item 9: canonical emotion labels
     cleaned_segments = []
     for s in payload.get("segments", []) or []:
@@ -41,6 +53,7 @@ def build_json_export_payload(result: Dict[str, Any]) -> Dict[str, Any]:
             raw_emo = ve.get("emotion", "")
             ve["emotion_raw"] = raw_emo
             ve["raw_confidence"] = ve.get("raw_confidence")
+            ve["voice_confidence_capped"] = bool(ve.get("confidence_capped", False))
             ve_leaning = ve.get("leaning") or ve.get("raw_label")
             ve["emotion"] = emotion_code_label(raw_emo, raw_label=ve_leaning)
             seg_copy["voice_emotion"] = ve
@@ -83,6 +96,8 @@ def render_export_bar(result: Dict[str, Any]) -> None:
         )
 
     with export_col2:
+        from ui.utils import get_voice_backend_info
+        vb_info = get_voice_backend_info(result)
         rows = []
         for s in result.get("segments", []) or []:
             v = s.get("voice_emotion", {}) or {}
@@ -106,6 +121,10 @@ def render_export_bar(result: Dict[str, Any]) -> None:
                     "language": lang,
                     "language_probability": lang_prob,
                     "asr_flags": asr_flags_str,
+                    "voice_backend_used": vb_info["backend_used"],
+                    "model_id": vb_info["model_id"],
+                    "fallback_reason": vb_info["fallback_reason"] or "",
+                    "voice_confidence_informative": vb_info.get("confidence_informative", True),
                     "voice_emotion": emotion_code_label(v.get("emotion", ""), raw_label=v_leaning),
                     "voice_confidence": v.get("confidence", ""),
                     "raw_confidence": v.get("raw_confidence", ""),

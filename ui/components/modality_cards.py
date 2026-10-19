@@ -16,11 +16,13 @@ def render_channel_meters_html(
     text_confidence: float,
     fused_confidence: float,
     hide_text: bool = False,
+    confidence_informative: bool = True,
 ) -> str:
     """Generate HTML for dual-modality and fused confidence meters."""
     voice_pct = max(0.0, min(1.0, safe_float(voice_confidence))) * 100
     text_pct = max(0.0, min(1.0, safe_float(text_confidence))) * 100
     fused_pct = max(0.0, min(1.0, safe_float(fused_confidence))) * 100
+    voice_uncal_tag = " (not calibrated)" if not confidence_informative else ""
 
     text_meter_html = f"""
         <div>
@@ -51,7 +53,7 @@ def render_channel_meters_html(
         <div>
             <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'IBM Plex Mono', monospace;">
                 <span>🎙️ ACOUSTIC (VOICE) · {html.escape(str(voice_label).upper())}</span>
-                <span style="color: var(--voice); font-weight: 700;">{voice_pct:.1f}%</span>
+                <span style="color: var(--voice); font-weight: 700;">{voice_pct:.1f}%{voice_uncal_tag}</span>
             </div>
             <div class="meter-bar-bg">
                 <div class="meter-bar-fill voice-fill" style="width: {voice_pct:.1f}%;"></div>
@@ -73,6 +75,7 @@ def render_modality_cards(
     text_reliability: Optional[float] = None,
     combined_reliability: Optional[float] = None,
     abstention: bool = False,
+    result: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Render side-by-side Voice, Text, and Alignment snapshot cards with reliability chips."""
     st.markdown(
@@ -106,15 +109,11 @@ def render_modality_cards(
 
     snap_col1, snap_col2, snap_col3 = st.columns(3)
 
-    # Dynamic voice backend metadata
-    import config as _config
-    voice_backend_name = getattr(_config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        v_card_name = Emotion2VecBackend.display_name
-    else:
-        from app.voice_backends.superb import SuperbBackend
-        v_card_name = SuperbBackend.display_name
+    # Dynamic voice backend metadata from execution result
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    v_card_name = vb_info["display_name"]
+    uncal_subtext = " (not calibrated)" if not vb_info.get("confidence_informative", True) else ""
 
     with snap_col1:
         st.markdown(
@@ -131,7 +130,7 @@ def render_modality_cards(
                     <span>{html.escape(emotion_code_label(dominant_voice))}</span>
                 </div>
                 <div class="card-subtext">
-                    Dominant acoustic emotion extracted via {html.escape(v_card_name)} acoustic classification.
+                    Dominant acoustic emotion extracted via {html.escape(v_card_name)} acoustic classification{uncal_subtext}.
                 </div>
             </div>
             """),

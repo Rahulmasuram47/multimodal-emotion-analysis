@@ -18,6 +18,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -136,6 +140,52 @@ def run_superb_inference_on_clip(
         "raw_label": raw_label,
         "canonical_pred": canonical_pred,
         "confidence": float(probs[pred_idx]),
+    }
+
+
+def run_emotion2vec_inference_on_clip(
+    clip_path: str,
+    backend: Any,
+    target_sr: int = 16000,
+) -> Dict[str, Any]:
+    """Execute emotion2vec inference on clip, extracting class scores, prediction, and embedding."""
+    import soundfile as sf
+    import librosa
+
+    audio, sr = sf.read(clip_path)
+    if audio.ndim > 1:
+        audio = np.mean(audio, axis=1)
+    if sr != target_sr:
+        audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=target_sr)
+    else:
+        audio = audio.astype(np.float32)
+
+    # 1. Run app's own emotion2vec backend predict to get class scores and prediction
+    pred_res = backend.predict(audio, sr=target_sr)
+
+    # 2. Extract clip embedding from FunASR model
+    raw_gen = backend._model.generate(
+        audio.astype(np.float32),
+        granularity="utterance",
+        extract_embedding=True,
+    )
+    res_dict = raw_gen[0] if raw_gen else {}
+    embedding = res_dict.get("feats")
+    if embedding is not None and hasattr(embedding, "cpu"):
+        embedding = embedding.cpu().numpy()
+    elif embedding is not None:
+        embedding = np.asarray(embedding)
+
+    raw_label = pred_res.get("raw_label", "unk")
+    canonical_pred = pred_res.get("emotion", "uncertain")
+
+    return {
+        "embedding": embedding,
+        "scores": pred_res.get("scores", {}),
+        "raw_label": raw_label,
+        "canonical_pred": canonical_pred,
+        "confidence": float(pred_res.get("confidence", 0.0)),
+        "raw_confidence": float(pred_res.get("raw_confidence", 0.0)),
     }
 
 
@@ -392,10 +442,43 @@ def main():
     print(f"Evaluating {len(eval_clips)} Dev clips (Budget: {'FULL' if args.full else args.max_per_class} per class)")
 
     # Model inference with caching
-    from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
-    extractor = Wav2Vec2FeatureExtractor.from_pretrained(backend_info["active_model_id"])
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(backend_info["active_model_id"])
-    model.eval()
+    if backend_info["active_backend"] == "emotion2vec":
+        from app.voice_backends.emotion2vec import Emotion2VecBackend
+        backend = Emotion2VecBackend(model_id=backend_info["active_model_id"])
+        backend._load()
+        extractor, model = None, None
+    else:
+        from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
+        extractor = Wav2Vec2FeatureExtractor.from_pretrained(backend_info["active_model_id"])
+        model = Wav2Vec2ForSequenceClassification.from_pretrained(backend_info["active_model_id"])
+        model.eval()
+        backend = None
+
+    # Check that prints model's raw label list and mapping used to the 4 app classes plus fear/disgust
+    print("\n" + "=" * 80)
+    print("MODEL RAW LABELS AND LABEL MAPPING CHECK")
+    print(f"Active Backend: {backend_info['active_backend']} ({backend_info['active_model_id']})")
+    if backend_info["active_backend"] == "emotion2vec":
+        from app.voice_backends.emotion2vec import _DIRECT, _OTHER_SET, _map_label, _parse_english
+        raw_labels = [
+            "生气/angry", "厌恶/disgusted", "恐惧/fearful", "开心/happy",
+            "中立/neutral", "其他/other", "难过/sad", "吃惊/surprised", "<unk>"
+        ]
+        print(f"Model raw labels ({len(raw_labels)}): {raw_labels}")
+        print("Mapping to App Classes:")
+        for r in raw_labels:
+            eng = _parse_english(r)
+            mapped = _map_label(r)
+            if eng in {"disgusted", "fearful"}:
+                handling = "mapped to 'other' -> 'uncertain' (fear/disgust handled as non-4class uncertain)"
+            elif eng in _DIRECT:
+                handling = f"mapped directly to 4-class '{mapped}'"
+            else:
+                handling = f"mapped to '{mapped}' (non-4class)"
+            print(f"  {r:<20} -> English: {eng:<12} -> {handling}")
+    else:
+        print(f"Active backend is {backend_info['active_backend']}; emotion2vec mapping check skipped.")
+    print("=" * 80 + "\n")
 
     cache_dir = Path(args.cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -416,7 +499,10 @@ def main():
             cached = np.load(cache_file, allow_pickle=True).item()
             pred_res = cached
         else:
-            pred_res = run_superb_inference_on_clip(clip.filepath, extractor, model)
+            if backend_info["active_backend"] == "emotion2vec":
+                pred_res = run_emotion2vec_inference_on_clip(clip.filepath, backend)
+            else:
+                pred_res = run_superb_inference_on_clip(clip.filepath, extractor, model)
             np.save(cache_file, pred_res)
 
         records.append({
@@ -427,10 +513,25 @@ def main():
             "canonical_emotion": clip.canonical_emotion,
             "canonical_pred": pred_res["canonical_pred"],
             "confidence": pred_res["confidence"],
+            "raw_label": pred_res.get("raw_label", ""),
         })
 
     elapsed = time.perf_counter() - t_start
     print(f"\nInference completed in {elapsed:.2f}s ({elapsed / len(eval_clips):.3f}s/clip)")
+
+    # Per-clip predicted label next to true label comparison table
+    print("\n" + "=" * 80)
+    print("PER-CLIP PREDICTIONS VS TRUE LABELS")
+    print(f"{'Filename':<25} {'True Label':<12} {'Predicted':<12} {'Raw Model Label':<20} {'Confidence':<10}")
+    print("-" * 80)
+    for r in records:
+        print(f"{r['filename']:<25} {r['canonical_emotion']:<12} {r['canonical_pred']:<12} {r.get('raw_label', ''):<20} {r.get('confidence', 0.0):<10.2%}")
+    print("-" * 80)
+    pred_classes = set(r["canonical_pred"] for r in records)
+    all_one_class = len(pred_classes) == 1
+    print(f"Prediction classes observed: {sorted(pred_classes)} (Total: {len(pred_classes)} distinct)")
+    print(f"Are all predictions one class? {'YES (COLLAPSE)' if all_one_class else 'NO (DIVERSE)'}")
+    print("=" * 80 + "\n")
 
     # Compute metrics
     metrics = compute_dev_metrics(records, classes=CANONICAL_4CLASS, seed=split_data["seed"])

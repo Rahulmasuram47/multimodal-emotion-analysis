@@ -98,6 +98,7 @@ def render_analysis_page(
         text_reliability=t_rel_avg,
         combined_reliability=c_rel_avg,
         abstention=is_abstain,
+        result=result,
     )
 
     # -------------------------------------------------------------

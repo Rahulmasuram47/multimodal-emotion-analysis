@@ -28,7 +28,12 @@ class VoiceEmotionAnalyzer:
         self.fallback_notice: Optional[str] = None
         self._secondary_backend = None
 
-        backend_name = backend or getattr(config, "VOICE_BACKEND", "superb")
+        self.configured_backend = backend or getattr(config, "VOICE_BACKEND", "superb")
+        self.fallback_active: bool = False
+        self.fallback_reason: Optional[str] = None
+        # Initialize backend_used early so cached pre-Phase-12 instances are safe
+        self.backend_used: str = "superb"
+        backend_name = self.configured_backend
 
         if backend_name == "emotion2vec":
             try:
@@ -39,9 +44,12 @@ class VoiceEmotionAnalyzer:
                 self._backend = b_instance
                 self.model = None
                 self.extractor = None
+                self.backend_used = "emotion2vec"
             except Exception as e:
                 logger.warning("Failed to load emotion2vec backend (%s); falling back to superb.", e)
                 self.fallback_notice = f"Failed to load emotion2vec backend ({e}); fell back to SUPERB."
+                self.fallback_active = True
+                self.fallback_reason = str(e)
                 backend_name = "superb"
                 self._backend = None
 
@@ -53,6 +61,7 @@ class VoiceEmotionAnalyzer:
             logger.info("Wav2Vec2 emotion model loaded successfully.")
             from app.voice_backends.superb import SuperbBackend
             self._backend = SuperbBackend(analyzer=self)
+            self.backend_used = "superb"
 
         # Ensemble initialization if enabled
         if getattr(config, "ENSEMBLE_ENABLED", False):
@@ -88,6 +97,31 @@ class VoiceEmotionAnalyzer:
     @property
     def confidence_informative(self) -> bool:
         return getattr(self._backend, "confidence_informative", True)
+
+    def backend_info(self) -> Dict[str, Any]:
+        """Return provenance and execution metadata for the active voice backend.
+
+        Uses getattr with defaults throughout so that @st.cache_resource instances
+        created before Phase 12 (which lack the new attributes) still work safely.
+        """
+        backend_used = getattr(self, "backend_used", "superb")
+        configured = getattr(self, "configured_backend", getattr(config, "VOICE_BACKEND", "superb"))
+        active_model_id = getattr(self._backend, "model_id", self.model_id) if self._backend else self.model_id
+        if not active_model_id or active_model_id == "unknown":
+            active_model_id = (
+                getattr(config, "EMOTION2VEC_MODEL_NAME", "emotion2vec/emotion2vec_plus_base")
+                if backend_used == "emotion2vec"
+                else getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
+            )
+        return {
+            "configured_backend": configured,
+            "backend_used": backend_used,
+            "model_id": active_model_id,
+            "display_name": self.display_name,
+            "fallback_active": getattr(self, "fallback_active", False),
+            "fallback_reason": getattr(self, "fallback_reason", None),
+            "confidence_informative": self.confidence_informative,
+        }
 
     def _analyze_audio_array(
         self,

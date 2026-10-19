@@ -503,13 +503,11 @@ def render_segment_timeline(segments: List[Dict[str, Any]]) -> None:
             with card_col1:
                 v_raw_conf = safe_float(voice.get("raw_confidence", v_conf))
                 if not v_conf_info:
-                    if v_raw_conf > v_conf + 0.001:
-                        uncal_tag = (
-                            f' <span style="font-size:0.68rem; color:var(--muted);">'
-                            f'(capped from raw {v_raw_conf:.0%}; not calibrated)</span>'
-                        )
+                    v_capped = bool(voice.get("confidence_capped", False) or (v_raw_conf > v_conf + 0.001))
+                    if v_capped:
+                        uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(capped, not calibrated)</span>'
                     else:
-                        uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(raw model score (not calibrated))</span>'
+                        uncal_tag = ' <span style="font-size:0.68rem; color:var(--muted);">(not calibrated)</span>'
                 else:
                     uncal_tag = ''
                 short_note_html = (
@@ -660,6 +658,7 @@ Independent of the Intensity v2 prosody component.
                     text_confidence=t_conf,
                     fused_confidence=f_conf,
                     hide_text=is_text_unavail,
+                    confidence_informative=v_conf_info,
                 ),
                 unsafe_allow_html=True,
             )

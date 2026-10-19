@@ -268,3 +268,132 @@ def predominantly_label(
 
     mixed_desc = ", ".join(parts)
     return False, display_top, mixed_desc
+
+
+# ---------------------------------------------------------------------------
+# Phase 12: Voice Backend Execution Metadata Reader
+# ---------------------------------------------------------------------------
+
+def get_voice_backend_info(result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Retrieve voice backend execution metadata.
+    Resolution order:
+      1. Explicit result argument's ['voice_backend'] (if provided)
+      2. Stored st.session_state['analysis_result']['voice_backend'] (if available)
+      3. Live st.session_state['voice_backend_live'] (if model loaded before analysis)
+      4. Fallback status: 'not loaded yet (loads on first analysis)'
+    Never returns a model name derived from config alone.
+    """
+    import config as _config
+
+    # Case 1: Explicit result dict passed
+    if result is not None and isinstance(result, dict):
+        vb = result.get("voice_backend")
+        if isinstance(vb, dict) and vb:
+            cfg = vb.get("configured_backend") or "not recorded"
+            used = vb.get("backend_used") or "not recorded"
+            mid = vb.get("model_id") or "not recorded"
+            if mid == "unknown":
+                mid = "not recorded"
+            disp = vb.get("display_name") or "not recorded"
+            if disp == "unknown":
+                disp = "not recorded"
+            fb_active = bool(vb.get("fallback_active", False))
+            fb_reason = vb.get("fallback_reason")
+            conf_info = vb.get("confidence_informative", True if used == "superb" else False)
+            return {
+                "configured_backend": cfg,
+                "backend_used": used,
+                "model_id": mid,
+                "display_name": disp,
+                "fallback_active": fb_active,
+                "fallback_reason": fb_reason,
+                "confidence_informative": conf_info,
+            }
+        # Explicit result passed without voice_backend (legacy/uploaded result)
+        return {
+            "configured_backend": "not recorded",
+            "backend_used": "not recorded",
+            "model_id": "not recorded",
+            "display_name": "not recorded",
+            "fallback_active": False,
+            "fallback_reason": None,
+            "confidence_informative": True,
+        }
+
+    # Case 2: result is None -> check session state for analysis_result or voice_backend_live
+    try:
+        import streamlit as st
+        ar = st.session_state.get("analysis_result")
+        if isinstance(ar, dict):
+            vb = ar.get("voice_backend")
+            if isinstance(vb, dict) and vb:
+                cfg = vb.get("configured_backend") or "not recorded"
+                used = vb.get("backend_used") or "not recorded"
+                mid = vb.get("model_id") or "not recorded"
+                if mid == "unknown":
+                    mid = "not recorded"
+                disp = vb.get("display_name") or "not recorded"
+                if disp == "unknown":
+                    disp = "not recorded"
+                fb_active = bool(vb.get("fallback_active", False))
+                fb_reason = vb.get("fallback_reason")
+                conf_info = vb.get("confidence_informative", True if used == "superb" else False)
+                return {
+                    "configured_backend": cfg,
+                    "backend_used": used,
+                    "model_id": mid,
+                    "display_name": disp,
+                    "fallback_active": fb_active,
+                    "fallback_reason": fb_reason,
+                    "confidence_informative": conf_info,
+                }
+            # analysis_result exists but lacks voice_backend
+            return {
+                "configured_backend": "not recorded",
+                "backend_used": "not recorded",
+                "model_id": "not recorded",
+                "display_name": "not recorded",
+                "fallback_active": False,
+                "fallback_reason": None,
+                "confidence_informative": True,
+            }
+
+        # Case 3: No analysis_result, check voice_backend_live
+        live = st.session_state.get("voice_backend_live")
+        if isinstance(live, dict) and live:
+            cfg = live.get("configured_backend") or "not recorded"
+            used = live.get("backend_used") or "not recorded"
+            mid = live.get("model_id") or "not recorded"
+            if mid == "unknown":
+                mid = "not recorded"
+            disp = live.get("display_name") or "not recorded"
+            if disp == "unknown":
+                disp = "not recorded"
+            fb_active = bool(live.get("fallback_active", False))
+            fb_reason = live.get("fallback_reason")
+            conf_info = live.get("confidence_informative", True if used == "superb" else False)
+            return {
+                "configured_backend": cfg,
+                "backend_used": used,
+                "model_id": mid,
+                "display_name": disp,
+                "fallback_active": fb_active,
+                "fallback_reason": fb_reason,
+                "confidence_informative": conf_info,
+            }
+    except Exception:
+        pass
+
+    # Case 4: Not loaded yet — show configured name clearly labelled "(loading)"
+    configured_val = getattr(_config, "VOICE_BACKEND", "superb")
+    _name_map = {"emotion2vec": "emotion2vec+ base", "superb": "Wav2Vec2-SUPERB ER"}
+    configured_name = _name_map.get(configured_val, configured_val)
+    return {
+        "configured_backend": configured_val,
+        "backend_used": "not loaded yet",
+        "model_id": "not loaded yet (loads on first analysis)",
+        "display_name": f"{configured_name} (loading)",
+        "fallback_active": False,
+        "fallback_reason": None,
+        "confidence_informative": True,
+    }

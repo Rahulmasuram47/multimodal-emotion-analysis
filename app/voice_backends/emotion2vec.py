@@ -54,6 +54,7 @@ class Emotion2VecBackend(VoiceBackend):
     display_name: str = "emotion2vec+ base"
     family: str = "emotion2vec"
     training_note: str = "Bilingual (ZH/EN) Affective Speech Corpus"
+    model_id: str = "emotion2vec/emotion2vec_plus_base"
     confidence_informative: bool = False
 
     def __init__(self, model_id: Optional[str] = None):

@@ -63,12 +63,14 @@ Full reports: [crema_d_benchmark.md](evaluation/results/crema_d_benchmark.md), [
 # 1. Install & configure environment
 python -m venv .venv && .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+# Note: emotion2vec voice backend requires 'funasr' and 'torch'.
 # (Optional) set HF_TOKEN in environment or .env for Pyannote speaker diarization
 
 # 2. Run test suite & Streamlit app
 python -m pytest tests -q
-python -m streamlit run streamlit_app.py --server.fileWatcherType none
+python -m streamlit run streamlit_app.py
 ```
+*Note on Voice Backends:* If `funasr` is missing or `emotion2vec` cannot load, the system automatically falls back to `superb` (`Wav2Vec2`), and a clear fallback banner appears at the top of the results page detailing the configured backend, active fallback backend, and reason.
 *(No synthetic DEMO_MODE exists in code; use the pre-recorded video capture if live CPU execution is not feasible).*
 
 ## Future Work, Privacy & Ethics

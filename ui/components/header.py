@@ -54,16 +54,11 @@ def render_header() -> None:
         speaker_id_text = "Off (no token)"
         speaker_chip_style = "color: var(--muted);"
 
-    # Dynamic voice backend metadata
-    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        v_meta_name = Emotion2VecBackend.display_name
-        v_meta_family = Emotion2VecBackend.family
-    else:
-        from app.voice_backends.superb import SuperbBackend
-        v_meta_name = SuperbBackend.display_name
-        v_meta_family = SuperbBackend.family
+    # Dynamic voice backend metadata from execution result
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info()
+    v_meta_name = vb_info["display_name"]
+    v_meta_family = vb_info["backend_used"]
 
     st.markdown(
         html_block(f"""
@@ -97,16 +92,11 @@ def render_pipeline_steps() -> None:
     whisper_lang = st.session_state.get("whisper_language", getattr(config, "STT_LANGUAGE", "auto"))
     fusion_name = getattr(config, "FUSION_STRATEGY_NAME", "Multi-Evidence Arbitration")
 
-    # Dynamic voice backend metadata
-    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        v_meta_name = Emotion2VecBackend.display_name
-        v_meta_family = Emotion2VecBackend.family
-    else:
-        from app.voice_backends.superb import SuperbBackend
-        v_meta_name = SuperbBackend.display_name
-        v_meta_family = SuperbBackend.family
+    # Dynamic voice backend metadata from execution result
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info()
+    v_meta_name = vb_info["display_name"]
+    v_meta_family = vb_info["backend_used"]
 
     diar_text = "Active" if diar_status["token_present"] else "Off (no token)"
     diar_color = "var(--positive)" if diar_status["token_present"] else "var(--muted)"
@@ -210,14 +200,10 @@ B.Tech Mini-Project AI Pipeline
 
         st.markdown('<div class="sidebar-heading">Models & Architecture</div>', unsafe_allow_html=True)
 
-        # Dynamic voice backend metadata
-        voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-        if voice_backend_name == "emotion2vec":
-            from app.voice_backends.emotion2vec import Emotion2VecBackend
-            v_sidebar_name = Emotion2VecBackend.display_name
-        else:
-            from app.voice_backends.superb import SuperbBackend
-            v_sidebar_name = SuperbBackend.display_name
+        # Dynamic voice backend metadata from execution result
+        from ui.utils import get_voice_backend_info
+        vb_info = get_voice_backend_info()
+        v_sidebar_name = vb_info["display_name"]
 
         st.markdown(
             html_block(f"""

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import streamlit as st
 
 import config
@@ -34,15 +34,23 @@ SYSTEM_NOTICES_AND_LIMITATIONS: Dict[str, Any] = {
 }
 
 
-def render_fusion_explainer() -> None:
+def render_fusion_explainer(result: Optional[Dict[str, Any]] = None) -> None:
     """Render explainable fusion architecture breakdown panel strictly reflecting app/fusion.py."""
-    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        v_model_id = Emotion2VecBackend.model_id
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    v_model_id = vb_info["model_id"]
+    is_uncal = not vb_info.get("confidence_informative", True)
+    # Check if confidence was capped in segments or voice_backend
+    any_capped = False
+    if is_uncal and isinstance(result, dict):
+        any_capped = any(
+            bool((s.get("voice_emotion") or {}).get("confidence_capped", False))
+            for s in (result.get("segments") or [])
+        )
+    if is_uncal:
+        uncal_note = " (capped, not calibrated)" if any_capped else " (not calibrated)"
     else:
-        from app.voice_backends.superb import SuperbBackend
-        v_model_id = SuperbBackend.model_id
+        uncal_note = ""
 
     with st.expander("⚡ Explainable Multimodal Fusion Architecture", expanded=False):
         st.markdown(
@@ -50,7 +58,7 @@ def render_fusion_explainer() -> None:
             ### Dynamic Reliability-Weighted Rule Arbitration
             The system combines acoustic features and text sentiment vectors through **transparent, rule-based decision-level fusion**:
 
-            1. **Voice Emotion Prediction**: `{v_model_id}` outputs discrete class probabilities (*neutral, happy, angry, sad*) with acoustic confidence $c_{{\text{{audio}}}}$ and acoustic arousal $A_{{\text{{audio}}}}$ (from `config.VOICE_EMOTION_AROUSAL_MAP`).
+            1. **Voice Emotion Prediction**: `{v_model_id}` outputs discrete class probabilities (*neutral, happy, angry, sad*) with acoustic confidence $c_{{\text{{audio}}}}${uncal_note} and acoustic arousal $A_{{\text{{audio}}}}$ (from `config.VOICE_EMOTION_AROUSAL_MAP`).
             2. **Text Sentiment Analysis**: `cardiffnlp/twitter-roberta-base-sentiment-latest` classifies transcript semantics into (*positive, neutral, negative*) with text confidence $c_{{\text{{text}}}}$.
             3. **Cross-Modal Directional Mapping**:
                - Voice categories map to broad directions: *Happy* → `positive`, *Angry/Sad* → `negative`, *Neutral* → `neutral`.
@@ -87,15 +95,11 @@ def render_fusion_explainer() -> None:
         )
 
 
-def render_system_notes() -> None:
+def render_system_notes(result: Optional[Dict[str, Any]] = None) -> None:
     """Render operational deployment notes."""
-    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        v_family = Emotion2VecBackend.family
-    else:
-        from app.voice_backends.superb import SuperbBackend
-        v_family = SuperbBackend.family
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    v_family = vb_info["backend_used"] if vb_info["backend_used"] != "not recorded" else "acoustic model"
 
     with st.expander("📝 Engineering Notes & Hardware Optimization", expanded=False):
         st.markdown(
@@ -107,20 +111,21 @@ def render_system_notes() -> None:
         )
 
 
-def render_model_transparency_section() -> None:
+def render_model_transparency_section(result: Optional[Dict[str, Any]] = None) -> None:
     """Render neural model specifications and citation details derived from config."""
     whisper_size = st.session_state.get("whisper_model_size", getattr(config, "STT_MODEL_SIZE", "base"))
-    voice_backend_name = getattr(config, "VOICE_BACKEND", "superb")
-    if voice_backend_name == "emotion2vec":
-        from app.voice_backends.emotion2vec import Emotion2VecBackend
-        voice_arch = Emotion2VecBackend.display_name
-        voice_corpus = Emotion2VecBackend.training_note
-        voice_model = Emotion2VecBackend.model_id
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    voice_arch = vb_info["display_name"]
+    default_superb_id = getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
+    voice_model = vb_info["model_id"] if vb_info["model_id"] != "not recorded" else default_superb_id
+    if vb_info["backend_used"] == "emotion2vec":
+        voice_corpus = "Bilingual (ZH/EN) Affective Speech Corpus"
+    elif vb_info["backend_used"] == "superb":
+        voice_corpus = "IEMOCAP Affective DB"
     else:
-        from app.voice_backends.superb import SuperbBackend
-        voice_arch = SuperbBackend.display_name
-        voice_corpus = SuperbBackend.training_note
-        voice_model = getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
+        voice_corpus = "not recorded"
+        voice_model = vb_info["model_id"]
 
     text_model = getattr(config, "TEXT_SENTIMENT_MODEL_NAME", "cardiffnlp/twitter-roberta-base-sentiment-latest")
     diar_model = getattr(config, "DIARIZATION_MODEL_NAME", "pyannote/speaker-diarization-community-1")

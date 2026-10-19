@@ -92,10 +92,11 @@ class ConversationAnalyzer:
         voice_calibrator: VoiceCalibrator | None = None,
         whisper_model_size: Optional[str] = None,
         whisper_language: Optional[str] = None,
+        voice_backend: Optional[str] = None,
     ):
         logger.info("Initializing conversation analysis pipeline...")
 
-        self.emotion_analyzer = emotion_analyzer or VoiceEmotionAnalyzer()
+        self.emotion_analyzer = emotion_analyzer or VoiceEmotionAnalyzer(backend=voice_backend)
 
         self.speech_to_text = speech_to_text or SpeechToText(
             model_size=whisper_model_size, language=whisper_language
@@ -773,8 +774,10 @@ class ConversationAnalyzer:
                 if "raw_confidence" not in voice_result:
                     voice_result["raw_confidence"] = voice_result["confidence"]
                 voice_result["raw_scores"] = dict(voice_result["scores"])
-                voice_result["emotion"] = calibration.emotion
-                voice_result["confidence"] = calibration.confidence
+                # "uncertain" emotion (other group) must not be replaced by top class of remaining scores
+                if voice_result.get("emotion") != "uncertain":
+                    voice_result["emotion"] = calibration.emotion
+                    voice_result["confidence"] = calibration.confidence
                 voice_result["scores"] = calibration.scores
                 voice_result["calibration_applied_rules"] = calibration.applied_rules
             except Exception:
@@ -786,6 +789,19 @@ class ConversationAnalyzer:
         # Check backend confidence_informative
         conf_informative = getattr(self.emotion_analyzer, "confidence_informative", True)
         voice_result["confidence_informative"] = conf_informative
+
+        # Phase 12b: For backends where confidence is not informative (e.g. emotion2vec),
+        # clamp voice confidence to config.VOICE_CONF_CAP after calibration.
+        if not conf_informative:
+            cap_val = getattr(config, "VOICE_CONF_CAP", 0.65)
+            curr_conf = float(voice_result.get("confidence", 0.0))
+            if curr_conf > cap_val:
+                voice_result["confidence"] = cap_val
+                voice_result["confidence_capped"] = True
+            else:
+                voice_result["confidence_capped"] = False
+        else:
+            voice_result["confidence_capped"] = False
 
         if conf_informative:
             # Margin-based reliability: a near-tie between the top two voice
@@ -1036,6 +1052,7 @@ class ConversationAnalyzer:
                 "skipped_segments": 0,
                 "diarization_error": "No speech detected",
                 "voice_collapse": {"detected": False},
+                "voice_backend": self.emotion_analyzer.backend_info() if hasattr(self.emotion_analyzer, "backend_info") else {},
                 "recommendation": {
                     "status": "NORMAL",
                     "status_level": "info",
@@ -1250,6 +1267,7 @@ class ConversationAnalyzer:
             "skipped_segments": total - len(analyzed_segments),
             "diarization_error": diarization_error,
             "voice_collapse": voice_collapse,
+            "voice_backend": self.emotion_analyzer.backend_info() if hasattr(self.emotion_analyzer, "backend_info") else {},
         }
 
         recommendation = generate_recommendation(result)

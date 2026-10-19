@@ -9,6 +9,7 @@ load_dotenv()
 import io
 import time
 from pathlib import Path
+from typing import Optional
 
 import streamlit as st
 
@@ -70,9 +71,27 @@ init_session_state()
 
 
 @st.cache_resource(show_spinner="Loading models (first run only, this can take a while)...")
-def load_analyzer(whisper_model_size: str = "base", whisper_language: str = "auto") -> ConversationAnalyzer:
+def load_analyzer(
+    whisper_model_size: str = "base",
+    whisper_language: str = "auto",
+    voice_backend: str | None = None,
+) -> ConversationAnalyzer:
     """Load and initialize the complete ML pipeline once per configuration."""
-    return ConversationAnalyzer(whisper_model_size=whisper_model_size, whisper_language=whisper_language)
+    vb = voice_backend or getattr(config, "VOICE_BACKEND", "superb")
+    analyzer = ConversationAnalyzer(
+        whisper_model_size=whisper_model_size,
+        whisper_language=whisper_language,
+        voice_backend=vb,
+    )
+    b_info = analyzer.emotion_analyzer.backend_info() if hasattr(analyzer.emotion_analyzer, "backend_info") else {}
+    import logging
+    logging.getLogger("streamlit_app").info(
+        "Active voice backend: %s (configured: %s, fallback_active=%s)",
+        b_info.get("backend_used"),
+        b_info.get("configured_backend"),
+        b_info.get("fallback_active"),
+    )
+    return analyzer
 
 
 def render_footer() -> None:
@@ -110,6 +129,13 @@ elif active_view == "⚠️ System Limitations":
     st.stop()
 
 render_pipeline_steps()
+# Phase 12.1: show fallback banner even before first analysis if model loaded with fallback
+_vbl = st.session_state.get("voice_backend_live")
+if isinstance(_vbl, dict) and _vbl.get("fallback_active"):
+    st.error(
+        f"🚨 **Voice Backend Fallback Active** — Configured: {_vbl.get('configured_backend')}, "
+        f"running: {_vbl.get('backend_used')}, reason: {_vbl.get('fallback_reason')}"
+    )
 
 # 3. AUDIO INGESTION (UPLOAD & MICROPHONE)
 st.markdown(
@@ -257,8 +283,12 @@ if analyze_clicked and active_audio is not None:
             try:
                 whisper_size = st.session_state.get("whisper_model_size", "base")
                 whisper_lang = st.session_state.get("whisper_language", "auto")
-                status.write(f"[0.00s] Initializing ConversationAnalyzer (Whisper {whisper_size}, lang={whisper_lang})...")
-                analyzer = load_analyzer(whisper_model_size=whisper_size, whisper_language=whisper_lang)
+                configured_backend = getattr(config, "VOICE_BACKEND", "superb")
+                status.write(f"[0.00s] Initializing ConversationAnalyzer (Whisper {whisper_size}, lang={whisper_lang}, voice={configured_backend})...")
+                analyzer = load_analyzer(whisper_model_size=whisper_size, whisper_language=whisper_lang, voice_backend=configured_backend)
+                # Phase 12.1: store live backend info for pre-analysis display
+                if hasattr(analyzer, "emotion_analyzer") and hasattr(analyzer.emotion_analyzer, "backend_info"):
+                    st.session_state["voice_backend_live"] = analyzer.emotion_analyzer.backend_info()
 
                 fusion_settings = get_fusion_settings()
                 analyzer.fusion = MultimodalFusion(
@@ -275,9 +305,10 @@ if analyze_clicked and active_audio is not None:
                     elapsed = time.perf_counter() - t_pipeline_start
                     status.write(f"[{elapsed:.2f}s] {msg} ({current}/{total})")
 
+                vb_name = analyzer.emotion_analyzer.display_name if hasattr(analyzer, "emotion_analyzer") else "Voice"
                 status.write(
                     f"[{time.perf_counter() - t_pipeline_start:.2f}s] "
-                    "Executing acoustic Wav2Vec2, Whisper STT & RoBERTa models..."
+                    f"Executing acoustic {vb_name}, Whisper STT & RoBERTa models..."
                 )
                 result = analyzer.analyze(temp_path, progress_callback=progress_cb)
 
@@ -292,6 +323,10 @@ if analyze_clicked and active_audio is not None:
                 status.update(label=f"Analysis Completed Successfully in {t_total:.2f}s!", state="complete", expanded=False)
 
             except Exception as exc:
+                import logging as _logging
+                _logging.getLogger("streamlit_app").exception(
+                    "Multimodal pipeline failed (type=%s): %s", type(exc).__name__, exc
+                )
                 title, guidance = categorize_pipeline_error(exc)
                 st.error(f"**{title}**\n\n{guidance}")
                 st.session_state["analysis_result"] = None
@@ -361,6 +396,16 @@ if result:
     if voice_collapse and voice_collapse.get("detected"):
         st.warning(f"⚠️ **Voice model shows low discrimination on this input:** {voice_collapse.get('warning', 'Treat voice labels as low reliability.')}")
 
+    from ui.utils import get_voice_backend_info
+    vb_info = get_voice_backend_info(result)
+    if vb_info.get("fallback_active"):
+        st.error(
+            f"🚨 **Voice Backend Fallback Active** — Configured: {vb_info.get('configured_backend')}, "
+            f"running: {vb_info.get('backend_used')}, reason: {vb_info.get('fallback_reason')}"
+        )
+    else:
+        st.caption(f"🎙️ Voice Model: `{vb_info.get('model_id')}`")
+
     render_analysis_page(
         result=result,
         audio_bytes=audio_bytes,
@@ -384,9 +429,9 @@ if result:
     )
 
     # Explainability & System Transparency Panels
-    render_fusion_explainer()
-    render_system_notes()
-    render_model_transparency_section()
+    render_fusion_explainer(result)
+    render_system_notes(result)
+    render_model_transparency_section(result)
     render_professional_limitations_section()
 
     # Report Export Bar
@@ -407,4 +452,4 @@ else:
 
 # 6. DASHBOARD FOOTER
 render_footer()
-
+

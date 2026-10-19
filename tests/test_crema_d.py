@@ -133,6 +133,43 @@ class TestCremaDSuite(unittest.TestCase):
                 enforce_test_evaluation_lock("non_existent_head_decision.json")
             self.assertIn("strictly locked and refused", str(ctx.exception))
 
+    def test_07_inspect_voice_backends(self):
+        """Verify inspect_voice_backends returns valid schema and config matching."""
+        from evaluation.run_crema_d_baseline import inspect_voice_backends
+        info = inspect_voice_backends()
+        self.assertIn("configured_backend", info)
+        self.assertIn("active_backend", info)
+        self.assertIn("active_model_id", info)
+        self.assertIn(info["active_backend"], ["superb", "emotion2vec"])
+
+    def test_08_run_emotion2vec_inference_mocked(self):
+        """Verify run_emotion2vec_inference_on_clip extracts scores and embeddings with mocked backend."""
+        from evaluation.run_crema_d_baseline import run_emotion2vec_inference_on_clip
+        from unittest.mock import MagicMock
+        import numpy as np
+
+        mock_backend = MagicMock()
+        mock_backend.predict.return_value = {
+            "emotion": "happy",
+            "confidence": 0.65,
+            "raw_confidence": 0.99,
+            "scores": {"angry": 0.0, "happy": 1.0, "neutral": 0.0, "sad": 0.0},
+            "raw_label": "开心/happy",
+        }
+        mock_backend._model.generate.return_value = [
+            {"feats": np.ones((768,), dtype=np.float32), "labels": ["开心/happy"], "scores": [0.99]}
+        ]
+
+        dummy_audio = np.zeros(16000, dtype=np.float32)
+        with patch("soundfile.read", return_value=(dummy_audio, 16000)):
+            res = run_emotion2vec_inference_on_clip("dummy.wav", mock_backend)
+
+        self.assertEqual(res["canonical_pred"], "happy")
+        self.assertEqual(res["raw_label"], "开心/happy")
+        self.assertAlmostEqual(res["confidence"], 0.65)
+        self.assertIsNotNone(res["embedding"])
+        self.assertEqual(res["embedding"].shape, (768,))
+
 
 if __name__ == "__main__":
     unittest.main()

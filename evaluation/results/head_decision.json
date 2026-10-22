@@ -1,0 +1,16 @@
+{
+  "status": "COMPLETED",
+  "decision": "not pursued",
+  "reason": "dev UAR leaves little headroom; observed failures are on natural speech",
+  "rule": "A new classification head / fine-tuned model is adopted only if: 1. Mean UAR Gain: >= +0.03 gain over frozen zero-shot baseline in actor-grouped dev cross-validation. 2. Consistency: Achieves higher UAR in a strict majority of CV folds. 3. Safety / Vulnerable Classes: Per-class recall on sad and neutral must NOT regress compared to baseline.",
+  "dev_baseline_uar": 0.9519,
+  "dev_baseline_per_class_recall": {
+    "neutral": 1.0,
+    "happy": 0.9596,
+    "angry": 0.9794,
+    "sad": 0.8687
+  },
+  "seed": 42,
+  "timestamp": "2026-10-22T05:43:00Z",
+  "frozen": true
+}

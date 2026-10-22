@@ -7,7 +7,7 @@ Measures:
 3. Stage-level latency breakdown for active pipeline components:
    - Audio Loading / Preprocessing
    - Speech-to-Text (faster-whisper INT8 CPU)
-   - Voice Emotion (superb/wav2vec2-base-superb-er)
+   - Voice Emotion (active backend resolved dynamically via VoiceEmotionAnalyzer.backend_info())
    - Text Sentiment (cardiffnlp/twitter-roberta-base-sentiment-latest)
    - Rule-Based Fusion
    - Speaker Diarization (Pyannote - only if HF_TOKEN is configured)
@@ -82,9 +82,38 @@ def compute_rtf(processing_seconds: float, audio_seconds: float) -> float:
 def create_synthetic_audio(duration_sec: float, sr: int = 16000) -> np.ndarray:
     """Generate synthetic sine + white noise waveform of given duration in seconds."""
     t = np.linspace(0, duration_sec, int(sr * duration_sec), endpoint=False, dtype=np.float32)
-    # 440 Hz tone + harmonics + noise
     audio = 0.3 * np.sin(2 * np.pi * 440 * t) + 0.1 * np.sin(2 * np.pi * 880 * t) + 0.02 * np.random.randn(len(t)).astype(np.float32)
     return audio
+
+
+def get_benchmark_audio(duration_sec: float, sr: int = 16000) -> np.ndarray:
+    """Build in-memory audio of given duration from local sample audio on disk."""
+    candidates = [
+        PROJECT_ROOT / "sample_audio" / "real_voice.wav",
+        PROJECT_ROOT / "sample_audio" / "neutral_sample.wav",
+        PROJECT_ROOT / "sample_audio" / "sample_16k.wav",
+    ]
+    base_audio = None
+    for cand in candidates:
+        if cand.is_file():
+            try:
+                import soundfile as sf
+                data, file_sr = sf.read(str(cand))
+                if data.ndim > 1:
+                    data = np.mean(data, axis=1)
+                if file_sr != sr:
+                    import librosa
+                    data = librosa.resample(data.astype(np.float32), orig_sr=file_sr, target_sr=sr)
+                base_audio = data.astype(np.float32)
+                break
+            except Exception:
+                pass
+
+    target_len = int(duration_sec * sr)
+    if base_audio is not None and len(base_audio) > 0:
+        reps = int(np.ceil(target_len / len(base_audio)))
+        return np.tile(base_audio, reps)[:target_len]
+    return create_synthetic_audio(duration_sec, sr)
 
 
 def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") -> Dict[str, Any]:
@@ -100,21 +129,25 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
     t_cold_start = time.perf_counter()
     from app.audio_processor import load_and_preprocess_audio
     from app.emotion_analyzer import VoiceEmotionAnalyzer
-    from app.speech_to_text import SpeechToTextTranscriber
-    from app.sentiment_analyzer import TextSentimentAnalyzer
+    from app.speech_to_text import SpeechToText
+    from app.sentiment_analyzer import SentimentAnalyzer
     from app.fusion import MultimodalFusion
 
     t_import = time.perf_counter() - t_cold_start
 
     t_mod_start = time.perf_counter()
     voice_analyzer = VoiceEmotionAnalyzer()
-    stt_transcriber = SpeechToTextTranscriber()
-    sentiment_analyzer = TextSentimentAnalyzer()
+    voice_info = voice_analyzer.backend_info()
+    backend_used = voice_info.get("active_backend", "emotion2vec")
+    model_id = voice_info.get("active_model_id", "emotion2vec/emotion2vec_plus_base")
+
+    stt_transcriber = SpeechToText()
+    sentiment_analyzer = SentimentAnalyzer()
     fuser = MultimodalFusion()
     t_models_loaded = time.perf_counter() - t_mod_start
 
-    # Cold first clip run (5s audio)
-    clip_5s = create_synthetic_audio(5.0)
+    # Cold first clip run (5s audio built from local sample audio on disk)
+    clip_5s = get_benchmark_audio(5.0)
     t_infer_start = time.perf_counter()
     v_res = voice_analyzer._backend.predict(clip_5s, sr=16000)
     s_res = sentiment_analyzer.analyze_text("Hello, this is a test.")
@@ -129,7 +162,7 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
     rtf_results: Dict[float, Dict[str, Any]] = {}
 
     for dur in durations:
-        audio = create_synthetic_audio(dur)
+        audio = get_benchmark_audio(dur)
         stage_times: Dict[str, List[float]] = {"voice": [], "text": [], "fusion": []}
         total_times: List[float] = []
 
@@ -176,6 +209,8 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
 - **Python Version**: {env['python']}
 - **PyTorch Version**: {env['torch']}
 - **Execution Target**: CPU Only (GPU Accelerated: {env['gpu_available']})
+- **Active Voice Backend**: `{backend_used}`
+- **Active Voice Model ID**: `{model_id}`
 
 > [!NOTE]
 > All measurements were taken strictly on CPU in compliance with the Windows CPU-only hardware target. No GPU values are inferred or extrapolated.
@@ -183,7 +218,7 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
 ## Cold Start Latency
 - **Total Cold Start Time**: `{t_cold_total:.2f}s`
   - Module Imports: `{t_import:.2f}s`
-  - Neural Weight Loading (Wav2Vec2 + RoBERTa): `{t_models_loaded:.2f}s`
+  - Neural Weight Loading ({backend_used} + RoBERTa + Whisper): `{t_models_loaded:.2f}s`
   - First Inference Pass: `{t_cold_infer:.2f}s`
 
 ## Warm Inference & Real-Time Factor (RTF)
@@ -196,7 +231,7 @@ Measurements taken as median across 5 iterations per clip duration:
 | **30.0s** | `{rtf_results[30.0]['median_seconds']:.3f}s` | `{rtf_results[30.0]['rtf']:.4f}` | `{rtf_results[30.0]['voice_median']:.3f}s` | `{rtf_results[30.0]['text_median']:.4f}s` | `{rtf_results[30.0]['fusion_median']:.5f}s` |
 
 ## Pipeline Stage Characteristics
-- **Voice Emotion (Wav2Vec2)**: Primary computational bottleneck; scales linearly with audio length ($O(T)$).
+- **Voice Emotion ({backend_used})**: Primary computational bottleneck; scales linearly with audio length ($O(T)$).
 - **Text Sentiment (RoBERTa)**: Consistently sub-10 ms per segment ($< 0.01$s).
 - **Multimodal Fusion**: Rule-based table lookup ($< 0.1$ ms).
 - **Diarization**: Executed lazily on multi-speaker audio only when HF token is supplied.
@@ -208,6 +243,8 @@ Measurements taken as median across 5 iterations per clip duration:
 
     return {
         "env": env,
+        "backend_used": backend_used,
+        "model_id": model_id,
         "cold_start": {"total": t_cold_total, "import": t_import, "models": t_models_loaded, "infer": t_cold_infer},
         "rtf": rtf_results,
     }

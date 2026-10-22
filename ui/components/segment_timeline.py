@@ -607,7 +607,11 @@ Evidence Strength: <strong style="color: var(--fused);">{evidence_str}</strong>
             p_chip_text = f"Pitch {p_trend}" if p_trend != "n/a" else "Pitch: n/a"
 
             # Format Energy Chip / Text
-            if e_level is not None:
+            # Display rule: energy below -100 dBFS is shown as n/a
+            if e_dbfs is not None and e_dbfs < -100.0:
+                e_chip_text = "Energy: n/a"
+                e_title = "Energy: n/a (below -100 dBFS floor)"
+            elif e_level is not None:
                 e_chip_text = f"Energy {e_level}"
                 e_title = f"Energy relative level: {e_level} ({e_dbfs} dBFS)" if e_dbfs is not None else f"Energy: {e_level}"
             elif e_dbfs is not None:

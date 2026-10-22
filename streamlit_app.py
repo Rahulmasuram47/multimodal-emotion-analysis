@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import streamlit as st
-
+import config
 from app.audio_processor import AudioProcessingError, AudioValidationError  # noqa: F401
 from app.conversation_analysis import ConversationAnalyzer
 from app.fusion import MultimodalFusion

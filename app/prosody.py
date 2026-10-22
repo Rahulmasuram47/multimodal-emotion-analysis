@@ -365,14 +365,26 @@ def compute_segment_acoustic_descriptors(
 
     if rms_slice is not None and len(rms_slice) > 0:
         rms_db = 20.0 * np.log10(rms_slice + 1e-9)
-        seg_median_db = float(np.median(rms_db))
-        energy_dbfs = round(seg_median_db, 1)
 
         pause_db_delta = getattr(config, "PAUSE_DB_BELOW_PEAK", 20.0)
         peak_db = float(np.max(rms_db))
         pause_thresh = peak_db - pause_db_delta
         pause_frames = np.sum(rms_db < pause_thresh)
         pause_ratio = round(float(pause_frames / len(rms_slice)), 3)
+
+        # Compute energy over voiced or non-silent frames so digital silence gaps don't collapse dBFS
+        if voiced_slice is not None and len(voiced_slice) == len(rms_slice) and np.any(voiced_slice):
+            active_rms_db = rms_db[voiced_slice]
+        else:
+            # Fall back to non-silent frames (frames above silence floor / pause threshold)
+            non_silent = rms_db >= pause_thresh
+            if np.any(non_silent):
+                active_rms_db = rms_db[non_silent]
+            else:
+                active_rms_db = rms_db
+
+        seg_median_db = float(np.median(active_rms_db))
+        energy_dbfs = round(seg_median_db, 1)
 
         if n_recording_segments >= 3 and rec_rms_percentiles is not None:
             p_low, p_high = rec_rms_percentiles

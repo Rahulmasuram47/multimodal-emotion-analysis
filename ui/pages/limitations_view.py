@@ -4,11 +4,19 @@ Comprehensive documentation of algorithmic boundaries, model assumptions, and hu
 """
 
 import streamlit as st
+import config as _lim_config
 from ui.utils import html_block
+
+_VOICE_ARCH_MAP = {"emotion2vec": "emotion2vec+ base", "superb": "Wav2Vec2-SUPERB ER"}
+_VOICE_CORPUS_MAP = {"emotion2vec": "Bilingual (ZH/EN) Affective Speech Corpus", "superb": "IEMOCAP Affective DB"}
 
 
 def render_limitations_page() -> None:
     """Render the official system limitations, algorithmic bounds, and ethical notices."""
+    _configured = getattr(_lim_config, "VOICE_BACKEND", "superb")
+    _voice_arch = _VOICE_ARCH_MAP.get(_configured, _configured)
+    _voice_corpus = _VOICE_CORPUS_MAP.get(_configured, "unknown corpus")
+
     st.markdown(
         html_block("""
 <div class="section-header-bar" style="margin-top: 0.5rem;">
@@ -20,7 +28,7 @@ def render_limitations_page() -> None:
     )
 
     st.markdown(
-        """
+        f"""
 ### 1. Nature of System Outputs (Algorithmic Heuristics)
 All outputs produced by this system—including emotion labels, sentiment polarities, agreement flags, attention scores, and escalation trajectories—are **computational heuristics**. They represent pattern correlations extracted by machine learning models and must **never be interpreted as objective psychological truth**.
 
@@ -41,7 +49,7 @@ All outputs produced by this system—including emotion labels, sentiment polari
 ---
 
 ### 3. Model Pretraining Bounds & Cross-Corpus Shift
-- **Voice Emotion Classification (`Wav2Vec2`)**: Pretrained on acted speech datasets (such as SUPERB/IEMOCAP). Natural conversational speech exhibits lower acoustic arousal contrast, leading to potential misclassifications.
+- **Voice Emotion Classification (`{_voice_arch}`)**: Pretrained on {_voice_corpus}. Natural conversational speech exhibits lower acoustic arousal contrast, leading to potential misclassifications.
 - **Speech-to-Text Transcription (`Faster-Whisper`)**: INT8 CPU transcription can degrade on heavily accented speech, rapid dialogue, technical jargon, or overlapping speakers.
 - **Text Sentiment Analysis (`RoBERTa`)**: Pretrained on social media text benchmarks (TweetEval). Conversational spoken transcripts may contain disfluencies, filler words, or informal syntax that alter classifier probabilities.
 - **Speaker Diarization (`Pyannote`)**: Performance depends on acoustic environment, microphone positioning, and absence of severe cross-talk.

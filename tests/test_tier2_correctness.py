@@ -191,7 +191,9 @@ class TestItem26ConditionalLimitations:
         """Limitations section must conditionally display evaluation status."""
         src = _src("ui/components/transparency_panels.py")
         assert "_has_ground_truth_eval_results()" in src
-        assert "No local evaluation results yet" in src
+        assert "_build_eval_summary()" in src
+        # Phase 15: stale sentence replaced with dynamic eval summary
+        assert "No local evaluation results yet" not in src
 
 
 # -----------------------------------------------------------------------------

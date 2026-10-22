@@ -194,3 +194,38 @@ def test_export_payload_includes_acoustic_descriptors():
     }
     payload = build_json_export_payload(res)
     assert payload["segments"][0]["acoustic_descriptors"]["pitch_trend"] == "rising"
+
+
+def test_energy_dbfs_tone_plus_digital_silence_gaps():
+    # 17 seconds segment: 3 seconds speech/tone (0.1 amplitude ~ -20 dBFS), 14 seconds digital silence (0.0 amplitude)
+    # Hop length 512 at 16kHz -> ~31.25 fps
+    speech_frames = np.full(90, 0.1)  # ~2.9s of speech
+    silence_frames = np.full(440, 0.0)  # ~14.1s of silence (dominant)
+    rms_slice = np.concatenate([speech_frames, silence_frames])
+
+    # Case A: voiced_slice provided
+    voiced_slice = np.concatenate([np.ones(90, dtype=bool), np.zeros(440, dtype=bool)])
+    res_voiced = compute_segment_acoustic_descriptors(
+        f0_slice=None,
+        voiced_slice=voiced_slice,
+        rms_slice=rms_slice,
+        n_words=10,
+        duration=17.0,
+        n_recording_segments=1,
+    )
+    # Energy must be computed over voiced/speech frames (~ -20 dBFS), not collapsing to <= -100 dBFS
+    assert res_voiced["energy_dbfs"] is not None
+    assert -25.0 <= res_voiced["energy_dbfs"] <= -15.0
+
+    # Case B: voiced_slice is None (falls back to non-silent frames above pause_thresh)
+    res_unvoiced = compute_segment_acoustic_descriptors(
+        f0_slice=None,
+        voiced_slice=None,
+        rms_slice=rms_slice,
+        n_words=10,
+        duration=17.0,
+        n_recording_segments=1,
+    )
+    assert res_unvoiced["energy_dbfs"] is not None
+    assert -25.0 <= res_unvoiced["energy_dbfs"] <= -15.0
+

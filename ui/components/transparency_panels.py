@@ -155,17 +155,77 @@ def _has_ground_truth_eval_results() -> bool:
         return False
 
 
+def _build_eval_summary() -> str:
+    """Build evaluation summary from local result files."""
+    import math
+    import re
+
+    def _wilson_ci(k: int, n: int, z: float = 1.96) -> str:
+        if n == 0:
+            return "N/A"
+        p = k / n
+        denom = 1 + z**2 / n
+        centre = (p + z**2 / (2 * n)) / denom
+        spread = z * math.sqrt(p * (1 - p) / n + z**2 / (4 * n**2)) / denom
+        return f"{max(0, centre - spread):.0%}\u2013{min(1, centre + spread):.0%}"
+
+    parts: list = []
+    bench_path = Path("evaluation/results/voice_benchmark.md")
+    if bench_path.exists():
+        try:
+            content = bench_path.read_text(encoding="utf-8")
+            backends = re.findall(r"^## (\w+)", content, re.MULTILINE)
+            accs = re.findall(r"\*\*Accuracy:\*\*\s+([\d.]+)%", content)
+            per_backend = []
+            for bname, acc_str in zip(backends, accs):
+                acc_pct = float(acc_str)
+                k = round(acc_pct / 100.0 * 8)
+                ci = _wilson_ci(k, 8)
+                per_backend.append(f"{bname} {acc_pct:.1f}% (N=8, 95\u2009% Wilson CI {ci})")
+            if per_backend:
+                parts.append(
+                    "Preliminary 8-clip voice benchmark "
+                    "(self-recorded clips labelled by recording intent, "
+                    "not independent annotators): "
+                    + "; ".join(per_backend) + "."
+                )
+        except Exception:
+            pass
+
+    crema_path = Path("evaluation/results/crema_d_dev_baseline.json")
+    if crema_path.exists():
+        try:
+            crema = json.loads(crema_path.read_text(encoding="utf-8"))
+            m = crema.get("metrics", {})
+            n_s = m.get("n_samples", 0)
+            acc = m.get("accuracy", 0)
+            uar = m.get("uar", 0)
+            be = crema.get("metadata", {}).get("active_backend", "unknown")
+            parts.append(f"CREMA-D dev split ({be}): {acc:.0%} accuracy, {uar:.0%} UAR on N={n_s} clips.")
+        except Exception:
+            parts.append("CREMA-D dev baseline: not yet measured.")
+    else:
+        parts.append("CREMA-D dev baseline: not yet measured.")
+
+    configured = getattr(config, "VOICE_BACKEND", "superb")
+    _corpus_map = {"emotion2vec": "Bilingual (ZH/EN) Affective Speech Corpus", "superb": "IEMOCAP Affective DB"}
+    corpus = _corpus_map.get(configured, "unknown corpus")
+    parts.append(f"Active voice backend ({configured}) pretrained on {corpus}.")
+
+    return " ".join(parts) if parts else "No local evaluation results available."
+
+
 def render_professional_limitations_section() -> None:
     """Render operational limitations and human-in-the-loop requirement."""
     if _has_ground_truth_eval_results():
         val_status = "cross-corpus evaluation against local ground truth is reported in the Validation Tab."
     else:
-        val_status = "No local evaluation results yet (requires ≥ 5 annotated ground-truth recordings)."
+        val_status = _build_eval_summary()
 
     with st.expander("⚠️ Operational Limitations & Human-in-the-Loop Requirement", expanded=False):
         st.markdown(
             f"""
-            1. **Absence of Broad In-Domain Ground Truth**: Model weights were trained on external benchmarks (IEMOCAP, TweetEval); {val_status}
+            1. **Absence of Broad In-Domain Ground Truth**: Model weights were trained on external benchmarks; {val_status}
             2. **Pretrained Cross-Corpus Acoustic Shift**: Pretrained acoustic priors may demonstrate domain bias; voice diagnostics and collapse monitoring flag low discrimination.
             3. **Discrete Affective Mapping**: Emotion is discretized into 4 acoustic categories (*neutral, happy, angry, sad*); continuous valence-arousal mapping provides richer gradient nuance.
             4. **Sarcasm & Deception Non-Detection**: Modality incongruence indicates computational disagreement between text and acoustic classifiers; it does NOT assess honesty, deception, or internal states.

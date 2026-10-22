@@ -2,8 +2,8 @@
 One-Shot CREMA-D Test-Split Evaluation.
 
 Executes exactly ONCE on the held-out test actors from evaluation/results/crema_d_split.json.
-Evaluates baseline model (superb/wav2vec2-base-superb-er) and, only if head_decision.json
-marked candidate as promising, evaluates the frozen candidate head.
+Evaluates the active voice emotion backend (emotion2vec) on the held-out test split,
+and only if head_decision.json marked candidate as promising, evaluates the frozen candidate head.
 Outputs evaluation/results/crema_d_benchmark.md and .json.
 """
 from __future__ import annotations
@@ -209,6 +209,7 @@ def build_test_benchmark_markdown(
     """Format final one-shot test-split benchmark report in Markdown."""
     head_adopted = meta.get("head_adopted", False)
     head_status_str = "Adopted (promising in Dev CV)" if head_adopted else "Not Adopted (Dev decision: not promising; baseline maintained)"
+    alt_note = meta.get("alt_backend_note") or meta.get("emotion2vec_note") or "None"
 
     if base_metrics.get("n_samples", 0) == 0:
         return f"""# CREMA-D One-Shot Test-Split Evaluation Benchmark
@@ -221,7 +222,7 @@ def build_test_benchmark_markdown(
 - **Test Split Isolation**: Exactly 31 held-out test actors evaluated in a single one-shot pass.
 - **Candidate Head Status**: **{head_status_str}**
 - **Active Production Model**: `{meta.get('active_model_id')}` ({meta.get('active_backend')})
-- **Alternative Backend (emotion2vec)**: {meta.get('emotion2vec_note')}
+- **Alternative Backend**: {alt_note}
 - **Random Seed**: {meta.get('seed')}
 - **Pre-processing**: Mono 16 kHz resampled, feature extractor padding
 - **Excluded Classes**: Raw CREMA-D `DIS` (Disgust) and `FEA` (Fear) mapped to unmodeled/other; benchmark evaluates canonical 4-class target ({CANONICAL_4CLASS}).
@@ -272,7 +273,17 @@ def build_test_benchmark_markdown(
         cand_section = f"""
 ## Candidate Head Status
 - **Status**: **{head_status_str}**
-- **Action**: Per the frozen dev decision in `head_decision.json`, the candidate head was not adopted. The baseline Wav2Vec2 model remains the active production head.
+- **Action**: Per the frozen dev decision in `head_decision.json`, the candidate head was not adopted. The {meta.get('active_backend', 'active')} model remains the active production head.
+"""
+
+    superb_comp_section = ""
+    if meta.get("superb_metrics"):
+        sm = meta["superb_metrics"]
+        superb_comp_section = f"""
+## Comparison Baseline: SUPERB ({meta.get('superb_model_id', 'superb/wav2vec2-base-superb-er')})
+- **Accuracy**: `{sm['accuracy'] * 100:.2f}%`
+- **Unweighted Average Recall (UAR)**: `{sm['uar'] * 100:.2f}%`
+- **Macro-F1**: `{sm['macro_f1'] * 100:.2f}%`
 """
 
     report = f"""# CREMA-D One-Shot Test-Split Evaluation Benchmark
@@ -281,14 +292,14 @@ def build_test_benchmark_markdown(
 - **Nature of Corpus**: **acted speech, actor-disjoint split, not natural speech**
 - **Evaluation Partition**: Strictly held-out test actors (N = {base_metrics.get('n_actors')} actors, {base_metrics.get('n_samples')} clips)
 - **Active Model**: `{meta.get('active_model_id')}` ({meta.get('active_backend')})
-- **Alternative Backend (emotion2vec)**: {meta.get('emotion2vec_note')}
+- **Alternative Backend**: {alt_note}
 - **Random Seed**: {meta.get('seed')}
 - **Pre-processing**: Mono 16 kHz resampled, feature extractor padding
 - **Excluded Classes**: Raw CREMA-D `DIS` and `FEA` mapped to unmodeled/other; evaluated on 4 canonical classes ({CANONICAL_4CLASS})
 - **Dataset License**: {meta.get('license_status')}
 - **Sampling Budget**: {meta.get('sampling_note')}
 
-## Baseline Test Metrics (Wav2Vec2-SUPERB)
+## Baseline Test Metrics ({meta.get('active_backend')}: {meta.get('active_model_id')})
 - **Accuracy**: `{base_metrics['accuracy'] * 100:.2f}%` (95% Actor-Cluster CI: `[{acc_ci.get('ci_lower', 0) * 100:.2f}%, {acc_ci.get('ci_upper', 0) * 100:.2f}%]`)
 - **Unweighted Average Recall (UAR)**: `{base_metrics['uar'] * 100:.2f}%` (95% Actor-Cluster CI: `[{uar_ci.get('ci_lower', 0) * 100:.2f}%, {uar_ci.get('ci_upper', 0) * 100:.2f}%]`)
 - **Macro-F1**: `{base_metrics['macro_f1'] * 100:.2f}%`
@@ -301,7 +312,7 @@ def build_test_benchmark_markdown(
 {cm_table}
 
 {cand_section}
-
+{superb_comp_section}
 > [!NOTE]
 > **One-Shot Freeze Guarantee**: This evaluation was executed exactly once on the held-out test split. No hyperparameters, mappings, thresholds, or model weights were tuned or re-evaluated after observing these test results.
 """
@@ -316,6 +327,8 @@ def main():
     parser.add_argument("--cache-dir", default="evaluation/results/cache", help="Cache directory")
     parser.add_argument("--max-per-class", type=int, default=100, help="Max clips per emotion class")
     parser.add_argument("--full", action="store_true", help="Evaluate full test partition")
+    parser.add_argument("--dry-run", action="store_true", help="Print active backend, model id, actor/clip counts, and head decision, then exit without inference.")
+    parser.add_argument("--compare-superb", action="store_true", default=False, help="Run comparison evaluation on SUPERB model")
     args = parser.parse_args()
 
     # Step 0: Ensure head_decision.json exists before running
@@ -330,13 +343,32 @@ def main():
         decision_data = json.load(f)
 
     head_adopted = decision_data.get("decision") == "promising"
+    head_decision_status = decision_data.get("decision", "unknown")
     print("=" * 70)
     print("PHASE 4C: ONE-SHOT TEST-SPLIT EVALUATION")
-    print(f"Candidate Head Decision in {decision_path.name}: {decision_data.get('decision')}")
+    print(f"Candidate Head Decision in {decision_path.name}: {head_decision_status}")
     print(f"Head Adopted for Test Evaluation: {head_adopted}")
     print("=" * 70)
 
-    # Step 1: Load split
+    # Step 1: Inspect voice backend - must evaluate the same active backend as dev baseline (emotion2vec)
+    from evaluation.run_crema_d_baseline import (
+        inspect_voice_backends,
+        run_emotion2vec_inference_on_clip,
+        run_superb_inference_on_clip,
+    )
+
+    backend_info = inspect_voice_backends()
+    if backend_info["active_backend"] != "emotion2vec" or not backend_info.get("emotion2vec", {}).get("available"):
+        err_msg = backend_info.get("emotion2vec", {}).get("error", "emotion2vec backend unavailable")
+        raise RuntimeError(
+            f"CREMA-D test evaluation requires active backend 'emotion2vec', but found '{backend_info['active_backend']}'. "
+            f"Details: {err_msg}. Silent fallback to SUPERB is strictly disallowed."
+        )
+
+    active_backend = backend_info["active_backend"]
+    active_model_id = backend_info["active_model_id"]
+
+    # Step 2: Load split
     split_path = Path(args.split_file)
     if not split_path.is_file():
         raise FileNotFoundError(f"Split file missing: {split_path}")
@@ -344,11 +376,27 @@ def main():
     test_actors = set(split_data["test_actors"])
     print(f"Held-Out Test Actors Count: {len(test_actors)} (Seed {split_data['seed']})")
 
-    # Step 2: License and environment checks
+    # Step 3: Load test clips
+    all_clips = load_crema_dataset(args.data_dir)
+    test_clips = [c for c in all_clips if c.actor_id in test_actors and c.canonical_emotion in CANONICAL_4CLASS]
+    print(f"Test partition clips detected on disk: {len(test_clips)}")
+
+    # Step 4: Dry-run check
+    if args.dry_run:
+        print(f"Active Backend: {active_backend}")
+        print(f"Active Model ID: {active_model_id}")
+        print(f"Test Actors Count: {len(test_actors)}")
+        print(f"Test Clips Count: {len(test_clips)}")
+        print(f"Head Decision Status: {head_decision_status}")
+        return
+
+    # Step 5: License and environment checks
     license_status = check_dataset_license(args.data_dir)
-    active_backend = "superb"
-    active_model_id = getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")
-    emotion2vec_note = "Unavailable in environment (missing funasr); comparison excluded."
+    alt_note = (
+        "SUPERB evaluated as comparison baseline."
+        if args.compare_superb
+        else "SUPERB comparison disabled (run with --compare-superb to include)."
+    )
 
     sampling_note = (
         "Full test partition evaluated without class capping."
@@ -359,20 +407,17 @@ def main():
     meta = {
         "active_backend": active_backend,
         "active_model_id": active_model_id,
-        "emotion2vec_note": emotion2vec_note,
+        "active_reason": backend_info["active_reason"],
+        "alt_backend_note": alt_note,
+        "superb_model_id": backend_info.get("superb", {}).get("model_id", getattr(config, "AUDIO_EMOTION_MODEL_NAME", "superb/wav2vec2-base-superb-er")),
         "data_dir": args.data_dir,
         "license_status": license_status,
         "seed": split_data["seed"],
         "head_adopted": head_adopted,
-        "head_decision": decision_data.get("decision"),
+        "head_decision": head_decision_status,
         "sampling_note": sampling_note,
         "corpus_nature": "acted speech, actor-disjoint split, not natural speech",
     }
-
-    # Step 3: Load test clips
-    all_clips = load_crema_dataset(args.data_dir)
-    test_clips = [c for c in all_clips if c.actor_id in test_actors and c.canonical_emotion in CANONICAL_4CLASS]
-    print(f"Test partition clips detected on disk: {len(test_clips)}")
 
     # Handle 0 clips case gracefully per Absolute Data Integrity
     if not test_clips:
@@ -407,15 +452,12 @@ def main():
     else:
         eval_clips = test_clips
 
-    print(f"Evaluating {len(eval_clips)} Test clips...")
+    print(f"Evaluating {len(eval_clips)} Test clips with active backend {active_backend}...")
 
-    # Load baseline model
-    from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
-    from evaluation.run_crema_d_baseline import run_superb_inference_on_clip
-
-    extractor = Wav2Vec2FeatureExtractor.from_pretrained(active_model_id)
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(active_model_id)
-    model.eval()
+    # Load active backend (emotion2vec)
+    from app.voice_backends.emotion2vec import Emotion2VecBackend
+    backend = Emotion2VecBackend(model_id=active_model_id)
+    backend._load()
 
     candidate_head = None
     if head_adopted:
@@ -442,7 +484,7 @@ def main():
         if cache_file.is_file():
             pred_res = np.load(cache_file, allow_pickle=True).item()
         else:
-            pred_res = run_superb_inference_on_clip(clip.filepath, extractor, model)
+            pred_res = run_emotion2vec_inference_on_clip(clip.filepath, backend)
             np.save(cache_file, pred_res)
 
         base_records.append({
@@ -453,7 +495,7 @@ def main():
             "confidence": pred_res["confidence"],
         })
 
-        if candidate_head is not None and "embedding" in pred_res:
+        if candidate_head is not None and "embedding" in pred_res and pred_res["embedding"] is not None:
             c_probs = candidate_head.predict_proba(pred_res["embedding"][np.newaxis, :])[0]
             c_classes = list(candidate_head.classes_)
             c_top = int(np.argmax(c_probs))
@@ -469,6 +511,40 @@ def main():
     base_metrics = compute_test_metrics(base_records, classes=CANONICAL_4CLASS, seed=split_data["seed"])
     cand_metrics = compute_test_metrics(cand_records, classes=CANONICAL_4CLASS, seed=split_data["seed"]) if cand_records else None
     paired_ci = compute_paired_actor_cluster_bootstrap(cand_records, base_records, classes=CANONICAL_4CLASS, seed=split_data["seed"]) if cand_records else None
+
+    # Optional SUPERB comparison
+    if args.compare_superb:
+        superb_id = meta["superb_model_id"]
+        from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
+        s_extractor = Wav2Vec2FeatureExtractor.from_pretrained(superb_id)
+        s_model = Wav2Vec2ForSequenceClassification.from_pretrained(superb_id)
+        s_model.eval()
+
+        superb_records: List[Dict[str, Any]] = []
+        for clip in eval_clips:
+            s_key = compute_cache_key(
+                model_id=superb_id,
+                revision="main",
+                target_sr=16000,
+                clip_filename=clip.filename,
+                labels=CANONICAL_4CLASS,
+            )
+            s_cache_file = cache_dir / f"{s_key}.npy"
+            if s_cache_file.is_file():
+                s_pred_res = np.load(s_cache_file, allow_pickle=True).item()
+            else:
+                s_pred_res = run_superb_inference_on_clip(clip.filepath, s_extractor, s_model)
+                np.save(s_cache_file, s_pred_res)
+
+            superb_records.append({
+                "filename": clip.filename,
+                "actor_id": clip.actor_id,
+                "canonical_emotion": clip.canonical_emotion,
+                "canonical_pred": s_pred_res["canonical_pred"],
+                "confidence": s_pred_res["confidence"],
+            })
+        superb_metrics = compute_test_metrics(superb_records, classes=CANONICAL_4CLASS, seed=split_data["seed"])
+        meta["superb_metrics"] = superb_metrics
 
     report_md = build_test_benchmark_markdown(base_metrics, cand_metrics, paired_ci, meta)
     out_md = Path("evaluation/results/crema_d_benchmark.md")

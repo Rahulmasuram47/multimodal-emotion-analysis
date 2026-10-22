@@ -109,3 +109,14 @@ def test_06_benchmark_latency_check_api_passes():
     import scripts.benchmark_latency as bl
     ok, mismatches = bl.check_api()
     assert ok, f"API mismatches found in benchmark_latency: {mismatches}"
+
+
+def test_07_report_template_has_scope_and_no_stale_claims():
+    """Verify the report template contains 'Scope and Limits' and no stale hard-coded claims."""
+    import scripts.benchmark_latency as bl
+    import inspect
+    src = inspect.getsource(bl.run_latency_benchmark)
+    assert "Scope and Limits" in src, "Report must have a 'Scope and Limits' section"
+    assert "O(T)" not in src, "Report must not contain hard-coded O(T) complexity claim"
+    assert "sub-10 ms" not in src, "Report must not contain hard-coded 'sub-10 ms' claim"
+    assert "comfortably" not in src, "Report must not claim 'comfortably <= 8 GB' without measurement"

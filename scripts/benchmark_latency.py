@@ -241,13 +241,20 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
         }
         print(f"Duration {dur:.0f}s: Median Time={med_total:.3f}s, RTF={rtf:.4f}")
 
+    # Compute derived stats for report
+    voice_share_5 = rtf_results[5.0]['voice_median'] / max(rtf_results[5.0]['median_seconds'], 1e-6) * 100
+    voice_share_30 = rtf_results[30.0]['voice_median'] / max(rtf_results[30.0]['median_seconds'], 1e-6) * 100
+    rtf_min = min(r['rtf'] for r in rtf_results.values())
+    rtf_max = max(r['rtf'] for r in rtf_results.values())
+    rtf_trend = "increases" if rtf_results[30.0]['rtf'] > rtf_results[5.0]['rtf'] + 0.01 else ("decreases" if rtf_results[30.0]['rtf'] < rtf_results[5.0]['rtf'] - 0.01 else "remains roughly constant")
+
     # Generate Markdown report
     report_md = f"""# Latency and Real-Time Factor (RTF) Benchmark Report
 
 ## Hardware & Runtime Environment
 - **Operating System**: {env['os']}
 - **Processor (CPU)**: {env['cpu']}
-- **Total Physical RAM**: {env['ram_gb']} GB (Target: runs comfortably <= 8 GB)
+- **Total Physical RAM**: {env['ram_gb']} GB (peak process memory: not measured)
 - **Python Version**: {env['python']}
 - **PyTorch Version**: {env['torch']}
 - **Execution Target**: CPU Only (GPU Accelerated: {env['gpu_available']})
@@ -272,11 +279,20 @@ Measurements taken as median across 5 iterations per clip duration:
 | **15.0s** | `{rtf_results[15.0]['median_seconds']:.3f}s` | `{rtf_results[15.0]['rtf']:.4f}` | `{rtf_results[15.0]['voice_median']:.3f}s` | `{rtf_results[15.0]['text_median']:.4f}s` | `{rtf_results[15.0]['fusion_median']:.5f}s` |
 | **30.0s** | `{rtf_results[30.0]['median_seconds']:.3f}s` | `{rtf_results[30.0]['rtf']:.4f}` | `{rtf_results[30.0]['voice_median']:.3f}s` | `{rtf_results[30.0]['text_median']:.4f}s` | `{rtf_results[30.0]['fusion_median']:.5f}s` |
 
-## Pipeline Stage Characteristics
-- **Voice Emotion ({backend_used})**: Primary computational bottleneck; scales linearly with audio length ($O(T)$).
-- **Text Sentiment (RoBERTa)**: Consistently sub-10 ms per segment ($< 0.01$s).
-- **Multimodal Fusion**: Rule-based table lookup ($< 0.1$ ms).
-- **Diarization**: Executed lazily on multi-speaker audio only when HF token is supplied.
+## Pipeline Stage Characteristics (derived from table above)
+- **Voice Emotion ({backend_used})**: Accounts for {voice_share_5:.0f}% to {voice_share_30:.0f}% of total per-clip latency across the tested durations.
+- **Text Sentiment (RoBERTa)**: Median `{rtf_results[5.0]['text_median']:.4f}s` per call (a single fixed sentence; see Scope below).
+- **Multimodal Fusion**: Median `{rtf_results[5.0]['fusion_median']:.5f}s` per call.
+- **RTF range**: `{rtf_min:.4f}` (shortest clip) to `{rtf_max:.4f}` (longest clip); RTF {rtf_trend} with audio duration.
+
+## Scope and Limits
+- **Stages timed**: Voice emotion inference, text sentiment inference, rule-based fusion.
+- **Stages NOT timed**: Whisper ASR / speech-to-text, VAD, speaker diarization, audio file decoding, Streamlit UI rendering.
+- **Audio inputs**: 5 s, 15 s, and 30 s clips at 16 kHz mono, built by tiling the first usable local sample file from `sample_audio/` (real_voice.wav, neutral_sample.wav, or sample_16k.wav); if none found, a synthetic 440 Hz + noise waveform is generated.
+- **Text input**: One fixed sentence per iteration (not representative of ASR output variability).
+- **Repetitions**: Median of 5 warm runs per duration.
+- **Execution**: CPU only; no GPU acceleration.
+- **No end-to-end pipeline time is claimed**; real-world latency includes all untimed stages listed above.
 """
     out_p = Path(output_path)
     out_p.parent.mkdir(parents=True, exist_ok=True)

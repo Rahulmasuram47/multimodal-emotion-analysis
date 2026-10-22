@@ -1,5 +1,5 @@
 """
-Unit tests for Phase 17c: Latency benchmark and calibration pipeline.
+Unit tests for Phase 17c & 17d: Latency benchmark and calibration pipeline.
 Mocked/toy data only; no models, datasets, or tokens needed.
 """
 import sys
@@ -22,6 +22,7 @@ def test_01_importing_benchmark_latency_does_not_raise():
     import scripts.benchmark_latency as bl
     assert hasattr(bl, "run_latency_benchmark")
     assert hasattr(bl, "get_benchmark_audio")
+    assert hasattr(bl, "check_api")
 
 
 def test_02_calibration_without_run_writes_no_file(monkeypatch, tmp_path):
@@ -101,3 +102,10 @@ def test_05_not_applicable_names_cache_contents_and_decision_line(tmp_path):
     md_text = out_md.read_text(encoding="utf-8")
     assert "Acted speech; argmax and accuracy are unchanged by temperature scaling" in md_text
     assert "evaluation/calibration.py:215" in md_text
+
+
+def test_06_benchmark_latency_check_api_passes():
+    """Verify that every app class and method called by benchmark_latency exists with correct signature."""
+    import scripts.benchmark_latency as bl
+    ok, mismatches = bl.check_api()
+    assert ok, f"API mismatches found in benchmark_latency: {mismatches}"

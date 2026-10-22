@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import inspect
 import os
 import platform
 import statistics
@@ -116,6 +117,47 @@ def get_benchmark_audio(duration_sec: float, sr: int = 16000) -> np.ndarray:
     return create_synthetic_audio(duration_sec, sr)
 
 
+def check_api() -> Tuple[bool, List[str]]:
+    """
+    Verify without model loading or instantiation that every class and method
+    used by the benchmark exists with expected signature / arity.
+    """
+    from app.speech_to_text import SpeechToText
+    from app.emotion_analyzer import VoiceEmotionAnalyzer
+    from app.sentiment_analyzer import SentimentAnalyzer
+    from app.fusion import MultimodalFusion
+    from app.diarization import SpeakerDiarizer
+    from app.conversation_analysis import ConversationAnalyzer
+
+    expected = [
+        (SpeechToText, "transcribe", ["audio_path"]),
+        (VoiceEmotionAnalyzer, "backend_info", []),
+        (VoiceEmotionAnalyzer, "analyze_segment", ["audio", "sr", "start_seconds", "end_seconds"]),
+        (VoiceEmotionAnalyzer, "analyze", ["audio_path"]),
+        (SentimentAnalyzer, "analyze", ["text"]),
+        (MultimodalFusion, "fuse", ["audio_result", "text_result"]),
+        (SpeakerDiarizer, "diarize", ["audio_path"]),
+        (ConversationAnalyzer, "analyze", ["audio_path"]),
+    ]
+
+    mismatches = []
+    for cls, method_name, expected_params in expected:
+        method = getattr(cls, method_name, None)
+        if method is None or not callable(method):
+            mismatches.append(f"Missing method {cls.__name__}.{method_name}")
+            continue
+        sig = inspect.signature(method)
+        params = [p for p in sig.parameters.keys() if p != "self"]
+        for ep in expected_params:
+            if ep not in params:
+                mismatches.append(
+                    f"Signature mismatch in {cls.__name__}.{method_name}: expected param '{ep}', got {params}"
+                )
+
+    is_ok = len(mismatches) == 0
+    return is_ok, mismatches
+
+
 def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") -> Dict[str, Any]:
     """Execute end-to-end cold vs warm latency and RTF evaluation."""
     env = get_hardware_environment()
@@ -137,7 +179,7 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
 
     t_mod_start = time.perf_counter()
     voice_analyzer = VoiceEmotionAnalyzer()
-    voice_info = voice_analyzer.backend_info()
+    voice_info = voice_analyzer.backend_info() if hasattr(voice_analyzer, "backend_info") else {}
     backend_used = voice_info.get("active_backend", "emotion2vec")
     model_id = voice_info.get("active_model_id", "emotion2vec/emotion2vec_plus_base")
 
@@ -149,9 +191,9 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
     # Cold first clip run (5s audio built from local sample audio on disk)
     clip_5s = get_benchmark_audio(5.0)
     t_infer_start = time.perf_counter()
-    v_res = voice_analyzer._backend.predict(clip_5s, sr=16000)
-    s_res = sentiment_analyzer.analyze_text("Hello, this is a test.")
-    f_res = fuser.fuse(v_res["emotion"], s_res["sentiment"], v_res["confidence"], s_res["confidence"])
+    v_res = voice_analyzer.analyze_segment(clip_5s, sr=16000, start_seconds=0.0, end_seconds=5.0)
+    s_res = sentiment_analyzer.analyze("Hello, this is a test.")
+    f_res = fuser.fuse(v_res, s_res)
     t_cold_infer = time.perf_counter() - t_infer_start
 
     t_cold_total = t_import + t_models_loaded + t_cold_infer
@@ -170,19 +212,19 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
         for _ in range(5):
             t0 = time.perf_counter()
 
-            # Voice stage
+            # Voice stage (faithful call matching conversation_analysis.py pipeline)
             tv0 = time.perf_counter()
-            v_res = voice_analyzer._backend.predict(audio, sr=16000)
+            v_res = voice_analyzer.analyze_segment(audio, sr=16000, start_seconds=0.0, end_seconds=dur)
             stage_times["voice"].append(time.perf_counter() - tv0)
 
-            # Text stage
+            # Text stage (faithful call matching conversation_analysis.py pipeline)
             tt0 = time.perf_counter()
-            s_res = sentiment_analyzer.analyze_text("This conversation is being evaluated for latency and throughput.")
+            s_res = sentiment_analyzer.analyze("This conversation is being evaluated for latency and throughput.")
             stage_times["text"].append(time.perf_counter() - tt0)
 
-            # Fusion stage
+            # Fusion stage (faithful call matching conversation_analysis.py pipeline)
             tf0 = time.perf_counter()
-            fuser.fuse(v_res["emotion"], s_res["sentiment"], v_res["confidence"], s_res["confidence"])
+            fuser.fuse(v_res, s_res)
             stage_times["fusion"].append(time.perf_counter() - tf0)
 
             total_times.append(time.perf_counter() - t0)
@@ -218,7 +260,7 @@ def run_latency_benchmark(output_path: str = "evaluation/results/latency.md") ->
 ## Cold Start Latency
 - **Total Cold Start Time**: `{t_cold_total:.2f}s`
   - Module Imports: `{t_import:.2f}s`
-  - Neural Weight Loading ({backend_used} + RoBERTa + Whisper): `{t_models_loaded:.2f}s`
+  - Neural Weight Loading ({backend_used} + RoBERTa + faster-whisper): `{t_models_loaded:.2f}s`
   - First Inference Pass: `{t_cold_infer:.2f}s`
 
 ## Warm Inference & Real-Time Factor (RTF)
@@ -253,7 +295,19 @@ Measurements taken as median across 5 iterations per clip duration:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Latency & RTF Benchmark")
     parser.add_argument("--run", action="store_true", help="Execute live latency benchmark")
+    parser.add_argument("--check-api", action="store_true", help="Verify app classes and methods without loading models")
     args = parser.parse_args()
+
+    if args.check_api:
+        ok, mismatches = check_api()
+        if ok:
+            print("OK: All app classes and methods verified.")
+            sys.exit(0)
+        else:
+            print("API MISMATCH DETECTED:")
+            for m in mismatches:
+                print(f"  - {m}")
+            sys.exit(1)
 
     if args.run:
         run_latency_benchmark()
@@ -261,4 +315,4 @@ if __name__ == "__main__":
         env = get_hardware_environment()
         print("Latency benchmark script prepared.")
         print(f"Environment: CPU: {env['cpu']}, RAM: {env['ram_gb']} GB, OS: {env['os']}, PyTorch: {env['torch']}, GPU: {env['gpu_available']}")
-        print("To execute model runs, confirm with --run.")
+        print("To execute model runs, confirm with --run. Use --check-api to verify API compatibility.")

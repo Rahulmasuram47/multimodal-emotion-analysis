@@ -1,9 +1,12 @@
 # Known Issues & Operational Considerations
 
-1. **Model Commit Pinning**: Hugging Face models (`wav2vec2-base-superb-er`, `twitter-roberta-base-sentiment-latest`) resolve to default branch HEAD rather than immutable commit hashes.
-2. **Dependency Version Bounds**: `requirements.txt` specifies minimum version bounds (`>=`) rather than locked exact hashes (`==`).
-3. **Python Runtime Differences**: Project specification targets Python 3.11 on Windows, while CI workflow (`tests.yml`) executes under Python 3.12 on Linux.
-4. **Pyannote Gated Terms**: `pyannote/speaker-diarization-community-1` requires user acceptance of conditions on Hugging Face before first download.
-5. **CPU Inference Latency**: Full multimodal pipeline latency scales linearly with audio length on low-spec CPU devices.
-6. **Streamlit Cloud Static Root Routing**: Streamlit Cloud intercepts root `/robots.txt`, `/sitemap.xml`, and custom 404s; reverse proxy (Nginx/Cloudflare) needed for root SEO and OG tags.
-7. **Free-Tier Host Memory Bounds**: Streamlit Cloud 1 GB memory ceiling is insufficient for concurrent Whisper + Pyannote + Wav2Vec2 + RoBERTa loading; 4-8 GB RAM recommended.
+1. **Pre-Fix Screenshots & SUPERB Fallback**: Any screenshots or demonstration results captured prior to Phase 12 reflect the earlier Wav2Vec2-SUPERB fallback output (`superb/wav2vec2-base-superb-er`), which scored 12.5% on the 8-clip benchmark. The active backend is `emotion2vec`.
+2. **Neutral Text vs Emotional Voice Mismatch**: Acted clips using fixed neutral sentences register as modality mismatches (review gauge sits at 35%–62%) because text sentiment reads neutral while acoustics convey the acted emotion. This is an expected architectural property, not a system failure.
+3. **Same-Speaker Merge Rule**: In Pyannote diarization, consecutive turns from the same speaker separated by $\le 0.25$s are merged without an upper limit on total duration (`app/diarization.py:196`).
+4. **Sadness Classification Weakness**: Sadness is the weakest class across acted speech in both dev (recall 86.87%) and test (recall 87.65%), frequently classified as Neutral due to acoustic energy overlap; on the self-recorded `Sad1.wav` segment, emotion2vec predicted Neutral with ~100% confidence.
+5. **Raw Softmax Saturation**: Raw emotion2vec confidence is highly saturated (1,377 of 1,451 dev clips lie above 0.90 confidence with 96.3% accuracy, but clips in 0.6–0.7 achieve only 35.7% accuracy). `VOICE_CONF_CAP = 0.65` is an unvalidated heuristic placeholder.
+6. **Latency Benchmark Tooling (Phases 17c, 17d, 17e)**: The latency script originally had a missing class import (`SpeechToTextTranscriber`), a stale sentiment method name (`analyze_text`), wrong fusion arity, and report narrative contradicting its table values; all were fixed, verified with `--check-api`, and updated to report empirical measurements only.
+7. **Calibration Script Argparse (Phase 17c)**: The calibration script originally lacked argument parsing, causing `--help` to execute the routine and write a placeholder file; fixed with a strict `--run` guard.
+8. **PyAV Incompatibility with faster-whisper (`av 19.0.2`)**: A fresh-venv installation of `requirements.txt` pulled `av 19.0.2`, which is incompatible with `faster-whisper 1.2.1` (`av.open()` raised `TypeError: unexpected keyword argument 'metadata_errors'`, halting analysis at transcription). Fixed by pinning `av==18.1.0` in `requirements.txt`.
+9. **Import-Time Transcription in STT Tests**: `tests/test_speech_to_text.py` executes transcription at module import time, requiring the Whisper model and an audio file; it fails during pytest collection if the underlying audio stack or dependencies are broken.
+10. **Dependency Bounds & Gated Models**: Other transitive dependencies are not pinned; `pyannote/speaker-diarization-community-1` requires gated Hugging Face token acceptance.

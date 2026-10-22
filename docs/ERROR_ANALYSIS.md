@@ -1,13 +1,13 @@
 # CREMA-D Dev Error Analysis
 
-## 1. Evaluation Scope & Setup
+## 1. Setup & Evaluation Scope
+- **Backend**: `emotion2vec` (`emotion2vec/emotion2vec_plus_base`).
 - **Dataset**: CREMA-D (acted speech).
-- **Split**: Dev split only (N = 400 clips, 9 actors, Seed 42).
-- **Test Split**: Not evaluated (locked and untouched per protocol).
-- **Active Backend**: `emotion2vec` (`emotion2vec/emotion2vec_plus_base`).
+- **Split**: Dev split only (N = 400 clips across 9 actors; Seed: 42).
+- **Test Split**: Strictly not evaluated (locked and untouched per protocol).
 
-## 2. Confusion Matrix & Abstention
-Target classes: `[neutral, happy, angry, sad]` (rows: true, columns: predicted).
+## 2. Confusion Matrix & Abstention / Coverage
+Target 4 classes: `[neutral, happy, angry, sad]` (rows: true, columns: predicted).
 
 | True \ Pred | Neutral | Happy | Angry | Sad |
 | :--- | :---: | :---: | :---: | :---: |
@@ -16,25 +16,25 @@ Target classes: `[neutral, happy, angry, sad]` (rows: true, columns: predicted).
 | **Angry** | 0 | 1 | 95 | 1 |
 | **Sad** | 12 | 1 | 0 | 86 |
 
-- **Coverage**: 98.75% (395 / 400 target clips classified into 4 classes).
-- **Abstention**: 1.25% (5 / 400 clips predicted as non-4class / uncertain).
+- **Answered / Coverage**: 395 / 400 clips (98.75%).
+- **Abstention**: 5 / 400 clips (1.25%) predicted as non-4class (`uncertain`).
 
-## 3. Per-Class Precision & Recall
-- **Neutral**: Precision = 86.96%, Recall = 100.00%, F1 = 0.9302 (Support = 100)
-- **Happy**: Precision = 97.94%, Recall = 95.96%, F1 = 0.9694 (Support = 99)
-- **Angry**: Precision = 100.00%, Recall = 97.94%, F1 = 0.9896 (Support = 97)
-- **Sad**: Precision = 97.73%, Recall = 86.87%, F1 = 0.9198 (Support = 99)
-- **Overall**: Accuracy = 94.00% (95% CI: [90.06%, 97.14%]), UAR = 95.19%, Macro-F1 = 0.9522.
-- **Recall by Level (LO / MD / HI / XX)**: Not yet measured (not recorded in baseline JSON).
+## 3. Top Confusions (Counts & Rates)
+1. **Sad -> Neutral**: 12 counts (12.12% of true Sad; 3.00% of all clips).
+2. **Happy -> Neutral**: 3 counts (3.03% of true Happy; 0.75% of all clips).
+3. **Sad -> Happy**: 1 count (1.01% of true Sad; 0.25% of all clips).
+4. **Happy -> Sad**: 1 count (1.01% of true Happy; 0.25% of all clips).
+5. **Angry -> Happy**: 1 count (1.03% of true Angry; 0.25% of all clips).
+*(Tied #5: **Angry -> Sad**: 1 count, 1.03% of true Angry, 0.25% of all clips).*
 
-## 4. Top Confusions
-1. **Sad -> Neutral**: 12 counts (12.12% of True Sad).
-2. **Happy -> Neutral**: 3 counts (3.03% of True Happy).
-3. **Sad -> Happy**: 1 count (1.01% of True Sad).
-4. **Happy -> Sad**: 1 count (1.01% of True Happy).
-5. **Angry -> Happy**: 1 count (1.03% of True Angry).
-*(Tied: **Angry -> Sad**: 1 count, 1.03% of True Angry).*
+## 4. Per-Class Precision & Recall
+- **Neutral**: Recall = 100.00% (100/100), Precision = 86.96% (100/115), F1 = 0.9302
+- **Happy**: Recall = 95.96% (95/99), Precision = 97.94% (95/97), F1 = 0.9694
+- **Angry**: Recall = 97.94% (95/97), Precision = 100.00% (95/95), F1 = 0.9896
+- **Sad**: Recall = 86.87% (86/99), Precision = 97.73% (86/88), F1 = 0.9198
+- **Summary**: Accuracy = 94.00%, UAR = 95.19%, Macro-F1 = 0.9522.
+- **Recall by Level (LO/MD/HI/XX)**: not yet measured (not present in JSON).
 
 ## 5. Explanatory Hypotheses
-- **Sad to Neutral Confusion [Hypothesis]**: Subdued or low-activation sadness exhibits flat pitch contours and reduced acoustic energy that closely overlap with baseline neutral speech.
-- **High Pitch Overlap in High Arousal [Hypothesis]**: Exclamatory happy and angry expressions occasionally share acoustic pitch dynamics, causing rare cross-arousal confusion.
+- **Acoustic Low-Activation Hypothesis**: Subdued sadness exhibits lower pitch variance and muted energy resembling neutral vocal patterns [hypothesis].
+- **Arousal Overlap Hypothesis**: Occasional cross-valence confusions between happy and angry/sad stem from overlapping acoustic energy dynamics [hypothesis].

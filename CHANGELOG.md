@@ -71,7 +71,7 @@ All notable changes, milestones, and architectural versions of the **Multimodal 
 - Added dedicated `ui/pages/privacy_view.py` and `ui/pages/limitations_view.py` accessible via sidebar navigation and footer.
 - Updated `st.set_page_config` with About metadata and standardized primary action button to `"Analyze a clip ▶"`.
 - Added `static/robots.txt`, `static/sitemap.xml`, and enabled static file serving in `.streamlit/config.toml`.
-- Provided production CPU-optimized `Dockerfile` with non-root security context.
+- Provided production CPU-optimized `Dockerfile` with non-root security context (not built or tested: Docker unavailable on the development machine).
 - Documented host requirements, secrets management (`HF_TOKEN`), and Pyannote gated access in `docs/DEPLOYMENT.md` and `docs/KNOWN_ISSUES.md`.
 - Added `tests/test_web_hygiene.py` (all tests passing).
 

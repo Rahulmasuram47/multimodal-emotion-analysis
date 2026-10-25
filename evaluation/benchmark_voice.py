@@ -112,7 +112,7 @@ def _run_backend(backend_name: str, rows: List[Dict[str, str]]) -> List[Dict]:
     return results
 
 
-def _wilson_score_interval(k: int, n: int, confidence: float = 0.95) -> Tuple[float, float]:
+def _wilson_score_interval(k: int, n: int, confidence: float = 0.95) -> tuple[float, float]:
     """Calculate 95% Wilson score interval for binomial proportion."""
     if n == 0:
         return 0.0, 0.0

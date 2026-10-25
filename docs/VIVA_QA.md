@@ -120,4 +120,4 @@ This document provides rigorous, code-grounded answers for technical vivas, exam
 - **RAVDESS**: Secondary acted dataset; deferred in favor of CREMA-D and natural speech protocol.
 - **Live Streaming**: Requires streaming chunked ASR (which causes hallucinations on partial utterances) and WebSocket complexity; file-based turn analysis satisfies the project specification.
 - **Complex XAI (LIME/SHAP)**: Opaque post-hoc explanations were rejected in favor of transparent, rule-based arbitration with explicit counterfactual sensitivity tables.
-- **Docker**: Containerization is provided via production `Dockerfile` for self-hosted instances, but local lightweight virtual environment remains primary.
+- **Docker**: A Dockerfile is provided but was NOT built or tested (Docker is not installed on the development machine); the local virtual environment is the tested path.

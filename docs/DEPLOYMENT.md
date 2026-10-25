@@ -61,3 +61,4 @@ Streamlit functions as a single-page WebSocket application. Static files and SEO
   - **Cold Start (Model Instantiation)**: ~1.2s to 3.5s (displayed with an informative status spinner).
   - **Warm Turn (Inference on 3.0s clip)**: 0.95s total pipeline latency (~0.32x real-time factor).
   - **Fusion Recompute**: < 5 ms (re-weighting existing predictions without re-running neural models).
+Measured memory (2026-10-25): the Streamlit server’s peak working set was about 2,864 MB on a Windows laptop (Python 3.11, torch 2.14.0) after analysing Sad1.wav and one multi-turn clip with the default pipeline. This is a single measurement on one machine. Streamlit Community Cloud’s published maximum is about 2.7 GB (February 2024 figure), so the full app is not hosted there. The tested deployment is a local run. Live demos use the local run, optionally exposed through a temporary Cloudflare quick tunnel.

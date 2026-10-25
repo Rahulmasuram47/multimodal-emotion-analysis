@@ -13,9 +13,11 @@ SAMPLE_AUDIO_DIR = os.path.join(PROJECT_ROOT, 'sample_audio')
 # Audio Processing Configuration
 TARGET_SAMPLE_RATE = 16000  # Standard sample rate for speech models (Hz)
 SUPPORTED_AUDIO_EXTENSIONS = ('.wav', '.flac', '.mp3', '.ogg', '.m4a')
-MAX_AUDIO_DURATION_SECONDS = 600  # Maximum 10 minutes per conversation
+MAX_AUDIO_DURATION_SECONDS = int(float(os.environ.get("MAX_AUDIO_DURATION_SECONDS", "600")))  # Max seconds per conversation (hosted demo lowers it via env)
 MIN_AUDIO_DURATION_SECONDS = 0.5  # Minimum 0.5 seconds for analysis
-MAX_AUDIO_FILE_SIZE_MB = 50.0  # Maximum upload file size in megabytes
+MAX_AUDIO_FILE_SIZE_MB = float(os.environ.get("MAX_AUDIO_FILE_SIZE_MB", "50.0"))  # Max upload size in MB (hosted demo lowers it via env)
+# Speaker separation (pyannote) needs about 1 GB extra RAM. Hosted demo sets DIARIZATION_ENABLED=0.
+DIARIZATION_ENABLED = os.environ.get("DIARIZATION_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
 N_MFCC = 13  # Number of MFCC coefficients to extract
 N_FFT = 2048
 HOP_LENGTH = 512

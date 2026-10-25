@@ -47,7 +47,7 @@ from ui.state import (
 from ui.styles_loader import load_css
 from ui.utils import derive_segment_summary, safe_float
 
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+MAX_UPLOAD_BYTES = int(config.MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024)
 SAMPLE_DIR = Path("sample_audio")
 
 # 1. PAGE CONFIGURATION & STYLES
@@ -275,7 +275,7 @@ if analyze_clicked and active_audio is not None:
     if not audio_bytes:
         st.error("The selected audio is empty. Please upload or record again.")
     elif len(audio_bytes) > MAX_UPLOAD_BYTES:
-        st.error("Audio file exceeds the 50 MB limit.")
+        st.error(f"Audio file exceeds the {config.MAX_AUDIO_FILE_SIZE_MB:g} MB limit.")
     else:
         t_pipeline_start = time.perf_counter()
         temp_path = None

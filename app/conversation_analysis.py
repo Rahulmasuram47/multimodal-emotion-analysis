@@ -626,6 +626,11 @@ class ConversationAnalyzer:
         analysis. The error is returned separately so the dashboard can
         explain why labels are Unknown.
         """
+        if not getattr(config, "DIARIZATION_ENABLED", True):
+            for segment in segments:
+                segment["speaker"] = "Unknown"
+            return segments, "Speaker separation is turned off on this hosted demo to save memory."
+
         try:
             turns = self.diarizer.diarize(audio_path)
 

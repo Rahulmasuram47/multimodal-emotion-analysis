@@ -3,14 +3,16 @@
 Academic research prototype analyzing spoken dialogue across acoustic prosody and linguistic semantics via transparent rule-based fusion.
 **Scope & Ethics Boundary**: Strictly an analytical review signal. Does **NOT** detect lies, sarcasm, deception, or internal psychological state. Not for clinical, hiring, diagnostic, or surveillance use.
 
+**Live demo**: https://multimodal-emotion-analysis.streamlit.app (free Streamlit Community Cloud tier; speaker diarization is switched off and clips are capped at 90 seconds there). It may take about a minute to wake after idle time, the first analysis downloads models, and it is slower than a laptop. Please do not upload sensitive recordings. The full pipeline runs locally; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Active Pipeline & Backend Architecture
 - **Voice Emotion**: `emotion2vec/emotion2vec_plus_base` (Apache-2.0 via FunASR) is the active production backend (`config.VOICE_BACKEND = "emotion2vec"`).
 - **Speech-to-Text**: `openai/whisper-base` (CTranslate2 INT8 CPU transcription + Silero VAD).
 - **Text Sentiment**: `cardiffnlp/twitter-roberta-base-sentiment-latest` (RoBERTa 3-class sentiment).
-- **Speaker Diarization**: `pyannote/speaker-diarization-community-1` (optional; gated Hugging Face token).
+- **Speaker Diarization**: `pyannote/speaker-diarization-community-1` (optional; gated Hugging Face token; switched off in the hosted demo).
 - **UI Verification**: Active backend is displayed in the sidebar Model Architecture card and header status badge.
-- **Backend Fallback**: If FunASR is unavailable, system falls back to `superb/wav2vec2-base-superb-er` with an explicit fallback banner. The test evaluator originally ran SUPERB because it was written without FunASR; it was fixed and verified with `--dry-run` before the single test run.
-- **Confidence Cap**: An empirical cap (`VOICE_CONF_CAP = 0.65`) is applied in `app/voice_backends/emotion2vec.py:123` and `app/conversation_analysis.py:796` to mitigate softmax saturation. It is an unvalidated heuristic placeholder.
+- **Backend Fallback**: If FunASR is unavailable, system falls back to `superb/wav2vec2-base-superb-er` with an explicit fallback banner. The test evaluator initially ran the SUPERB fallback instead of emotion2vec; this was detected with `--dry-run` and fixed before the single test run.
+- **Confidence Cap**: An empirical cap (`VOICE_CONF_CAP = 0.65`) is applied in `app/voice_backends/emotion2vec.py` and `app/conversation_analysis.py` to mitigate softmax saturation. It is an unvalidated heuristic placeholder.
 
 ## Empirical Benchmark Results
 
@@ -26,18 +28,19 @@ Full reports: [crema_d_benchmark.md](evaluation/results/crema_d_benchmark.md), [
 | **Natural Speech Set** | Multi-rater consensus | 0 clips | not yet measured | protocol in [NATURAL_SET_PROTOCOL.md](docs/NATURAL_SET_PROTOCOL.md) |
 
 - **Coverage & Abstention**: In test evaluation, the confusion matrix accounts for 1,646 clips while $N=1,673$; 27 clips (~1.6%) were abstained/uncertain (no abstention keys in JSON). Per-class recall and UAR use answered clips only, while accuracy counts all 27 as incorrect (93.31% overall vs 94.84% answered).
-- **CI Note**: The test UAR point estimate (94.88%) lies slightly above its reported cluster-bootstrap upper bound (94.86%).
+- **CI Note**: The test UAR point estimate (94.88%) lies slightly above its reported cluster-bootstrap upper bound (94.86%). The interval's midpoint (about 93.4%) is close to the all-clips accuracy (93.31%), which suggests the bootstrap counts the 27 abstained clips as errors while the UAR point estimate uses answered clips only. This explanation has not been verified in the code.
 - **Deferred Benchmarks**: RAVDESS and multi-condition synthetic noise robustness are **not done** (no result files exist).
 
 ## Latency & Resource Utilization
-Values quoted from [evaluation/results/latency.md](evaluation/results/latency.md) (approximate; varied between runs on the same machine, e.g. 5s median was 0.69s in earlier run vs 0.55s in committed report):
-- **Environment**: Intel x86_64 CPU, 7.7 GB RAM, Windows 11, Python 3.12.10, PyTorch 2.13.0+cpu (note: older documentation referenced Python 3.11). Peak process memory: not measured.
+Values quoted from [evaluation/results/latency.md](evaluation/results/latency.md) (approximate; varied between runs on the same machine, e.g. 5s median was 0.69s in an earlier run vs 0.55s in the committed report):
+- **Environment (latency benchmark)**: Intel x86_64 CPU, 7.7 GB RAM, Windows 11, Python 3.12.10, PyTorch 2.13.0+cpu.
 - **Cold Start**: Total 28.31s (Imports: 9.46s, Neural Loading: 17.08s, First Infer: 1.77s).
 - **Warm Inference Medians (5 Repetitions)**:
   - **5.0s clip**: Median 0.551s ($\text{RTF} = 0.1102$) — Voice: 0.514s, Text: 0.0438s, Fusion: 0.00016s.
   - **15.0s clip**: Median 2.199s ($\text{RTF} = 0.1466$) — Voice: 2.157s, Text: 0.0416s, Fusion: 0.00015s.
   - **30.0s clip**: Median 6.734s ($\text{RTF} = 0.2245$) — Voice: 6.675s, Text: 0.0582s, Fusion: 0.00017s.
 - **Scope & Limits**: Times voice emotion, text sentiment, and fusion only on a tiled sample clip (`real_voice.wav`). Whisper ASR, VAD, diarization, audio decoding, and UI rendering are NOT included; **end-to-end latency including Whisper and diarization: not yet measured**. RTF increases with duration (0.11 at 5s to 0.22 at 30s); scaling is not linear.
+- **Peak Memory (not part of the latency benchmark)**: Whole Streamlit server, single measurements. About 2,864 MB for the full pipeline on a Windows laptop (Python 3.11, torch 2.14.0, after analysing Sad1.wav and one multi-turn clip). About 1,569 MB with speaker diarization switched off (the hosted-demo configuration). The two runs were not a controlled comparison. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Post-Hoc Probability Calibration
 From [evaluation/results/calibration.json](evaluation/results/calibration.json):
@@ -47,14 +50,15 @@ From [evaluation/results/calibration.json](evaluation/results/calibration.json):
 - **Confidence Saturation**: Raw emotion2vec confidence is saturated: 1,377 of 1,451 dev clips lie above 0.9 confidence (accuracy 96.3%), while 14 clips between 0.6–0.7 had only 35.7% accuracy.
 
 ## Operational Limitations
-1. **Confidence is Not Correctness**: Sadness is the weakest class in both dev (recall 86.87%, precision 97.73%) and test (recall 87.65%, precision 99.45%), mostly confused with Neutral. On self-recorded clip `Sad1.wav` (segment 1), emotion2vec predicted Neutral at ~100% confidence (`app_vs_baseline.md:48`).
+1. **Confidence is Not Correctness**: Sadness is the weakest class in both dev (recall 86.87%, precision 97.73%) and test (recall 87.65%, precision 99.45%), mostly confused with Neutral. On self-recorded clip `Sad1.wav` (segment 1), emotion2vec predicted Neutral at ~100% confidence (see `evaluation/results/app_vs_baseline.md`).
 2. **Neutral Text vs Emotional Voice**: Acted clips with fixed neutral sentences register as modality mismatches (review gauge 35%–62%).
-3. **Same-Speaker Merge Rule**: Turns separated by $\le 0.25$s are merged without an upper duration cap (`app/diarization.py:196`).
+3. **Same-Speaker Merge Rule**: Turns separated by $\le 0.25$s are merged without an upper duration cap (`app/diarization.py`).
 4. **Attention Review Gauge**: The review triage metric is an advisory heuristic unvalidated on clinical or operational outcomes.
 5. **Acted vs Natural Speech**: High CREMA-D accuracy (93–94%) does not generalize to conversational speech where prosodic expression is nuanced and sub-second.
+6. **Hosted Demo Is Reduced**: The hosted demo runs without speaker diarization and with a 90-second clip cap because of the free tier's memory limit. It can be unstable under repeated or concurrent use.
 
 ## How to Run
-Tested on **Python 3.12.10**, **torch 2.13.0+cpu**, and `av==18.1.0` (pinned in `requirements.txt` to prevent `av 19.0.2` breaking `faster-whisper 1.2.1` via `metadata_errors`). Other transitive dependencies are not pinned.
+Verified in a fresh virtual environment on **Python 3.12.10** with **torch 2.13.0+cpu** and `av==18.1.0` (pinned in `requirements.txt` to prevent `av 19.0.2` breaking `faster-whisper 1.2.1` via `metadata_errors`). The development environment used for the full local test run is Python 3.11 with torch 2.14.0; CI and the hosted demo use Python 3.12. Other transitive dependencies are not pinned.
 
 ```powershell
 python -m venv .venv && .\.venv\Scripts\Activate.ps1
@@ -62,3 +66,5 @@ pip install -r requirements.txt
 python -m pytest tests -q
 python -m streamlit run streamlit_app.py
 ```
+
+Set `DIARIZATION_ENABLED=0` to switch off speaker diarization (used by the hosted demo). Duration and upload caps are also environment-controlled; see `config.py`. A `Dockerfile` is provided but was not built or tested (Docker is not installed on the development machine).

@@ -26,17 +26,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg libsndfile1
 
-      - name: Install CPU PyTorch
+      - name: Install CPU PyTorch and torchaudio (matched pair)
         run: |
-          pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu || pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install torch==2.14.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu || pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip freeze | grep -i -E "^(torch|torchaudio)==" | tee "$RUNNER_TEMP/torch-constraints.txt"
 
       - name: Install project dependencies
         run: |
-          pip install -r requirements.txt pytest || pip install -r requirements-ci.txt pytest
+          pip install -c "$RUNNER_TEMP/torch-constraints.txt" -r requirements.txt pytest || pip install -c "$RUNNER_TEMP/torch-constraints.txt" -r requirements-ci.txt pytest
+
+      - name: Check torch stack
+        run: |
+          pip list 2>/dev/null | grep -i -E "^(torch|torchaudio|torchcodec|funasr|av|faster-whisper|transformers) "
+          python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__)"
 
       - name: Run linter (syntax errors and undefined names only)
         run: |
-          pip install ruff 
+          pip install ruff
           ruff check . --isolated --select E9,F63,F7,F82
 
       - name: Run test suite (tests needing model weights excluded)
@@ -48,5 +54,3 @@ jobs:
             --deselect=tests/test_phase12b_confidence_cap.py::test_superb_path_confidence_uncapped \
             --deselect=tests/test_phase12b_confidence_cap.py::test_uncertain_class_does_not_crash \
             --deselect=tests/test_phase12fix_backend_regression.py::test_backend_info_safe_on_pre_phase12_cached_analyzer
-          
-        
